@@ -1,0 +1,17 @@
+vca_aux_funx.mod
+vca_diag.mod
+vca_greens_functions.mod
+vca_io.mod
+vca_main.mod
+vca_observables.mod
+vca_setup.mod
+vca_vars_global.mod
+VCA_AUX_FUNX.o
+VCA_DIAG.o
+VCA_GREENS_FUNCTIONS.o
+VCA_IO.o
+VCA_MAIN.o
+VCA_OBSERVABLES.o
+VCA_SETUP.o
+VCA_VARS_GLOBAL.o
+revision.inc
