@@ -1,6 +1,7 @@
 MODULE VCA_IO
   USE VCA_VARS_GLOBAL
   USE VCA_AUX_FUNX
+  !
   USE SF_LINALG
   USE SF_ARRAYS, only: linspace,arange
   USE SF_IOTOOLS, only: str,reg,free_unit,splot,sread
@@ -63,8 +64,8 @@ contains
   !PURPOSE  : Print/Read Cluster Greens Functions
   !+------------------------------------------------------------------+
   subroutine vca_print_impG
-    integer                                           :: ilat
-    integer                                           :: iorb
+    integer                                           :: ilat,jlat
+    integer                                           :: iorb,jorb
     integer                                           :: ispin
     character(len=20)                                 :: suffix
     !
@@ -74,12 +75,16 @@ contains
     wr     = linspace(wini,wfin,Lreal)
     !
     !Print the impurity functions:
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             suffix="site"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin)
-             call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,ilat,ispin,ispin,iorb,iorb,:))
-             call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,ilat,ispin,ispin,iorb,iorb,:))
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_i"//str(ilat,3)//"_j"//str(jlat,3)//"_lm"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                   call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                   call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                enddo
+             enddo
           enddo
        enddo
     enddo
@@ -90,8 +95,8 @@ contains
   end subroutine vca_print_impG
 
   subroutine vca_read_impG
-    integer                                           :: ilat
-    integer                                           :: iorb
+    integer                                           :: ilat,jlat
+    integer                                           :: iorb,jorb
     integer                                           :: ispin
     character(len=20)                                 :: suffix
     !
@@ -101,12 +106,16 @@ contains
     wr     = linspace(wini,wfin,Lreal)
     !
     !Print the impurity functions:
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             suffix="site"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin)
-             call sread("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,ilat,ispin,ispin,iorb,iorb,:))
-             call sread("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,ilat,ispin,ispin,iorb,iorb,:))
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_i"//str(ilat,3)//"_j"//str(jlat,3)//"_lm"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                   call sread("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                   call sread("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                enddo
+             enddo
           enddo
        enddo
     enddo

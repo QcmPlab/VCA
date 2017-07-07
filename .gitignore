@@ -15,3 +15,11 @@ VCA_OBSERVABLES.o
 VCA_SETUP.o
 VCA_VARS_GLOBAL.o
 revision.inc
+CMakeCache.tx
+CMakeFiles
+Makefile
+cmake_install.cmake
+testing
+vca.mod
+CMakeCache.txt
+vca_input_vars.mod

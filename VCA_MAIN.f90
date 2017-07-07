@@ -30,7 +30,7 @@ contains
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
   subroutine vca_init_solver(Hloc)
-    complex(8),intent(in)              :: Hloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb)
+    real(8),intent(in)              :: Hloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb)
     logical,save                       :: isetup=.true.
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
@@ -39,7 +39,7 @@ contains
     if(isetup)call init_cluster_structure()
     !
     !Init Hcluster
-    call set_Hloc(Hloc)
+    call set_Hcluster(Hloc)
     !
     if(isetup)call setup_pointers_normal
     isetup=.false.
@@ -51,9 +51,9 @@ contains
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
   subroutine vca_diag(Hloc)
-    complex(8),optional,intent(in)  :: Hloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb)
+    real(8),optional,intent(in)  :: Hloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb)
     !
-    if(present(Hloc))call set_Hloc(Hloc)
+    if(present(Hloc))call set_Hcluster(Hloc)
     !
     call setup_eigenspace()
     !

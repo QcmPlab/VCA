@@ -60,23 +60,23 @@ contains
   !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine set_Hcluster_nnn(hloc)
-    complex(8),dimension(:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    real(8),dimension(:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"set_Hcluster_nnn","Hloc")
     !
     impHloc = Hloc
     !
     write(LOGfile,"(A)")"Set Hcluster: done"
-    if(verbose>2)call print_Hloc(impHloc)
+    if(verbose>2)call print_Hcluster(impHloc)
   end subroutine set_Hcluster_nnn
 
   subroutine set_Hcluster_lso(hloc)
-    complex(8),dimension(:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+    real(8),dimension(:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
     call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"set_Hcluster_lso","Hloc")
     !
     impHloc = lso2nnn_reshape(Hloc,Nlat,Nspin,Norb)
     !
     write(LOGfile,"(A)")"Set Hcluster: done"
-    if(verbose>2)call print_Hloc(impHloc)
+    if(verbose>2)call print_Hcluster(impHloc)
   end subroutine set_Hcluster_lso
 
 
@@ -87,7 +87,7 @@ contains
   !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine print_Hcluster_nnn(hloc,file)
-    complex(8),dimension(:,:,:,:,:,:) :: hloc
+    real(8),dimension(:,:,:,:,:,:) :: hloc
     character(len=*),optional         :: file
     integer                           :: ilat,jlat
     integer                           :: iorb,jorb
@@ -103,11 +103,11 @@ contains
        open(free_unit(unit),file=reg(file))
        write(LOGfile,"(A)")"print_Hloc to file :"//reg(file)
     endif
-    write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb,"A)"
+    write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb,"F9.2)"
     do ilat=1,Nlat
        do ispin=1,Nspin
           do iorb=1,Norb
-             write(unit,fmt)(((str(Hloc(ilat,jlat,ispin,jspin,iorb,jorb)),jorb=1,Norb),jspin=1,Nspin),jlat=1,Nlat)
+             write(unit,fmt)(((Hloc(ilat,jlat,ispin,jspin,iorb,jorb),jorb=1,Norb),jspin=1,Nspin),jlat=1,Nlat)
           enddo
        enddo
     enddo
@@ -116,7 +116,7 @@ contains
   end subroutine print_Hcluster_nnn
   !
   subroutine print_Hcluster_lso(hloc,file)
-    complex(8),dimension(:,:) :: hloc
+    real(8),dimension(:,:) :: hloc
     character(len=*),optional :: file
     integer                   :: ilat,jlat
     integer                   :: iorb,jorb
@@ -134,7 +134,7 @@ contains
     endif
     write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb,"A)"
     do is=1,Nlat*Nspin*Norb
-       write(unit,fmt)(str(Hloc(is,js)),js=1,Nlat*Nspin*Norb)
+       write(unit,fmt)(str(Hloc(is,js),3)//" ",js=1,Nlat*Nspin*Norb)
     enddo
     write(unit,*)""
     if(present(file))close(unit)
