@@ -62,7 +62,7 @@ MODULE VCA_VARS_GLOBAL
 
   !non-interacting cluster Hamiltonian
   !=========================================================
-  complex(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  real(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
   !Some maps between sectors and full Hilbert space (pointers)
@@ -78,8 +78,8 @@ MODULE VCA_VARS_GLOBAL
   !Hamiltonian eig-space structure
   !=========================================================
   type full_espace
-     real(8),dimension(:),pointer                 :: e
-     complex(8),dimension(:,:),pointer            :: M
+     real(8),dimension(:),pointer   :: e
+     real(8),dimension(:,:),pointer :: M
   end type full_espace
   type(full_espace),dimension(:),allocatable      :: espace
 

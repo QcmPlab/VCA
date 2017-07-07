@@ -6,6 +6,14 @@ MODULE VCA_SETUP
   implicit none
   private
 
+
+  interface print_state_vector
+     module procedure :: print_state_vector_ivec
+     module procedure :: print_state_vector_int
+  end interface print_state_vector
+
+
+
   public :: init_cluster_structure
   !
   public :: setup_eigenspace
@@ -16,15 +24,15 @@ MODULE VCA_SETUP
   public :: build_sector
   public :: delete_sector
   !
-  public :: state_index_up
-  public :: state_index_dw
+  public :: state_index
   !
   public :: bdecomp
   !
   public :: c,cdg
   !
   public :: binary_search
-
+  !
+  public :: print_state_vector
 
 
 contains
@@ -56,12 +64,12 @@ contains
     !
     write(LOGfile,"(A)")"Summary:"
     write(LOGfile,"(A)")"--------------------------------------------"
-    write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
-    write(LOGfile,"(A,I15)")'Total size            = ',Nlevels
-    write(LOGfile,"(A,I15)")'# of sites            = ',Nlat
-    write(LOGfile,"(A,I15)")'# of orbitals         = ',Norb
-    write(LOGfile,"(A,2I15)")'Largest Sector       = ',dim_sector_max
-    write(LOGfile,"(A,I15)")'Number of sectors     = ',Nsectors
+    write(LOGfile,"(A,I15)") '# of levels/spin      = ',Ns
+    write(LOGfile,"(A,I15)") 'Total size            = ',Nlevels
+    write(LOGfile,"(A,I15)") '# of sites            = ',Nlat
+    write(LOGfile,"(A,I15)") '# of orbitals         = ',Norb
+    write(LOGfile,"(A,2I15)")'Largest Sector        = ',dim_sector_max
+    write(LOGfile,"(A,I15)") 'Number of sectors     = ',Nsectors
     write(LOGfile,"(A)")"--------------------------------------------"
     !
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -232,7 +240,6 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : constructs the sectors by storing the map to the 
   !states i\in Hilbert_space from the states count in H_sector.
-  !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
   subroutine build_sector(isector,Hup)
     integer                                      :: isector
@@ -276,26 +283,15 @@ contains
 
 
 
-
-
-  !> Find position in the state vector for UP spins given lattice-orbital position 
-  function state_index_up(ilat,iorb) result(indx)
+  !> Find position in the state vector for a given lattice-spin-orbital position 
+  function state_index(ilat,ispin,iorb) result(indx)
     integer :: ilat
+    integer :: ispin
     integer :: iorb
     integer :: indx
-    indx = iorb                       !set orbital index
-    indx = indx + (ilat-1)*Norb       !add lattice stride
-  end function state_index_up
+    indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+  end function state_index
 
-  !> Find position in the state vector for DW spins given lattice-orbital position 
-  function state_index_dw(ilat,iorb) result(indx)
-    integer :: ilat
-    integer :: iorb
-    integer :: indx
-    indx = iorb                       !set orbital index
-    indx = indx + (ilat-1)*Norb       !add lattice stride
-    indx = indx + Nlat*Norb           !add spin stride
-  end function state_index_dw
 
 
 
@@ -319,6 +315,7 @@ contains
     enddo
     out = ibclr(in,pos-1)
   end subroutine c
+
 
   subroutine cdg(pos,in,out,fsgn)
     integer,intent(in)    :: pos
@@ -373,6 +370,24 @@ contains
 
 
 
+  !+------------------------------------------------------------------+
+  !PURPOSE  : input a vector ib(Nlevels) with the binary sequence 
+  ! and output the corresponding state |i>
+  !(corresponds to the recomposition of the number i-1)
+  !+------------------------------------------------------------------+
+  function bjoin(ib,Ntot) result(i)
+    integer                 :: Ntot
+    integer,dimension(Ntot) :: ib
+    integer                 :: i,j
+    i=0
+    do j=0,Ntot-1
+       i=i+ib(j+1)*2**j
+    enddo
+  end function bjoin
+
+
+
+  
   !+------------------------------------------------------------------+
   !PURPOSE  : calculate the factorial of an integer N!=1.2.3...(N-1).N
   !+------------------------------------------------------------------+
@@ -440,5 +455,48 @@ contains
 
 
 
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : print a state vector |{up}>|{dw}>
+  !+------------------------------------------------------------------+
+  subroutine print_state_vector_ivec(ivec,unit)
+    integer,intent(in) :: ivec(:)
+    integer,optional   :: unit
+    integer            :: unit_
+    integer            :: i,j,Ntot
+    character(len=2)   :: fbt
+    character(len=16)  :: fmt
+    unit_=6;if(present(unit))unit_=unit
+    Ntot = size(ivec)
+    write(fbt,'(I2.2)')Ntot
+    fmt="(B"//adjustl(trim(fbt))//"."//adjustl(trim(fbt))//")"
+    i= bjoin(ivec,Ntot)
+    write(unit_,"(I9,1x,A1)",advance="no")i,"|"
+    write(unit_,"(10I1)",advance="no")(ivec(j),j=1,Ntot)
+    write(unit_,"(A4)",advance="no")"> - "
+    write(unit_,fmt,advance="yes")i
+  end subroutine print_state_vector_ivec
+  !
+  subroutine print_state_vector_int(i,Ntot,unit)
+    integer,intent(in) :: i
+    integer,intent(in) :: Ntot
+    integer,optional   :: unit
+    integer            :: unit_
+    integer            :: j
+    integer            :: ivec(Ntot)
+    character(len=2)   :: fbt
+    character(len=16)  :: fmt
+    unit_=6;if(present(unit))unit_=unit
+    write(fbt,'(I2.2)')Ntot
+    fmt="(B"//adjustl(trim(fbt))//"."//adjustl(trim(fbt))//")"
+    ivec = bdecomp(i,Ntot)
+    write(unit_,"(I9,1x,A1)",advance="no")i,"|"
+    write(unit_,"(10I1)",advance="no")(ivec(j),j=1,Ntot)
+    write(unit_,"(A4)",advance="no")"> - "
+    write(unit_,fmt,advance="yes")i
+  end subroutine print_state_vector_int
 
 end MODULE VCA_SETUP

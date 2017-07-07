@@ -83,8 +83,14 @@ contains
        call setup_Hv_sector(isector)
        call buildH_c(espace(isector)%M)
        call delete_Hv_sector()
+       ! do i=1,dim
+       !    write(*,"(100F8.3)")(espace(isector)%M(i,j),j=1,dim)
+       ! enddo
+       ! print*,""
        call eigh(espace(isector)%M,espace(isector)%e,'V','U')
-       if(dim==1)espace(isector)%M=one
+       if(dim==1)espace(isector)%M=1d0
+       ! print*,espace(isector)%e(:)
+       ! print*,""
        !
        e0(isector)=minval(espace(isector)%e)
        !
@@ -93,29 +99,30 @@ contains
     call stop_timer(LOGfile)
     !
     !Get the ground state energy and rescale energies
+    write(LOGfile,"(A)")"DIAG summary:"
     egs=minval(e0)
-    forall(isector=1:Nsectors)espace(isector)%e = espace(isector)%e - egs
+    open(free_unit(unit),file='egs'//reg(file_suffix)//".vca",position='append')
+    do isector=1,Nsectors
+       if(abs(e0(isector)-egs)>gs_threshold)cycle
+       nup  = getnup(isector)
+       ndw  = getndw(isector)
+       write(LOGfile,"(A,F20.12,2I4)")'Egs =',e0(isector),nup,ndw
+       write(unit,"(F20.12,2I4)")e0(isector),nup,ndw
+    enddo
+    close(unit)
     !
     !Get the partition function Z
-    zeta_function=0.d0;zeta_function=0.d0
+    zeta_function=0.d0
+    forall(isector=1:Nsectors)espace(isector)%e = espace(isector)%e - egs
     do isector=1,Nsectors
        dim=getdim(isector)
        do i=1,dim
           zeta_function=zeta_function+exp(-beta*espace(isector)%e(i))
        enddo
     enddo
-    !
-    write(LOGfile,"(A)")"DIAG summary:"
-    open(free_unit(unit),file='egs'//reg(file_suffix)//".vca",position='append')
-    do isector=1,Nsectors
-       if(e0(isector)/=0d0)cycle
-       nup  = getnup(isector)
-       ndw  = getndw(isector)
-       write(LOGfile,"(A,F20.12,2I4)")'Egs =',e0(isector),nup,ndw
-       write(unit,"(F20.12,2I4)")e0(isector),nup,ndw
-    enddo
     write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
-    close(unit)
+
+    !
     return
   end subroutine diagonalize_cluster
 
@@ -125,7 +132,7 @@ contains
 
   !> Build the Cluster Hamiltonian (into Hmat)
   subroutine buildH_c(Hmat)
-    complex(8),dimension(:,:)    :: Hmat
+    real(8),dimension(:,:)       :: Hmat
     integer                      :: isector
     integer,dimension(Nlevels)   :: ib
     real(8),dimension(Nlat,Norb) :: nup,ndw
@@ -141,9 +148,6 @@ contains
     real(8)                      :: sg1,sg2,sg3,sg4
     complex(8)                   :: htmp,htmpup,htmpdw
     logical                      :: Jcondition
-    integer                      :: first_state,last_state
-    integer                      :: first_state_up,last_state_up
-    integer                      :: first_state_dw,last_state_dw
     !
     if(.not.Hstatus)stop "buildH_c ERROR: Hsector NOT set"
     isector=Hsector
@@ -159,11 +163,12 @@ contains
        m = H%map(i)
        impi = i
        ib = bdecomp(m,2*Ns)
+       ! call print_state_vector(ib)
        !
        do ilat=1,Nlat
           do iorb=1,Norb
-             nup(ilat,iorb)=dble(ib(state_index_up(ilat,iorb)))
-             ndw(ilat,iorb)=dble(ib(state_index_dw(ilat,iorb)))
+             nup(ilat,iorb)=dble(ib(state_index(ilat,1,iorb)))
+             ndw(ilat,iorb)=dble(ib(state_index(ilat,2,iorb)))
           enddo
        enddo
        !
@@ -184,37 +189,31 @@ contains
        !
        !Off-diagonal elements, i.e. non-local part
        !this loop considers only the site-orbitals off-diagonal terms
-       !because iorb=jorb can not have simultaneously
+       !because ilat/iorb=jlat/jorb can not have simultaneously
        !occupation 0 and 1, as required by this if Jcondition:  
        do ilat=1,Nlat
           do jlat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
+                   !
                    !UP
-                   ispin=1
-                   jspin=1
-                   !
-                   is = state_index_up(ilat,iorb)
-                   js = state_index_up(jlat,jorb)
-                   !
-                   Jcondition = (impHloc(ilat,jlat,ispin,jspin,iorb,jorb)/=zero).AND.(ib(js)==1).AND.(ib(is)==0)
+                   is = state_index(ilat,1,iorb)
+                   js = state_index(jlat,1,jorb)
+                   Jcondition = (impHloc(ilat,jlat,1,1,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
                    if (Jcondition) then
                       call c(js,m,k1,sg1)
                       call cdg(is,k1,k2,sg2)
                       j = binary_search(H%map,k2)
-                      htmp = impHloc(ilat,jlat,ispin,jspin,iorb,jorb)*sg1*sg2
+                      htmp = impHloc(ilat,jlat,1,1,iorb,jorb)*sg1*sg2
                       !
                       Hmat(i,j) = Hmat(i,j) + htmp
                       !
                    endif
+                   !
                    !DW
-                   ispin=Nspin
-                   jspin=Nspin
-                   !
-                   is = state_index_dw(ilat,iorb)
-                   js = state_index_dw(jlat,jorb)
-                   !
-                   Jcondition = (impHloc(ilat,jlat,ispin,jspin,iorb,jorb)/=zero).AND.(ib(js)==1).AND.(ib(is)==0)
+                   is = state_index(ilat,2,iorb)
+                   js = state_index(jlat,2,jorb)
+                   Jcondition = (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
                    if (Jcondition) then
                       call c(js,m,k1,sg1)
                       call cdg(is,k1,k2,sg2)
@@ -291,10 +290,10 @@ contains
           do ilat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
-                   i_up = state_index_up(ilat,iorb)
-                   i_dw = state_index_dw(ilat,iorb)
-                   j_up = state_index_up(ilat,jorb)
-                   j_dw = state_index_dw(ilat,jorb)
+                   i_up = state_index(ilat,1,iorb)
+                   i_dw = state_index(ilat,2,iorb)
+                   j_up = state_index(ilat,1,jorb)
+                   j_dw = state_index(ilat,2,jorb)
                    Jcondition=(&
                         (iorb/=jorb).AND.&
                         (ib(j_up)==1).AND.&
@@ -324,10 +323,10 @@ contains
           do ilat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
-                   i_up = state_index_up(ilat,iorb)
-                   i_dw = state_index_dw(ilat,iorb)
-                   j_up = state_index_up(ilat,jorb)
-                   j_dw = state_index_dw(ilat,jorb)
+                   i_up = state_index(ilat,1,iorb)
+                   i_dw = state_index(ilat,2,iorb)
+                   j_up = state_index(ilat,1,jorb)
+                   j_dw = state_index(ilat,2,jorb)
                    Jcondition=(&
                         (iorb/=jorb).AND.&
                         (ib(j_up)==1).AND.&
