@@ -5,20 +5,27 @@ program vca_test
   USE VCA
   !
   implicit none
-  integer                                         :: iloop,Nlso,iw
+  integer                                         :: iloop,Nlso
   integer                                         :: ilat,jlat
+  integer                                         :: iorb,jorb
+  integer                                         :: ispin
+  integer                                         :: iexc
+  integer                                         :: i
+
   logical                                         :: converged
   real(8)                                         :: wband
 
   !The local hybridization function:
   real(8),allocatable,dimension(:)                :: wm,wr
+  complex(8)                                      :: iw
   real(8),allocatable                             :: Hloc(:,:,:,:,:,:)
   complex(8),dimension(:,:),allocatable           :: zeta
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal
   character(len=16)                               :: finput
-  real(8)                                         :: ts
+  real(8)                                         :: ts,de,spectral_weight
   real(8),dimension(:,:),allocatable              :: Htb
-  integer :: Nx,Ny
+  integer                                         :: Nx,Ny,Nexc
+
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
@@ -69,26 +76,26 @@ program vca_test
 
   !Get GMats(iw)
   wm = pi/beta*(2*arange(1,Lmats)-1)
-  do iw=1,Lmats
-     zeta = (xi*wm(iw)+xmu)*eye(Nlso) - Htb
+  do i=1,Lmats
+     zeta = (xi*wm(i)+xmu)*eye(Nlso) - Htb
      call inv(zeta)
-     Gmats(:,:,:,:,:,:,iw) = lso2nnn_reshape(zeta,Nlat,Nspin,Norb)
+     Gmats(:,:,:,:,:,:,i) = lso2nnn_reshape(zeta,Nlat,Nspin,Norb)
   enddo
   do ilat=1,Nlat
      do jlat=1,Nlat
-        call splot("Gmats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gmats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.nint",wm,Gmats(ilat,jlat,1,1,1,1,:))
      enddo
   enddo
 
   wr = linspace(wini,wfin,Lreal)
-  do iw=1,Lreal
-     zeta = (wr(iw)+xi*eps + xmu)*eye(Nlso) - Htb
+  do i=1,Lreal
+     zeta = (wr(i)+xi*eps + xmu)*eye(Nlso) - Htb
      call inv(zeta)
-     Greal(:,:,:,:,:,:,iw) = lso2nnn_reshape(zeta,Nlat,Nspin,Norb)
+     Greal(:,:,:,:,:,:,i) = lso2nnn_reshape(zeta,Nlat,Nspin,Norb)
   enddo
   do ilat=1,Nlat
      do jlat=1,Nlat
-        call splot("Greal_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+        call splot("Greal_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.nint",wr,Greal(ilat,jlat,1,1,1,1,:))
      enddo
   enddo
 
@@ -101,6 +108,37 @@ program vca_test
 
   call vca_diag(Hloc) 
 
+
+  Gmats=zero
+  Greal=zero
+
+  Nexc = size(Lmatrix,7)
+
+  do ispin=1,Nspin
+     do ilat=1,Nlat
+        do jlat=1,Nlat
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 !
+                 do iexc=1,Nexc
+                    !
+                    spectral_weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+                    de              = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                    !
+                    Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) + spectral_weight/(xi*wm(:)-de)
+                    !
+                 enddo
+                 !
+              enddo
+           enddo
+        enddo
+     enddo
+  enddo
+  do ilat=1,Nlat
+     do jlat=1,Nlat
+        call splot("Gmats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+     enddo
+  enddo
 
 
 

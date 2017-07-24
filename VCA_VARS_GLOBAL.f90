@@ -9,7 +9,7 @@ MODULE VCA_VARS_GLOBAL
 
   !LOG UNITS
   !=========================================================
-  integer,save                                  :: LOGfile=6
+  integer,save                                    :: LOGfile=6
 
 
 
@@ -23,7 +23,7 @@ MODULE VCA_VARS_GLOBAL
 
   !non-interacting cluster Hamiltonian
   !=========================================================
-  real(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
   !Some maps between sectors and full Hilbert space (pointers)
@@ -39,8 +39,8 @@ MODULE VCA_VARS_GLOBAL
   !Hamiltonian eig-space structure
   !=========================================================
   type full_espace
-     real(8),dimension(:),pointer   :: e
-     real(8),dimension(:,:),pointer :: M
+     real(8),dimension(:),pointer                 :: e
+     real(8),dimension(:,:),pointer               :: M
   end type full_espace
   type(full_espace),dimension(:),allocatable      :: espace
 
@@ -55,6 +55,13 @@ MODULE VCA_VARS_GLOBAL
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+
+
+  !Q and Lambda VCA matrices:
+  !=========================================================
+  real(8),allocatable,dimension(:,:,:,:)          :: cQmatrix   ![Nlat][Nspin][Norb][Nexcitations]
+  real(8),allocatable,dimension(:,:,:,:)          :: cdgQmatrix ![Nlat][Nspin][Norb][Nexcitations]
+  real(8),allocatable,dimension(:,:,:,:,:,:,:)    :: Lmatrix    ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nexcitations]
 
 
   !Cluster local observables:
@@ -73,17 +80,17 @@ MODULE VCA_VARS_GLOBAL
   !SECTOR-TO-FOCK SPACE STRUCTURE
   !=========================================================
   type sector_map
-     integer,dimension(:),allocatable :: map
+     integer,dimension(:),allocatable             :: map
   end type sector_map
 
   interface map_allocate
-     module procedure :: map_allocate_scalar
-     module procedure :: map_allocate_vector
+     module procedure                             :: map_allocate_scalar
+     module procedure                             :: map_allocate_vector
   end interface map_allocate
 
   interface map_deallocate
-     module procedure :: map_deallocate_scalar
-     module procedure :: map_deallocate_vector
+     module procedure                             :: map_deallocate_scalar
+     module procedure                             :: map_deallocate_vector
   end interface map_deallocate
 
 
@@ -96,15 +103,15 @@ contains
 
 
   subroutine map_allocate_scalar(H,N)
-    type(sector_map) :: H
-    integer :: N
+    type(sector_map)                              :: H
+    integer                                       :: N
     allocate(H%map(N))
   end subroutine map_allocate_scalar
   !
   subroutine map_allocate_vector(H,N)
-    type(sector_map),dimension(:) :: H
-    integer,dimension(size(H))    :: N
-    integer :: i
+    type(sector_map),dimension(:)                 :: H
+    integer,dimension(size(H))                    :: N
+    integer                                       :: i
     do i=1,size(H)
        allocate(H(i)%map(N(i)))
     enddo
@@ -112,13 +119,13 @@ contains
 
 
   subroutine map_deallocate_scalar(H)
-    type(sector_map) :: H
+    type(sector_map)                              :: H
     deallocate(H%map)
   end subroutine map_deallocate_scalar
   !
   subroutine map_deallocate_vector(H)
-    type(sector_map),dimension(:) :: H
-    integer :: i
+    type(sector_map),dimension(:)                 :: H
+    integer                                       :: i
     do i=1,size(H)
        deallocate(H(i)%map)
     enddo

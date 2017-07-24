@@ -1,6 +1,7 @@
 MODULE VCA
 
   USE VCA_INPUT_VARS
+  USE VCA_VARS_GLOBAL
 
 
   USE VCA_AUX_FUNX, only:                       &

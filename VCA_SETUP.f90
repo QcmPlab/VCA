@@ -69,6 +69,7 @@ contains
     write(LOGfile,"(A,I15)") 'Total size            = ',Nlevels
     write(LOGfile,"(A,I15)") '# of sites            = ',Nlat
     write(LOGfile,"(A,I15)") '# of orbitals         = ',Norb
+    write(LOGfile,"(A,2I15)")'Fock space size       = ',2**Ns*2**Ns
     write(LOGfile,"(A,2I15)")'Largest Sector        = ',dim_sector_max
     write(LOGfile,"(A,I15)") 'Number of sectors     = ',Nsectors
     write(LOGfile,"(A)")"--------------------------------------------"
@@ -107,6 +108,8 @@ contains
     impGmats=zero
     impGreal=zero
     !
+    !allocate Qmatrix and Lmatrix
+    !> these are allocated at the first call in VCA_GREENS_FUNCTIONS
     !
     !allocate observables
     allocate(imp_dens(Nlat,Norb),imp_docc(Nlat,Norb),imp_dens_up(Nlat,Norb),imp_dens_dw(Nlat,Norb))
