@@ -31,7 +31,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine vca_init_solver(Hloc)
     real(8),intent(in)              :: Hloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb)
-    logical,save                       :: isetup=.true.
+    logical,save                    :: isetup=.true.
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
@@ -60,10 +60,50 @@ contains
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_cluster()         !find target states by digonalization of Hamiltonian
     call observables_cluster()         !obtain impurity observables as thermal averages.  
-    call buildgf_cluster()             !build the one-particle impurity Green's functions  & Self-energy
+    call build_QL_cluster()            !build the one-particle Q and Lambda matrices, storing spectral sums
     !
     call delete_eigenspace()
   end subroutine vca_diag
 
 
+
+
+
+
+  subroutine vca_update_poles()
+    integer                            :: Nexc
+    integer                            :: ilat,jlat
+    integer                            :: iorb,jorb
+    integer                            :: ispin
+    integer                            :: iexc,jexc
+    integer                            :: i
+    real(8),dimension(:,:),allocatable :: Mmat
+
+    call vca_get_Nexc(Nexc)
+    print*,Nexc
+
+    allocate(Mmat(Nexc,Nexc))
+
+    Mmat = 0d0
+    do iexc=1,Nexc
+       do jexc=1,Nexc
+          !
+          do ispin=1,Nspin
+             do ilat=1,Nlat
+                do jlat=1,Nlat
+                   do iorb=1,Norb
+                      do jorb=1,Norb
+
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+          !
+       enddo
+    enddo
+
+  end subroutine vca_update_poles
+
+  
 end module VCA_MAIN

@@ -9,17 +9,17 @@ MODULE VCA_IO
   private
 
   !Retrieve imp GF through routines.
-  interface vca_get_gimp_matsubara
+  interface vca_get_gf_matsubara
      module procedure vca_get_gimp_matsubara_1
      module procedure vca_get_gimp_matsubara_2
      module procedure vca_get_gimp_matsubara_3
-  end interface vca_get_gimp_matsubara
+  end interface vca_get_gf_matsubara
 
-  interface vca_get_gimp_realaxis
+  interface vca_get_gf_realaxis
      module procedure vca_get_gimp_realaxis_1
      module procedure vca_get_gimp_realaxis_2
      module procedure vca_get_gimp_realaxis_3
-  end interface vca_get_gimp_realaxis
+  end interface vca_get_gf_realaxis
 
 
   !Retrieve static common observables  
@@ -40,14 +40,13 @@ MODULE VCA_IO
 
 
 
-  public :: vca_get_gimp_matsubara
-  public :: vca_get_gimp_realaxis
+  public :: vca_get_gf_matsubara
+  public :: vca_get_gf_realaxis
   public :: vca_get_dens
   public :: vca_get_mag
   public :: vca_get_docc
-  public :: vca_print_impG
-  public :: vca_read_impG
-
+  public :: vca_get_Nexc
+  
 
   !Frequency and time arrays:
   !=========================================================
@@ -60,70 +59,6 @@ MODULE VCA_IO
 contains
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Print/Read Cluster Greens Functions
-  !+------------------------------------------------------------------+
-  subroutine vca_print_impG
-    integer                                           :: ilat,jlat
-    integer                                           :: iorb,jorb
-    integer                                           :: ispin
-    character(len=20)                                 :: suffix
-    !
-    if(.not.allocated(wm))allocate(wm(Lmats))
-    if(.not.allocated(wr))allocate(wr(Lreal))
-    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr     = linspace(wini,wfin,Lreal)
-    !
-    !Print the impurity functions:
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do jlat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   suffix="_i"//str(ilat,3)//"_j"//str(jlat,3)//"_lm"//str(iorb)//str(jorb)//"_s"//str(ispin)
-                   call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
-                   call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    !
-    if(allocated(wm))deallocate(wm)
-    if(allocated(wr))deallocate(wr)
-    !
-  end subroutine vca_print_impG
-
-  subroutine vca_read_impG
-    integer                                           :: ilat,jlat
-    integer                                           :: iorb,jorb
-    integer                                           :: ispin
-    character(len=20)                                 :: suffix
-    !
-    if(.not.allocated(wm))allocate(wm(Lmats))
-    if(.not.allocated(wr))allocate(wr(Lreal))
-    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr     = linspace(wini,wfin,Lreal)
-    !
-    !Print the impurity functions:
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do jlat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   suffix="_i"//str(ilat,3)//"_j"//str(jlat,3)//"_lm"//str(iorb)//str(jorb)//"_s"//str(ispin)
-                   call sread("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".ed"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
-                   call sread("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".ed",wr,impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    !
-    if(allocated(wm))deallocate(wm)
-    if(allocated(wr))deallocate(wr)
-    !
-  end subroutine vca_read_impG
 
 
   !+-----------------------------------------------------------------------------+!
@@ -131,23 +66,70 @@ contains
   !+-----------------------------------------------------------------------------+!
   !NORMAL, MATSUBARA GREEN'S FUNCTIONS
   subroutine vca_get_gimp_matsubara_1(Gmats)
+    integer                                                                   :: Nexc
+    integer                                                                   :: ilat,jlat
+    integer                                                                   :: iorb,jorb
+    integer                                                                   :: ispin
+    integer                                                                   :: iexc
+    integer                                                                   :: i
+    real(8)                                                                   :: weight,de
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),intent(inout) :: Gmats
-    Gmats = impGmats
+    !
+    call allocate_grids()
+    !
+    Gmats = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !
+                   do iexc=1,Nexc
+                      weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) + weight/(xi*wm(:)-de)
+                   enddo
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    call deallocate_grids()
   end subroutine vca_get_gimp_matsubara_1
 
   subroutine vca_get_gimp_matsubara_2(Gmats)
+    integer                                                                   :: Nexc
+    integer                                                                   :: ilat,jlat
+    integer                                                                   :: iorb,jorb
+    integer                                                                   :: ispin
+    integer                                                                   :: iexc
+    integer                                                                   :: i,io,jo
+    real(8)                                                                   :: weight,de
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lmats),intent(inout) :: Gmats
-    integer  :: io,jo,iorb,jorb,ispin,jspin,ilat,jlat
-    do ilat=1,Nlat
-       do jlat=1,Nlat
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
-                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Nspin*Norb
-                      Gmats(io,jo,:) = impGmats(ilat,jlat,ispin,jspin,iorb,jorb,:)
+    !
+    call allocate_grids()
+    !
+    Gmats = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !
+                   io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
+                   do iexc=1,Nexc
+                      weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      Gmats(io,jo,:) = Gmats(io,jo,:) + weight/(xi*wm(:)-de)
                    enddo
+                   !
                 enddo
              enddo
           enddo
@@ -156,32 +138,97 @@ contains
   end subroutine vca_get_gimp_matsubara_2
 
   subroutine vca_get_gimp_matsubara_3(Gmats,ilat,jlat,ispin,jspin,iorb,jorb)
+    integer                                   :: Nexc
+    integer                                   :: ilat,jlat
+    integer                                   :: iorb,jorb
+    integer                                   :: ispin,jspin
+    integer                                   :: iexc
+    integer                                   :: i
+    real(8)                                   :: weight,de
     complex(8),dimension(Lmats),intent(inout) :: Gmats
-    integer                                   :: ilat,jlat,iorb,jorb,ispin,jspin
-    Gmats(:) = impGmats(ilat,jlat,ispin,jspin,iorb,jorb,:)
+    !
+    call allocate_grids()
+    !
+    Gmats = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do iexc=1,Nexc
+       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+       de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+       Gmats(:) = Gmats(:) + weight/(xi*wm(:)-de)
+    enddo
+    !
   end subroutine vca_get_gimp_matsubara_3
+
 
 
 
   !NORMAL, REALAXIS GREEN'S FUNCTIONS
   subroutine vca_get_gimp_realaxis_1(Greal)
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal),intent(inout) :: Greal
-    Greal = impGreal
+    integer                                                                   :: Nexc
+    integer                                                                   :: ilat,jlat
+    integer                                                                   :: iorb,jorb
+    integer                                                                   :: ispin
+    integer                                                                   :: iexc
+    integer                                                                   :: i
+    real(8)                                                                   :: weight,de
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),intent(inout) :: Greal
+    !
+    call allocate_grids()
+    !
+    Greal = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !
+                   do iexc=1,Nexc
+                      weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      Greal(ilat,jlat,ispin,ispin,iorb,jorb,:) = Greal(ilat,jlat,ispin,ispin,iorb,jorb,:) + weight/(wr(:)+xi*eps-de)
+                   enddo
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    call deallocate_grids()
   end subroutine vca_get_gimp_realaxis_1
 
   subroutine vca_get_gimp_realaxis_2(Greal)
-    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lreal),intent(inout) :: Greal
-    integer  :: io,jo,iorb,jorb,ispin,jspin,ilat,jlat
-    do ilat=1,Nlat
-       do jlat=1,Nlat
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
-                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Nspin*Norb
-                      Greal(io,jo,:) = impGreal(ilat,jlat,ispin,jspin,iorb,jorb,:)
+    integer                                                                   :: Nexc
+    integer                                                                   :: ilat,jlat
+    integer                                                                   :: iorb,jorb
+    integer                                                                   :: ispin
+    integer                                                                   :: iexc
+    integer                                                                   :: i,io,jo
+    real(8)                                                                   :: weight,de
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lmats),intent(inout) :: Greal
+    !
+    call allocate_grids()
+    !
+    Greal = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !
+                   io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
+                   do iexc=1,Nexc
+                      weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      Greal(io,jo,:) = Greal(io,jo,:) + weight/(xi*wm(:)-de)
                    enddo
+                   !
                 enddo
              enddo
           enddo
@@ -190,12 +237,36 @@ contains
   end subroutine vca_get_gimp_realaxis_2
 
   subroutine vca_get_gimp_realaxis_3(Greal,ilat,jlat,ispin,jspin,iorb,jorb)
-    complex(8),dimension(Lreal),intent(inout) :: Greal
-    integer                                   :: ilat,jlat,iorb,jorb,ispin,jspin
-    Greal(:) = impGreal(ilat,jlat,ispin,jspin,iorb,jorb,:)
+    integer                                   :: Nexc
+    integer                                   :: ilat,jlat
+    integer                                   :: iorb,jorb
+    integer                                   :: ispin,jspin
+    integer                                   :: iexc
+    integer                                   :: i
+    real(8)                                   :: weight,de
+    complex(8),dimension(Lmats),intent(inout) :: Greal
+    !
+    call allocate_grids()
+    !
+    Greal = dcmplx(0d0,0d0)
+    Nexc = size(Lmatrix,7)
+    !
+    do iexc=1,Nexc
+       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
+       de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+       Greal(:) = Greal(:) + weight/(xi*wm(:)-de)
+    enddo
+    !
   end subroutine vca_get_gimp_realaxis_3
 
 
+
+
+
+  subroutine vca_get_Nexc(n)
+    integer :: n
+    N = size(Lmatrix,7)
+  end subroutine vca_get_Nexc
 
 
 
@@ -238,5 +309,34 @@ contains
     if(iorb>Norb)stop "imp_get_docc error: orbital index > N_orbital"
     docc = imp_docc(:,iorb)
   end subroutine vca_get_docc_2
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Allocate arrays and setup frequencies and times
+  !+------------------------------------------------------------------+
+  subroutine allocate_grids
+    integer :: i
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(vm))allocate(vm(0:Lmats))          !bosonic frequencies
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    if(.not.allocated(tau))allocate(tau(0:Ltau))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    do i=0,Lmats
+       vm(i) = pi/beta*2.d0*dble(i)
+    enddo
+    wr     = linspace(wini,wfin,Lreal)
+    tau(0:)= linspace(0.d0,beta,Ltau+1)
+  end subroutine allocate_grids
+
+
+  subroutine deallocate_grids
+    if(allocated(wm))deallocate(wm)
+    if(allocated(vm))deallocate(vm)
+    if(allocated(tau))deallocate(tau)
+    if(allocated(wr))deallocate(wr)
+  end subroutine deallocate_grids
+
+
 
 END MODULE VCA_IO

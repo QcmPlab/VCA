@@ -12,13 +12,12 @@ MODULE VCA
 
 
   USE VCA_IO, only:            &
-       vca_get_gimp_matsubara, &
-       vca_get_gimp_realaxis,  &
+       vca_get_gf_matsubara, &
+       vca_get_gf_realaxis,  &
        vca_get_dens,           &
        vca_get_mag,            &
-       vca_get_docc,           &
-       vca_print_impG,         &
-       vca_read_impG
+       vca_get_docc,         &
+       vca_get_Nexc
 
 
 
