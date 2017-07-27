@@ -54,7 +54,7 @@ endif
 #                        HERE STARTS THE REAL WORK
 ###############################################################################
 
-OBJS= VCA_INPUT_VARS.o VCA_VARS_GLOBAL.o  VCA_AUX_FUNX.o VCA_IO.o VCA_SETUP.o  VCA_DIAG.o VCA_OBSERVABLES.o VCA_GREENS_FUNCTIONS.o VCA_MAIN.o VCA.f90 
+OBJS= VCA_INPUT_VARS.o VCA_VARS_GLOBAL.o  VCA_AUX_FUNX.o VCA_IO.o VCA_SETUP.o  VCA_DIAG.o VCA_OBSERVABLES.o VCA_QMATRIX.o VCA_MAIN.o VCA.f90 
 
 all: all version compile completion
 debug: debug version compile completion

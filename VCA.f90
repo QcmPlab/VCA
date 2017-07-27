@@ -4,27 +4,28 @@ MODULE VCA
   USE VCA_VARS_GLOBAL
 
 
-  USE VCA_AUX_FUNX, only:                       &
-       lso2nnn_reshape,                         &
-       nnn2lso_reshape,                         &
-       set_Hcluster,                            &
+  USE VCA_AUX_FUNX, only: &
+       los2nnn_reshape,   &
+       nnn2los_reshape,   &
+       set_Hcluster,      &
        search_chemical_potential
 
 
-  USE VCA_IO, only:            &
-       vca_get_gf_matsubara, &
-       vca_get_gf_realaxis,  &
-       vca_get_dens,           &
-       vca_get_mag,            &
-       vca_get_docc,         &
-       vca_get_Nexc
+  USE VCA_IO, only:                &
+       vca_get_Gcluster_matsubara, &
+       vca_get_Gcluster_realaxis,  &
+       vca_get_Gsystem_matsubara,  &
+       vca_get_Gsystem_realaxis,   &
+       vca_get_dens,               &
+       vca_get_mag,                &
+       vca_get_docc
 
 
 
-  USE VCA_MAIN, only:     &
-       vca_init_solver,   &
-       vca_diag,          &
-       vca_update_poles
+  USE VCA_MAIN, only:      &
+       vca_init_solver,    &
+       vca_diag_cluster! ,   &
+  ! vca_diag_system
 
 
 END MODULE VCA

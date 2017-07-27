@@ -7,12 +7,15 @@ MODULE VCA_SETUP
   implicit none
   private
 
+  interface map_allocate
+     module procedure :: map_allocate_scalar
+     module procedure :: map_allocate_vector
+  end interface map_allocate
 
-  interface print_state_vector
-     module procedure :: print_state_vector_ivec
-     module procedure :: print_state_vector_int
-  end interface print_state_vector
-
+  interface map_deallocate
+     module procedure :: map_deallocate_scalar
+     module procedure :: map_deallocate_vector
+  end interface map_deallocate
 
 
   public :: init_cluster_structure
@@ -33,8 +36,8 @@ MODULE VCA_SETUP
   !
   public :: binary_search
   !
-  public :: print_state_vector
-
+  public :: map_allocate
+  public :: map_deallocate
 
 contains
 
@@ -102,14 +105,16 @@ contains
     !
     !
     !allocate functions
-    !
     allocate(impGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(impGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     impGmats=zero
     impGreal=zero
     !
     !allocate Qmatrix and Lmatrix
-    !> these are allocated at the first call in VCA_GREENS_FUNCTIONS
+    ! allocate(Nexcitations(Nspin))
+    ! allocate(Qcluster(Nspin))
+    ! allocate(Qsystem(Nspin))
+    !> the content of these structure is allocated in VCA_GREENS_FUNCTIONS
     !
     !allocate observables
     allocate(imp_dens(Nlat,Norb),imp_docc(Nlat,Norb),imp_dens_up(Nlat,Norb),imp_dens_dw(Nlat,Norb))
@@ -288,7 +293,7 @@ contains
 
 
   !> Find position in the state vector for a given lattice-spin-orbital position 
-  function state_index(ilat,ispin,iorb) result(indx)
+  function state_index(ilat,iorb,ispin) result(indx)
     integer :: ilat
     integer :: ispin
     integer :: iorb
@@ -342,6 +347,44 @@ contains
 
 
 
+  !+-------------------------------------------------------------------+
+  !PURPOSE: Allocate a Map from the sector to Fock space
+  !+-------------------------------------------------------------------+
+  subroutine map_allocate_scalar(H,N)
+    type(sector_map)                              :: H
+    integer                                       :: N
+    allocate(H%map(N))
+  end subroutine map_allocate_scalar
+  !
+  subroutine map_allocate_vector(H,N)
+    type(sector_map),dimension(:)                 :: H
+    integer,dimension(size(H))                    :: N
+    integer                                       :: i
+    do i=1,size(H)
+       allocate(H(i)%map(N(i)))
+    enddo
+  end subroutine map_allocate_vector
+
+
+
+
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE: Destruct a Map from the sector to Fock space
+  !+-------------------------------------------------------------------+
+  subroutine map_deallocate_scalar(H)
+    type(sector_map)                              :: H
+    deallocate(H%map)
+  end subroutine map_deallocate_scalar
+  !
+  subroutine map_deallocate_vector(H)
+    type(sector_map),dimension(:)                 :: H
+    integer                                       :: i
+    do i=1,size(H)
+       deallocate(H(i)%map)
+    enddo
+  end subroutine map_deallocate_vector
+
 
 
 
@@ -391,7 +434,7 @@ contains
 
 
 
-  
+
   !+------------------------------------------------------------------+
   !PURPOSE  : calculate the factorial of an integer N!=1.2.3...(N-1).N
   !+------------------------------------------------------------------+
@@ -459,48 +502,5 @@ contains
 
 
 
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : print a state vector |{up}>|{dw}>
-  !+------------------------------------------------------------------+
-  subroutine print_state_vector_ivec(ivec,unit)
-    integer,intent(in) :: ivec(:)
-    integer,optional   :: unit
-    integer            :: unit_
-    integer            :: i,j,Ntot
-    character(len=2)   :: fbt
-    character(len=16)  :: fmt
-    unit_=6;if(present(unit))unit_=unit
-    Ntot = size(ivec)
-    write(fbt,'(I2.2)')Ntot
-    fmt="(B"//adjustl(trim(fbt))//"."//adjustl(trim(fbt))//")"
-    i= bjoin(ivec,Ntot)
-    write(unit_,"(I9,1x,A1)",advance="no")i,"|"
-    write(unit_,"(10I1)",advance="no")(ivec(j),j=1,Ntot)
-    write(unit_,"(A4)",advance="no")"> - "
-    write(unit_,fmt,advance="yes")i
-  end subroutine print_state_vector_ivec
-  !
-  subroutine print_state_vector_int(i,Ntot,unit)
-    integer,intent(in) :: i
-    integer,intent(in) :: Ntot
-    integer,optional   :: unit
-    integer            :: unit_
-    integer            :: j
-    integer            :: ivec(Ntot)
-    character(len=2)   :: fbt
-    character(len=16)  :: fmt
-    unit_=6;if(present(unit))unit_=unit
-    write(fbt,'(I2.2)')Ntot
-    fmt="(B"//adjustl(trim(fbt))//"."//adjustl(trim(fbt))//")"
-    ivec = bdecomp(i,Ntot)
-    write(unit_,"(I9,1x,A1)",advance="no")i,"|"
-    write(unit_,"(10I1)",advance="no")(ivec(j),j=1,Ntot)
-    write(unit_,"(A4)",advance="no")"> - "
-    write(unit_,fmt,advance="yes")i
-  end subroutine print_state_vector_int
 
 end MODULE VCA_SETUP

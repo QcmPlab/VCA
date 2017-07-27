@@ -5,7 +5,7 @@ program vca_test
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nxso,Nsys,Nrat
+  integer                                         :: Nlos,Nsos,Nsys,Nrat
   integer                                         :: ilat,jlat
   integer                                         :: i,j
   integer                                         :: ix,iy
@@ -53,8 +53,8 @@ program vca_test
   Nlat = Nx*Ny
   Nsys = Lx*Ly
   !
-  Nlso = Nlat*Nspin*Norb
-  Nxso = Nsys*Nspin*Norb
+  Nlos = Nlat*Norb*Nspin
+  Nsos = Nsys*Norb*Nspin
 
 
   allocate(Tsys(Nsys,Nsys))
@@ -80,37 +80,37 @@ program vca_test
   Vmat = Tsys - Tref
   call print_2DLattice_Structure(Vmat,[Lx,Ly],1,1,file="Vmat")  
 
-  call vca_init_solver(lso2nnn_reshape(Htb,Nlat,Nspin,Norb))
-  call vca_diag(lso2nnn_reshape(Htb,Nlat,Nspin,Norb)) 
+  call vca_init_solver(los2nnn_reshape(Htb,Nlat,Norb,Nspin))
+  call vca_diag_cluster(los2nnn_reshape(Htb,Nlat,Norb,Nspin)) 
 
 
-  allocate(Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Gmats(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
+  allocate(Greal(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
   allocate(wm(Lmats),wr(Lreal))
   wm = pi/beta*(2*arange(1,Lmats)-1)
   wr = linspace(wini,wfin,Lreal)
 
-  call vca_get_gf_matsubara(Gmats)
-  call vca_get_gf_realaxis(Greal)
+  call vca_get_Gcluster_matsubara(Gmats)
+  call vca_get_Gcluster_realaxis(Greal)
   do ilat=1,Nlat
      do jlat=1,Nlat
-        call splot("Gref_mats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gref_real_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
      enddo
   enddo
 
 
-  call vca_update_poles(Vmat)
+  ! call vca_diag_system(Vmat)
 
-  
-  call vca_get_gf_matsubara(Gmats)
-  call vca_get_gf_realaxis(Greal)
-  do ilat=1,Nlat
-     do jlat=1,Nlat
-        call splot("Gsys_mats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gsys_real_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-     enddo
-  enddo
+
+  ! call vca_get_Gsystem_matsubara(Gmats)
+  ! call vca_get_Gsystem_realaxis(Greal)
+  ! do ilat=1,Nlat
+  !    do jlat=1,Nlat
+  !       call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+  !       call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+  !    enddo
+  ! enddo
 
 
 contains

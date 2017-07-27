@@ -24,3 +24,4 @@ vca.mod
 CMakeCache.txt
 vca_input_vars.mod
 .repo/*.pdf
+vca_qmatrix.mod

@@ -52,8 +52,7 @@ contains
 
 
   !+-------------------------------------------------------------------+
-  !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
-  ! spectrum DOUBLE COMPLEX
+  !PURPOSE  : diagonalize the Hamiltonian in each sector 
   !+------------------------------------------------------------------+
   subroutine diagonalize_cluster
     integer                     :: nup,ndw,isector,dim
@@ -66,7 +65,6 @@ contains
     e0=1000.d0
     write(LOGfile,"(A)")"Diagonalize Cluster Hc+Hint:"
     call start_timer()
-    !
     !
     sector: do isector=1,Nsectors
        !
@@ -83,14 +81,8 @@ contains
        call setup_Hv_sector(isector)
        call buildH_c(espace(isector)%M)
        call delete_Hv_sector()
-       ! do i=1,dim
-       !    write(*,"(100F8.3)")(espace(isector)%M(i,j),j=1,dim)
-       ! enddo
-       ! print*,""
        call eigh(espace(isector)%M,espace(isector)%e,'V','U')
        if(dim==1)espace(isector)%M=1d0
-       ! print*,espace(isector)%e(:)
-       ! print*,""
        !
        e0(isector)=minval(espace(isector)%e)
        !
@@ -123,6 +115,8 @@ contains
     omega_potential = -1d0/beta*log(zeta_function)
     write(LOGfile,"(A,F20.12)")'Z     =',zeta_function
     write(LOGfile,"(A,F20.12)")'Omega =',omega_potential
+    !
+    call Enumerate_Nexcitations
     !
     return
   end subroutine diagonalize_cluster
@@ -164,12 +158,11 @@ contains
        m = H%map(i)
        impi = i
        ib = bdecomp(m,2*Ns)
-       ! call print_state_vector(ib)
        !
        do ilat=1,Nlat
           do iorb=1,Norb
-             nup(ilat,iorb)=dble(ib(state_index(ilat,1,iorb)))
-             ndw(ilat,iorb)=dble(ib(state_index(ilat,2,iorb)))
+             nup(ilat,iorb)=dble(ib(state_index(ilat,iorb,1)))
+             ndw(ilat,iorb)=dble(ib(state_index(ilat,iorb,2)))
           enddo
        enddo
        !
@@ -198,8 +191,8 @@ contains
                 do jorb=1,Norb
                    !
                    !UP
-                   is = state_index(ilat,1,iorb)
-                   js = state_index(jlat,1,jorb)
+                   is = state_index(ilat,iorb,1)
+                   js = state_index(jlat,jorb,1)
                    Jcondition = (impHloc(ilat,jlat,1,1,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
                    if (Jcondition) then
                       call c(js,m,k1,sg1)
@@ -212,8 +205,8 @@ contains
                    endif
                    !
                    !DW
-                   is = state_index(ilat,2,iorb)
-                   js = state_index(jlat,2,jorb)
+                   is = state_index(ilat,iorb,2)
+                   js = state_index(jlat,jorb,2)
                    Jcondition = (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
                    if (Jcondition) then
                       call c(js,m,k1,sg1)
@@ -291,10 +284,10 @@ contains
           do ilat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
-                   i_up = state_index(ilat,1,iorb)
-                   i_dw = state_index(ilat,2,iorb)
-                   j_up = state_index(ilat,1,jorb)
-                   j_dw = state_index(ilat,2,jorb)
+                   i_up = state_index(ilat,iorb,1)
+                   i_dw = state_index(ilat,iorb,2)
+                   j_up = state_index(ilat,jorb,1)
+                   j_dw = state_index(ilat,jorb,2)
                    Jcondition=(&
                         (iorb/=jorb).AND.&
                         (ib(j_up)==1).AND.&
@@ -324,10 +317,10 @@ contains
           do ilat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
-                   i_up = state_index(ilat,1,iorb)
-                   i_dw = state_index(ilat,2,iorb)
-                   j_up = state_index(ilat,1,jorb)
-                   j_dw = state_index(ilat,2,jorb)
+                   i_up = state_index(ilat,iorb,1)
+                   i_dw = state_index(ilat,iorb,2)
+                   j_up = state_index(ilat,jorb,1)
+                   j_dw = state_index(ilat,jorb,2)
                    Jcondition=(&
                         (iorb/=jorb).AND.&
                         (ib(j_up)==1).AND.&
@@ -354,6 +347,35 @@ contains
 
 
 
+  !> Count number of 1p-excitations per spin-channel 
+  subroutine enumerate_Nexcitations
+    integer          :: ispin
+    integer          :: isector,jsector
+    integer          :: idim,jdim
+    integer          :: i,j,iexc
+    real(8)          :: expterm
+    iexc=0
+    do ispin=1,Nspin
+       do isector=1,Nsectors
+          jsector=getCDGsector(ispin,isector)
+          if(jsector==0)cycle
+          idim=getdim(isector)     !i-th sector dimension
+          jdim=getdim(jsector)     !j-th sector dimension
+          do i=1,idim          !loop over the states in the i-th sect.
+             do j=1,jdim       !loop over the states in the j-th sect.
+                expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
+                if(expterm < cutoff)cycle
+                iexc=iexc+1
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    Nexcitations = iexc
+    !
+    write(LOGfile,"(A,I5,A,I2)")"Found N =",iexc," excitations with the actual cut-off"
+    !
+  end subroutine enumerate_Nexcitations
 
 
 

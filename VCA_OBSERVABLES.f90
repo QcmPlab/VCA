@@ -89,8 +89,8 @@ contains
              !Get operators:
              do ilat=1,Nlat
                 do iorb=1,Norb
-                   nup(ilat,iorb)= ib(state_index(ilat,1,iorb))
-                   ndw(ilat,iorb)= ib(state_index(ilat,2,iorb))
+                   nup(ilat,iorb)= ib(state_index(ilat,iorb,1))
+                   ndw(ilat,iorb)= ib(state_index(ilat,iorb,2))
                    sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
                    nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
                 enddo

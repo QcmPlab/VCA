@@ -12,7 +12,6 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                    :: LOGfile=6
 
 
-
   !Ns       =              Number of levels per spin
   !Nlevels  = 2*Ns       = Total Number  of levels
   !Nsectors =              Number of sectors
@@ -24,12 +23,11 @@ MODULE VCA_VARS_GLOBAL
   !Other System dimension
   !=========================================================  
   integer                                         :: Nlat
-  integer                                         :: Nexc
-
+  integer                                         :: Nexcitations
 
   !non-interacting cluster Hamiltonian
   !=========================================================
-  real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Norb][Norb][Nspin][Nspin]
 
 
   !Some maps between sectors and full Hilbert space (pointers)
@@ -60,24 +58,29 @@ MODULE VCA_VARS_GLOBAL
   !Cluster Green's functions
   !(Nlat,Nlat,Nspin,Nspin,Norb,Norb,:)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Norb][Norb][Nspin][Nspin][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Norb][Norb][Nspin][Nspin][L]
 
 
   !Q and Lambda VCA matrices:
-  !=========================================================
-  real(8),allocatable,dimension(:,:,:,:)          :: cQmatrix   ![Nlat][Nspin][Norb][Nexcitations]
-  real(8),allocatable,dimension(:,:,:,:)          :: cdgQmatrix ![Nlat][Nspin][Norb][Nexcitations]
-  real(8),allocatable,dimension(:,:)                :: Lmatrix    ![Nspin][Nexcitations]
-  ! real(8),allocatable,dimension(:,:,:,:,:,:,:)    :: Lmatrix    ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nexcitations]
+  !=============================================== ==========
+  type Qmatrix
+     logical                            :: allocated
+     integer                            :: Nexc
+     real(8),dimension(:,:),allocatable :: c     ![Nlat*Norb*Nspin][Nexc]
+     real(8),dimension(:,:),allocatable :: cdg   ![Nlat*Norb*Nspin][Nexc]
+     real(8),dimension(:),allocatable   :: poles ![Nexc] diagonal matrix
+  end type Qmatrix
+  type(Qmatrix)                                   :: Qcluster
+  type(Qmatrix)                                   :: Qsystem
 
 
   !Cluster local observables:
   !=========================================================
-  real(8),dimension(:,:),allocatable              ::  imp_dens ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable              ::  imp_dens    ![Nlat][Norb]
   real(8),dimension(:,:),allocatable              ::  imp_dens_up ![Nlat][Norb]
   real(8),dimension(:,:),allocatable              ::  imp_dens_dw ![Nlat][Norb]
-  real(8),dimension(:,:),allocatable              ::  imp_docc ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable              ::  imp_docc    ![Nlat][Norb]
 
 
   !Suffix string attached to the output files.
@@ -90,63 +93,6 @@ MODULE VCA_VARS_GLOBAL
   type sector_map
      integer,dimension(:),allocatable             :: map
   end type sector_map
-
-  interface map_allocate
-     module procedure                             :: map_allocate_scalar
-     module procedure                             :: map_allocate_vector
-  end interface map_allocate
-
-  interface map_deallocate
-     module procedure                             :: map_deallocate_scalar
-     module procedure                             :: map_deallocate_vector
-  end interface map_deallocate
-
-
-
-
-contains
-
-
-
-
-
-  subroutine map_allocate_scalar(H,N)
-    type(sector_map)                              :: H
-    integer                                       :: N
-    allocate(H%map(N))
-  end subroutine map_allocate_scalar
-  !
-  subroutine map_allocate_vector(H,N)
-    type(sector_map),dimension(:)                 :: H
-    integer,dimension(size(H))                    :: N
-    integer                                       :: i
-    do i=1,size(H)
-       allocate(H(i)%map(N(i)))
-    enddo
-  end subroutine map_allocate_vector
-
-
-  subroutine map_deallocate_scalar(H)
-    type(sector_map)                              :: H
-    deallocate(H%map)
-  end subroutine map_deallocate_scalar
-  !
-  subroutine map_deallocate_vector(H)
-    type(sector_map),dimension(:)                 :: H
-    integer                                       :: i
-    do i=1,size(H)
-       deallocate(H(i)%map)
-    enddo
-  end subroutine map_deallocate_vector
-
-
-
-
-
-
-
-
-
 
 
 END MODULE VCA_VARS_GLOBAL
