@@ -11,7 +11,6 @@ MODULE VCA_INPUT_VARS
   !INPUT VARIABLES (to be exported in MAIN module)
   !input variables
   !=========================================================
-  integer                                       :: Nlat         !# of cluster sites
   integer                                       :: Norb         !# of lattice orbitals per site
   integer                                       :: Nspin        !# spin degeneracy (max 2)
   real(8),dimension(2)                          :: Uloc         !local interactions
@@ -60,7 +59,6 @@ contains
 
 
     !DEFAULT VALUES OF THE PARAMETERS:
-    call parse_input_variable(Nlat,"NLAT",INPUTunit,default=1,comment="Number of cluster sites.")
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of orbitals per cluster site.")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy")
     !

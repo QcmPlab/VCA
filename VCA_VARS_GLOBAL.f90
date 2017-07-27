@@ -21,6 +21,12 @@ MODULE VCA_VARS_GLOBAL
   integer                                         :: Nlevels
   integer                                         :: Nsectors
 
+  !Other System dimension
+  !=========================================================  
+  integer                                         :: Nlat
+  integer                                         :: Nexc
+
+
   !non-interacting cluster Hamiltonian
   !=========================================================
   real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
@@ -48,6 +54,7 @@ MODULE VCA_VARS_GLOBAL
   !Partition function
   !=========================================================
   real(8)                                         :: zeta_function
+  real(8)                                         :: omega_potential
 
 
   !Cluster Green's functions
@@ -61,7 +68,8 @@ MODULE VCA_VARS_GLOBAL
   !=========================================================
   real(8),allocatable,dimension(:,:,:,:)          :: cQmatrix   ![Nlat][Nspin][Norb][Nexcitations]
   real(8),allocatable,dimension(:,:,:,:)          :: cdgQmatrix ![Nlat][Nspin][Norb][Nexcitations]
-  real(8),allocatable,dimension(:,:,:,:,:,:,:)    :: Lmatrix    ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nexcitations]
+  real(8),allocatable,dimension(:,:)                :: Lmatrix    ![Nspin][Nexcitations]
+  ! real(8),allocatable,dimension(:,:,:,:,:,:,:)    :: Lmatrix    ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nexcitations]
 
 
   !Cluster local observables:

@@ -27,7 +27,9 @@ contains
     !
     call start_timer
     !        
+
     do ispin=1,Nspin
+       call full_build_Lmatrix(ispin)
        do ilat=1,Nlat
           do jlat=1,Nlat
              do iorb=1,Norb
@@ -35,7 +37,7 @@ contains
                    !
                    write(LOGfile,"(A)")"Get Q_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
                    !
-                   call full_build_QLmatrix(ilat,jlat,iorb,iorb,ispin)
+                   call full_build_Qmatrix(ilat,jlat,iorb,iorb,ispin)
                    !
                 enddo
              enddo
@@ -58,7 +60,7 @@ contains
   !PURPOSE  : Spectral sum evaluation of the Green's functions
   ! Matsubara and Real-Axis
   !+------------------------------------------------------------------+
-  subroutine full_build_QLmatrix(ilat,jlat,iorb,jorb,ispin)
+  subroutine full_build_Qmatrix(ilat,jlat,iorb,jorb,ispin)
     integer                            :: ilat,jlat
     integer                            :: iorb,jorb
     integer                            :: ispin,jspin
@@ -121,7 +123,6 @@ contains
              !
              cdgQmatrix(ilat,ispin,iorb,iexc) = cdgOp_mat*sqrt(expterm/zeta_function)
              cQmatrix(jlat,ispin,jorb,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
-             Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc) = espace(jsector)%e(j)-espace(isector)%e(i)
              !             
           enddo
        enddo
@@ -129,9 +130,52 @@ contains
        call delete_sector(jsector,HJ)
     enddo
     !
-  end subroutine full_build_QLmatrix
+  end subroutine full_build_Qmatrix
 
 
+  subroutine full_build_Lmatrix(ispin)
+    integer                            :: ilat,jlat
+    integer                            :: iorb,jorb
+    integer                            :: ispin,jspin
+    integer                            :: isite,jsite
+    integer                            :: idim,isector
+    integer                            :: jdim,jsector
+    real(8)                            :: cdgOp_mat,cOp_mat
+    real(8)                            :: sgn_cdg,sgn_c
+    integer                            :: ib(Nlevels)
+    integer                            :: n,m,p,iexc
+    integer                            :: ni,mj
+    integer                            :: i,j,r,k
+    real(8)                            :: expterm
+    type(sector_map)                   :: HI,HJ
+    !
+    iexc = 0
+    do isector=1,Nsectors
+       jsector=getCDGsector(ispin,isector)
+       if(jsector==0)cycle
+       !
+       idim=getdim(isector)     !i-th sector dimension
+       jdim=getdim(jsector)     !j-th sector dimension
+       call build_sector(isector,HI)
+       call build_sector(jsector,HJ)
+       !
+       do i=1,idim          !loop over the states in the i-th sect.
+          do j=1,jdim       !loop over the states in the j-th sect.
+             !
+             expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
+             if(expterm < cutoff)cycle
+             !
+             iexc=iexc+1
+             !
+             Lmatrix(ispin,iexc) = espace(jsector)%e(j)-espace(isector)%e(i)
+             !             
+          enddo
+       enddo
+       call delete_sector(isector,HI)
+       call delete_sector(jsector,HJ)
+    enddo
+    !
+  end subroutine full_build_Lmatrix
 
 
 
@@ -144,7 +188,6 @@ contains
   ! sum terms
   !+------------------------------------------------------------------+
   subroutine allocate_QLmatrix()
-    integer :: Nexc
     integer :: isector,jsector
     integer :: idim,jdim
     integer :: i,j
@@ -174,14 +217,16 @@ contains
     cdgQmatrix=0d0
     !
     if(allocated(Lmatrix))deallocate(Lmatrix)
-    allocate(Lmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nexc))
+    allocate(Lmatrix(2,Nexc))
     Lmatrix=0d0
+    !
+    write(LOGfile,*)"Found",Nexc," excitations with the actual cut-off"
     !
   end subroutine allocate_QLmatrix
 
 
 
- 
+
 
 
 

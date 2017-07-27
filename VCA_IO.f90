@@ -46,7 +46,7 @@ MODULE VCA_IO
   public :: vca_get_mag
   public :: vca_get_docc
   public :: vca_get_Nexc
-  
+
 
   !Frequency and time arrays:
   !=========================================================
@@ -66,7 +66,6 @@ contains
   !+-----------------------------------------------------------------------------+!
   !NORMAL, MATSUBARA GREEN'S FUNCTIONS
   subroutine vca_get_gimp_matsubara_1(Gmats)
-    integer                                                                   :: Nexc
     integer                                                                   :: ilat,jlat
     integer                                                                   :: iorb,jorb
     integer                                                                   :: ispin
@@ -78,7 +77,6 @@ contains
     call allocate_grids()
     !
     Gmats = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do ispin=1,Nspin
        do ilat=1,Nlat
@@ -88,7 +86,7 @@ contains
                    !
                    do iexc=1,Nexc
                       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      de     = Lmatrix(ispin,iexc)
                       Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = Gmats(ilat,jlat,ispin,ispin,iorb,jorb,:) + weight/(xi*wm(:)-de)
                    enddo
                    !
@@ -102,7 +100,6 @@ contains
   end subroutine vca_get_gimp_matsubara_1
 
   subroutine vca_get_gimp_matsubara_2(Gmats)
-    integer                                                                   :: Nexc
     integer                                                                   :: ilat,jlat
     integer                                                                   :: iorb,jorb
     integer                                                                   :: ispin
@@ -114,7 +111,6 @@ contains
     call allocate_grids()
     !
     Gmats = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do ispin=1,Nspin
        do ilat=1,Nlat
@@ -126,7 +122,7 @@ contains
                    jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
                    do iexc=1,Nexc
                       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      de     = Lmatrix(ispin,iexc)
                       Gmats(io,jo,:) = Gmats(io,jo,:) + weight/(xi*wm(:)-de)
                    enddo
                    !
@@ -138,7 +134,6 @@ contains
   end subroutine vca_get_gimp_matsubara_2
 
   subroutine vca_get_gimp_matsubara_3(Gmats,ilat,jlat,ispin,jspin,iorb,jorb)
-    integer                                   :: Nexc
     integer                                   :: ilat,jlat
     integer                                   :: iorb,jorb
     integer                                   :: ispin,jspin
@@ -150,11 +145,10 @@ contains
     call allocate_grids()
     !
     Gmats = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do iexc=1,Nexc
        weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-       de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+       de     = Lmatrix(ispin,iexc)
        Gmats(:) = Gmats(:) + weight/(xi*wm(:)-de)
     enddo
     !
@@ -165,7 +159,6 @@ contains
 
   !NORMAL, REALAXIS GREEN'S FUNCTIONS
   subroutine vca_get_gimp_realaxis_1(Greal)
-    integer                                                                   :: Nexc
     integer                                                                   :: ilat,jlat
     integer                                                                   :: iorb,jorb
     integer                                                                   :: ispin
@@ -177,7 +170,6 @@ contains
     call allocate_grids()
     !
     Greal = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do ispin=1,Nspin
        do ilat=1,Nlat
@@ -187,7 +179,7 @@ contains
                    !
                    do iexc=1,Nexc
                       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      de     = Lmatrix(ispin,iexc)
                       Greal(ilat,jlat,ispin,ispin,iorb,jorb,:) = Greal(ilat,jlat,ispin,ispin,iorb,jorb,:) + weight/(wr(:)+xi*eps-de)
                    enddo
                    !
@@ -201,7 +193,6 @@ contains
   end subroutine vca_get_gimp_realaxis_1
 
   subroutine vca_get_gimp_realaxis_2(Greal)
-    integer                                                                   :: Nexc
     integer                                                                   :: ilat,jlat
     integer                                                                   :: iorb,jorb
     integer                                                                   :: ispin
@@ -213,7 +204,6 @@ contains
     call allocate_grids()
     !
     Greal = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do ispin=1,Nspin
        do ilat=1,Nlat
@@ -225,7 +215,7 @@ contains
                    jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
                    do iexc=1,Nexc
                       weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-                      de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+                      de     = Lmatrix(ispin,iexc)
                       Greal(io,jo,:) = Greal(io,jo,:) + weight/(xi*wm(:)-de)
                    enddo
                    !
@@ -237,7 +227,6 @@ contains
   end subroutine vca_get_gimp_realaxis_2
 
   subroutine vca_get_gimp_realaxis_3(Greal,ilat,jlat,ispin,jspin,iorb,jorb)
-    integer                                   :: Nexc
     integer                                   :: ilat,jlat
     integer                                   :: iorb,jorb
     integer                                   :: ispin,jspin
@@ -249,11 +238,10 @@ contains
     call allocate_grids()
     !
     Greal = dcmplx(0d0,0d0)
-    Nexc = size(Lmatrix,7)
     !
     do iexc=1,Nexc
        weight = cdgQmatrix(ilat,ispin,iorb,iexc)*cQmatrix(jlat,ispin,jorb,iexc)
-       de     = Lmatrix(ilat,jlat,ispin,ispin,iorb,jorb,iexc)
+       de     = Lmatrix(ispin,iexc)
        Greal(:) = Greal(:) + weight/(xi*wm(:)-de)
     enddo
     !
@@ -262,11 +250,15 @@ contains
 
 
 
-
+  !+-----------------------------------------------------------------------------+!
+  ! PURPOSE: Retrieve the number of excitations used in the actual calculation
+  !+-----------------------------------------------------------------------------+!
   subroutine vca_get_Nexc(n)
     integer :: n
-    N = size(Lmatrix,7)
+    N = Nexc
   end subroutine vca_get_Nexc
+
+
 
 
 

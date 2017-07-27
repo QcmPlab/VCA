@@ -23,7 +23,8 @@ MODULE VCA
 
   USE VCA_MAIN, only:     &
        vca_init_solver,   &
-       vca_diag
+       vca_diag,          &
+       vca_update_poles
 
 
 END MODULE VCA

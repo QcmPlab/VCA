@@ -120,8 +120,9 @@ contains
           zeta_function=zeta_function+exp(-beta*espace(isector)%e(i))
        enddo
     enddo
-    write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
-
+    omega_potential = -1d0/beta*log(zeta_function)
+    write(LOGfile,"(A,F20.12)")'Z     =',zeta_function
+    write(LOGfile,"(A,F20.12)")'Omega =',omega_potential
     !
     return
   end subroutine diagonalize_cluster

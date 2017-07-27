@@ -5,7 +5,7 @@ program vca_test
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nxso,Nsys,Nrat,Nexc
+  integer                                         :: Nlso,Nxso,Nsys,Nrat
   integer                                         :: ilat,jlat
   integer                                         :: i,j
   integer                                         :: ix,iy
@@ -84,32 +84,38 @@ program vca_test
   call vca_diag(lso2nnn_reshape(Htb,Nlat,Nspin,Norb)) 
 
 
-
-
-
   allocate(Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(wm(Lmats),wr(Lreal))
   wm = pi/beta*(2*arange(1,Lmats)-1)
   wr = linspace(wini,wfin,Lreal)
+
   call vca_get_gf_matsubara(Gmats)
   call vca_get_gf_realaxis(Greal)
   do ilat=1,Nlat
      do jlat=1,Nlat
-        call splot("Gmats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Greal_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+        call splot("Gref_mats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gref_real_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
      enddo
   enddo
 
 
-
+  call vca_update_poles(Vmat)
 
   
+  call vca_get_gf_matsubara(Gmats)
+  call vca_get_gf_realaxis(Greal)
+  do ilat=1,Nlat
+     do jlat=1,Nlat
+        call splot("Gsys_mats_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gsys_real_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+     enddo
+  enddo
 
 
 contains
 
-  
+
 
 
   function Htb_square_lattice(Nrow,Ncol,ts,file) result(H0)
