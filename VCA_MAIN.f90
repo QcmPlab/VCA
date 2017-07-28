@@ -24,6 +24,7 @@ module VCA_MAIN
   !> VCA GF POLES UPDATE
   public :: vca_diag_system
 
+
   !> VCA SFT GRAND POTENTIAL
   public :: vca_sft_potential
 
@@ -112,21 +113,22 @@ contains
 
 
 
-  
+
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Get the SFT grand potential
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_sft_potential()
+  subroutine vca_sft_potential(sft_potential)
     real(8) :: sft_potential
-    real(8) :: Tr_system,Tr_cluster
-    integer :: unit
-    Tr_system  = -1d0/beta*sum( log(1d0+exp(-beta*Qsystem%poles(:))) )
-    Tr_cluster = -1d0/beta*sum( log(1d0+exp(-beta*Qcluster%poles(:))) )
-
-    sft_potential = omega_potential + Tr_system - Tr_cluster
-
-    write(*,*)sft_potential
-    open(free_unit(unit),file="SFT_potential.vca")
+    real(8) :: Tr(2)
+    integer :: unit,iexc,Nexc
+    Nexc = Qcluster%Nexc    
+    Tr=0d0
+    do iexc=1,Nexc
+       Tr(1)  = Tr(1) - log(1d0+exp(-beta*Qsystem%poles(iexc)))
+       Tr(2)  = Tr(2) - log(1d0+exp(-beta*Qcluster%poles(iexc)))
+    enddo
+    sft_potential = omega_potential + Tr(1)/beta - Tr(2)/beta
+    open(free_unit(unit),file="SFT_potential.vca",access='append')
     write(unit,*)sft_potential
     close(unit)
   end subroutine vca_sft_potential

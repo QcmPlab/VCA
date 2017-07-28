@@ -1,36 +1,33 @@
-program vca_test
+program vca_chain1d
   USE SCIFOR
   USE DMFT_TOOLS
   !
   USE VCA
   !
   implicit none
-  integer                                         :: Nlos,Nsos,Nsys,Nrat
-  integer                                         :: ilat,jlat
-  integer                                         :: i,j
-  integer                                         :: ix,iy
-  logical                                         :: converged
-  real(8)                                         :: wband
+  integer                            :: Nlos,Nsos,Nsys,Nrat
+  integer                            :: ilat,jlat
+  integer                            :: i,j
+  integer                            :: ix
+  logical                            :: converged
+  real(8)                            :: wband
 
   !The local hybridization function:
-  real(8),dimension(:,:),allocatable              :: Tsys,Tref,Vmat,Htb,Mmat,dens
-  real(8),allocatable,dimension(:)                :: wm,wr
-  complex(8)                                      :: iw
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal
-  character(len=16)                               :: finput
-  real(8)                                         :: ts,tsp
-  integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
-  integer                                         :: unit
-
+  real(8),dimension(:,:),allocatable :: Tsys,Tref,Vmat
+  character(len=16)                  :: finput
+  real(8)                            :: ts,tol,omega
+  integer                            :: Nx,Lx,Rx
+  integer                            :: unit
+  !
+  real(8),dimension(1)               :: array
+  integer                            :: iter
+  real(8)                            :: fresult
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
-  call parse_input_variable(tsp,"tsp",finput,default=1d0)
   call parse_input_variable(Nx,"NX",finput,default=1)
-  call parse_input_variable(Ny,"Ny",finput,default=2)
   call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
-  call parse_input_variable(Ry,"Ry",finput,default=5,comment="Ratio L/Lc=Ry along Y-directions, aka # of copies along Y")
-  !
+  call parse_input_variable(tol,"TOL",finput,default=1.d-5)
   call vca_read_input(trim(finput))
 
 
@@ -49,82 +46,56 @@ program vca_test
   if(Nspin/=1)stop "Nspin != 1"
   !
   Lx   = Rx*Nx
-  Ly   = Ry*Ny
   !
-  Nlat = Nx*Ny
-  Nsys = Lx*Ly
-  !
-  Nlos = Nlat*Norb*Nspin
-  Nsos = Nsys*Norb*Nspin
+  Nlat = Nx
+  Nsys = Lx
 
 
   allocate(Tsys(Nsys,Nsys))
   allocate(Tref(Nsys,Nsys))
   allocate(Vmat(Nsys,Nsys))
-  allocate(Htb(Nlat,Nlat))
+
   !>build full system lattice tb hamiltonian
-  Tsys = Htb_square_lattice(Lx,Ly,ts,file="Tsys_matrix.dat")
-  !>build cluster tight binding hamiltonian (one could extract it)
-  Htb  = Htb_square_lattice(Nx,Ny,ts,file="Htb_matrix.dat")
-  !>build Tref: tiling of Htb decoupled clusters;
-  call vca_tile_Treference(Htb,[Rx,Ry],Tref)
-  !>build Vmat=Tsys-Tref
-  Vmat = Tsys - Tref
-  !>printing lattice structures.
-  call print_2DLattice_Structure(Htb,[Nx,Ny],1,1,file="Htb")
-  call print_2DLattice_Structure(Tsys,[Lx,Ly],1,1,file="Tsys")
-  call print_2DLattice_Structure(Tref,[Lx,Ly],1,1,file="Tref")
-  call print_2DLattice_Structure(Vmat,[Lx,Ly],1,1,file="Vmat")  
-
-  call vca_init_solver(los2nnn_reshape(Htb,Nlat,Norb,Nspin))
-  call vca_diag_cluster(los2nnn_reshape(Htb,Nlat,Norb,Nspin)) 
-  call vca_diag_system(Vmat)
-  call vca_sft_potential
+  Tsys = Htb_square_lattice(Lx,1,ts,file="Tsys_matrix.dat")
 
 
-  allocate(wm(Lmats),wr(Lreal))
-  wm = pi/beta*(2*arange(1,Lmats)-1)
-  wr = linspace(wini,wfin,Lreal)
-
-
-  allocate(Gmats(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(Greal(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(dens(Nlat,Nlat))
-
-  call vca_get_Gcluster_matsubara(Gmats)
-  call vca_get_Gcluster_realaxis(Greal)
-  do ilat=1,Nlat
-     do jlat=1,Nlat
-        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-        dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
-     enddo
-  enddo
-  deallocate(Gmats,Greal,dens)
-
-
-
-  allocate(Gmats(Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(Greal(Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(dens(Nsys,Nsys))
-
-  call vca_get_Gsystem_matsubara(Gmats)
-  call vca_get_Gsystem_realaxis(Greal)
-  do ilat=1,Nsys
-     do jlat=1,Nsys
-        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-        dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
-     enddo
-  enddo
-
-
-
-
+  array(1)        = ts
+  print*,"Guess:",array
+  call fmin_cg(array,solve_vca,iter,fresult,ftol=tol)
+  ts = array(1)
+  print*,"Result ts : ",ts
 
 
 
 contains
+
+
+
+  function solve_vca(params) result(Omega)
+    real(8),dimension(:)         :: params
+    real(8)                      :: Omega
+    real(8)                      :: tij
+    real(8),dimension(Nlat,Nlat) :: Hcluster
+    !
+    !parameters:
+    !hoppint t_<ij> = ts = a(1)
+    !local energy t_ii = e0 = a(2) = 0 by particle-hole symmetry
+    !
+    tij = params(1)
+    write(300,*)tij
+    !
+    Hcluster  = Htb_square_lattice(Nx,1,tij,file="Hcluster_matrix.dat")
+    !
+    call vca_tile_Treference(Hcluster,[Rx,1],Tref)
+    !
+    Vmat = Tsys - Tref
+    !
+    call vca_init_solver(los2nnn_reshape(Hcluster,Nlat,Norb,Nspin))
+    call vca_diag_cluster(los2nnn_reshape(Hcluster,Nlat,Norb,Nspin)) 
+    call vca_diag_system(Vmat)
+    call vca_sft_potential(omega)
+    !
+  end function solve_vca
 
 
 
@@ -185,7 +156,7 @@ contains
     real(8),dimension(:,:) :: Tref
     logical,optional       :: iprint
     integer                :: Nlat,Nratio
-    integer                :: i,j,icopy,unit
+    integer                :: i,j,icopy,unit,ilat,jlat
     !
     Nlat   = size(Tcluster,1)
     Nratio = product(Rvec)
@@ -193,11 +164,11 @@ contains
     call assert_shape(Tcluster,[Nlat,Nlat],"vca_tile_Treference","Tcluster")
     call assert_shape(Tref,[Nsys,Nsys],"vca_tile_Treference","Tref")
     do icopy=1,Nratio
-       do ix=1,Nlat
-          do iy=1,Nlat
-             i = ix + (icopy-1)*Nlat
-             j = iy + (icopy-1)*Nlat
-             Tref(i,j) = Tcluster(ix,iy)
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             i = ilat + (icopy-1)*Nlat
+             j = jlat + (icopy-1)*Nlat
+             Tref(i,j) = Tcluster(ilat,jlat)
           enddo
        enddo
     enddo
@@ -253,17 +224,15 @@ contains
 
 
 
-  subroutine print_2Dlattice_structure(Hmat,Nvec,Nspin,Norb,pbc,file)
-    integer                   :: Nvec(2)
+  subroutine print_1Dlattice_structure(Hmat,Nx,Nspin,Norb,pbc,file)
     integer                   :: Nx
-    integer                   :: Ny
     integer                   :: Nspin
     integer                   :: Norb
     real(8),dimension(:,:)    :: Hmat
-    logical,optional          :: pbc(2)
+    logical,optional          :: pbc
     character(len=*),optional :: file
     character(len=32)         :: file_
-    logical                   :: pbc_(2)
+    logical                   :: pbc_
     integer                   :: unit
     integer                   :: Nlat,Nh
     integer                   :: i,j
@@ -283,9 +252,7 @@ contains
     pbc_=.false.   ; if(present(pbc))pbc_=pbc
     file_="lattice"; if(present(file))file_=file
     !
-    Nx = Nvec(1)
-    Ny = Nvec(2)
-    Nlat = Nx*Ny
+    Nlat = Nx
     !
     call assert_shape(Hmat,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"proint_2DLattice_structure","Hmat")
     !
@@ -315,13 +282,11 @@ contains
     !PRINT POINTS:
     open(free_unit(unit),file=trim(file)//"_points.dat")
     do ix=1,Nx
-       do iy=1,Ny
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                Ri(1) = ix + spin_shift(ispin) 
-                Ri(2) = iy + orb_shift(iorb)
-                write(unit,"(3F12.5,I12)")Ri(1),Ri(2),pwidth,rgb(corb(mod(iorb,5)))
-             enddo
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             Ri(1) = ix + spin_shift(ispin) 
+             Ri(2) = 1 + orb_shift(iorb)
+             write(unit,"(3F12.5,I12)")Ri(1),Ri(2),pwidth,rgb(corb(mod(iorb,5)))
           enddo
        enddo
     enddo
@@ -330,71 +295,52 @@ contains
     !PRINT LINES:
     open(free_unit(unit),file=trim(file)//"_lines.dat")
     do ix=1,Nx
-       do iy=1,Ny
-          ilat = iy + (ix-1)*Ny
+       ilat = ix
+       iy   = 1
+       !
+       do jx=ix,Nx
+          jlat = jx
+          jy   = 1
           !
-          do jx=ix,Nx
-             do jy=iy,Ny
-                jlat = jy + (jx-1)*Ny
-                !
-                bool=.false.
-                do ispin=1,Nspin
-                   do jspin=1,Nspin
-                      do iorb=1,Norb
-                         do jorb=1,Norb
-                            i = iorb + (ispin-1)*Nspin + (ilat-1)*Nspin*Norb
-                            j = jorb + (jspin-1)*Nspin + (jlat-1)*Nspin*Norb
-                            if(abs(Hmat(i,j))/=0d0)bool=.true.
-                         enddo
-                      enddo
+          bool=.false.
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      i = iorb + (ispin-1)*Nspin + (ilat-1)*Nspin*Norb
+                      j = jorb + (jspin-1)*Nspin + (jlat-1)*Nspin*Norb
+                      if(abs(Hmat(i,j))/=0d0)bool=.true.
                    enddo
                 enddo
-                if(bool)then
-                   Ri = [ix,iy]
-                   Rj = [jx,jy]
-                   write(unit,"(2F12.5)")Ri(1),Ri(2)
-                   write(unit,"(2F12.5)")Rj(1),Rj(2)
-                   write(unit,*)""
-                endif
-                !
              enddo
           enddo
+          if(bool)then
+             Ri = [ix,iy]
+             Rj = [jx,jy]
+             write(unit,"(2F12.5)")Ri(1),Ri(2)
+             write(unit,"(2F12.5)")Rj(1),Rj(2)
+             write(unit,*)""
+          endif
+          !
        enddo
     enddo
     !
-    if(pbc_(1))then
+    if(pbc_)then
+       iy = 1
        ix = 1
-       do iy=1,Ny
-          write(unit,*)ix-0.25d0,iy
-          write(unit,*)ix,iy
-          write(unit,*)""
-       enddo
+       write(unit,*)ix-0.25d0,iy
+       write(unit,*)ix,iy
+       write(unit,*)""
        ix = Nx
-       do iy=1,Ny
-          write(unit,*)ix+0.25d0,iy
-          write(unit,*)ix,iy
-          write(unit,*)""
-       enddo
+       write(unit,*)ix+0.25d0,iy
+       write(unit,*)ix,iy
+       write(unit,*)""
     endif
     !
-    if(pbc_(2))then
-       iy = 1
-       do ix=1,Nx
-          write(unit,*)ix,iy-0.25d0
-          write(unit,*)ix,iy
-          write(unit,*)""
-       enddo
-       iy = Ny
-       do ix=1,Nx
-          write(unit,*)ix,iy+0.25d0
-          write(unit,*)ix,iy
-          write(unit,*)""
-       enddo
-    endif
     close(unit)
     !
     Xmin = 0    ; Ymin  = 0
-    Xmax = Nx+1 ; Ymax  = Ny+1
+    Xmax = Nx+1 ; Ymax  = 1
     !
     open(free_unit(unit),file=trim(file)//"_structure.gp")
     write(unit,*)"set term wxt"
@@ -419,10 +365,10 @@ contains
          //"'"//trim(file)//"_points.dat' u 1:2:3:4 with xerrorbars lc rgb variable ps 0 lw 2 "
     close(unit)
     call system("chmod +x "//trim(file)//"_structure.gp")
-  end subroutine print_2Dlattice_structure
+  end subroutine print_1Dlattice_structure
 
 
-end program vca_test
+end program vca_chain1d
 
 
 

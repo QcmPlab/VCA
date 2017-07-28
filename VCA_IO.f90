@@ -5,6 +5,7 @@ MODULE VCA_IO
   ! USE SF_LINALG
   USE SF_ARRAYS, only: linspace,arange
   USE SF_IOTOOLS, only: str,reg
+  USE SF_MISC,only : assert_shape
   implicit none
   private
 
@@ -54,12 +55,18 @@ contains
   ! PURPOSE: Build the system GF from system Qmatrix 
   !+-----------------------------------------------------------------------------+!
   subroutine vca_get_Gsystem_matsubara(Gmats)
-    complex(8),dimension(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats),intent(inout) :: Gmats
+    complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Gmats
+    integer                                           :: Nsys
+    Nsys = size(Gmats,1)
+    call assert_shape(Gmats,[Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats],"vca_get_Gsystem_matsubara","Gmats")
     call Qmatrix_to_matsubara_gf(Gmats,Qsystem)
   end subroutine vca_get_Gsystem_matsubara
 
   subroutine vca_get_Gsystem_realaxis(Greal)
-    complex(8),dimension(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lreal),intent(inout) :: Greal
+    complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Greal
+    integer                                           :: Nsys
+    Nsys = size(Greal,1)
+    call assert_shape(Greal,[Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats],"vca_get_Gsystem_realaxis","Greal")
     call Qmatrix_to_realaxis_gf(Greal,Qsystem)
   end subroutine vca_get_Gsystem_realaxis
 
