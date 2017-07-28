@@ -27,6 +27,10 @@ contains
 
 
 
+  
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Build the Q and Lambda matrix from Spectral sum.
+  !+------------------------------------------------------------------+
   subroutine build_Qmatrix_cluster()
     integer :: ilat,jlat,iorb,jorb,ispin
     !
@@ -35,22 +39,8 @@ contains
     call allocate_Qmatrix(Qcluster)
     !
     call full_build_Lmatrix(Qcluster)
-    ! do ispin=1,Nspin
-    !    !
-    !    do ilat=1,Nlat
-    !       do jlat=1,Nlat
-    !          do iorb=1,Norb
-    !             do jorb=1,Norb
-    !                !
-    !                write(LOGfile,"(A)")"Get Q_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
     !
-    call full_build_Qmatrix(Qcluster)!,ispin,ilat,jlat,iorb,jorb)
-    !
-    !             enddo
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
+    call full_build_Qmatrix(Qcluster)
     !
     call stop_timer
     !
@@ -250,80 +240,3 @@ end MODULE VCA_QMATRIX
 
 
 
-
-
-
-! subroutine full_build_Qmatrix(matrix,ispin,ilat,jlat,iorb,jorb)
-!   type(Qmatrix)    :: matrix
-!   integer          :: ilat,jlat
-!   integer          :: iorb,jorb
-!   integer          :: ispin,jspin
-!   integer          :: isite,jsite
-!   integer          :: idim,isector
-!   integer          :: jdim,jsector
-!   real(8)          :: cdgOp_mat,cOp_mat
-!   real(8)          :: sgn_cdg,sgn_c
-!   integer          :: ib(Nlevels)
-!   integer          :: n,m,p,iexc
-!   integer          :: ni,mj
-!   integer          :: i,j,is,js
-!   real(8)          :: expterm
-!   type(sector_map) :: HI,HJ
-!   !
-!   isite = state_index(ilat,iorb,ispin)
-!   jsite = state_index(jlat,jorb,ispin)
-!   is = iorb + (ilat-1)*Norb
-!   js = jorb + (jlat-1)*Norb
-!   !
-!   iexc = 0
-!   do isector=1,Nsectors
-!      jsector=getCDGsector(ispin,isector)
-!      if(jsector==0)cycle
-!      !
-!      idim=getdim(isector)     !i-th sector dimension
-!      jdim=getdim(jsector)     !j-th sector dimension
-!      call build_sector(isector,HI)
-!      call build_sector(jsector,HJ)
-!      !
-!      do i=1,idim          !loop over the states in the i-th sect.
-!         do j=1,jdim       !loop over the states in the j-th sect.
-!            cdgOp_mat = 0d0
-!            cOp_mat   = 0d0
-!            !
-!            expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
-!            if(expterm < cutoff)cycle
-!            !
-!            iexc=iexc+1
-!            !
-!            do ni=1,idim              !loop over the component of |I> (IN state!)
-!               n  = HI%map(ni)
-!               ib = bdecomp(n,2*Ns)
-!               if(ib(isite) == 1)cycle
-!               call cdg(isite,n,m,sgn_cdg)
-!               mj = binary_search(HJ%map,m)
-!               !
-!               cdgOp_mat = cdgOp_mat + espace(jsector)%M(mj,j)*sgn_cdg*espace(isector)%M(ni,i)
-!               !
-!            enddo
-!            !
-!            do mj=1,jdim              !loop over the component of |J> (IN state!)
-!               m  = HJ%map(mj)
-!               ib = bdecomp(m,2*Ns)
-!               if(ib(jsite) == 0)cycle
-!               call c(jsite,m,n,sgn_c)
-!               ni = binary_search(HI%map,n)
-!               !
-!               cOp_mat = cOp_mat + espace(isector)%M(ni,i)*sgn_c*espace(jsector)%M(mj,j)
-!               !
-!            enddo
-!            !
-!            matrix%cdg(iexc,is) = cdgOp_mat*sqrt(expterm/zeta_function)
-!            matrix%c(js,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
-!            !             
-!         enddo
-!      enddo
-!      call delete_sector(isector,HI)
-!      call delete_sector(jsector,HJ)
-!   enddo
-!   !
-! end subroutine full_build_Qmatrix

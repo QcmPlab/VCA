@@ -82,8 +82,10 @@ program vca_test
 
   call vca_init_solver(los2nnn_reshape(Htb,Nlat,Norb,Nspin))
   call vca_diag_cluster(los2nnn_reshape(Htb,Nlat,Norb,Nspin)) 
+  call vca_diag_system(Vmat)
+  call vca_sft_potential
 
-
+  
   allocate(Gmats(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
   allocate(Greal(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
   allocate(wm(Lmats),wr(Lreal))
@@ -99,19 +101,20 @@ program vca_test
      enddo
   enddo
 
+  call vca_get_Gsystem_matsubara(Gmats)
+  call vca_get_Gsystem_realaxis(Greal)
+  do ilat=1,Nlat
+     do jlat=1,Nlat
+        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+     enddo
+  enddo
 
-  ! call vca_diag_system(Vmat)
+
+  
 
 
-  ! call vca_get_Gsystem_matsubara(Gmats)
-  ! call vca_get_Gsystem_realaxis(Greal)
-  ! do ilat=1,Nlat
-  !    do jlat=1,Nlat
-  !       call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-  !       call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-  !    enddo
-  ! enddo
-
+  
 
 contains
 

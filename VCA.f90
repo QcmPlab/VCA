@@ -24,8 +24,9 @@ MODULE VCA
 
   USE VCA_MAIN, only:      &
        vca_init_solver,    &
-       vca_diag_cluster! ,   &
-  ! vca_diag_system
+       vca_diag_cluster,   &
+       vca_diag_system,    &
+       vca_sft_potential
 
 
 END MODULE VCA

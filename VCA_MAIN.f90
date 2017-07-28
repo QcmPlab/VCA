@@ -7,7 +7,7 @@ module VCA_MAIN
   USE VCA_OBSERVABLES
   !
   USE SF_LINALG,  only: eigh,diag
-  USE SF_IOTOOLS, only: str
+  USE SF_IOTOOLS, only: str,free_unit
   USE SF_TIMER,only: start_timer,stop_timer
   USE SF_MISC, only: assert_shape
   implicit none
@@ -21,9 +21,11 @@ module VCA_MAIN
   public :: vca_diag_cluster
 
 
-  ! !> VCA GF POLES UPDATE
-  ! public :: vca_diag_system
+  !> VCA GF POLES UPDATE
+  public :: vca_diag_system
 
+  !> VCA SFT GRAND POTENTIAL
+  public :: vca_sft_potential
 
 
 contains
@@ -78,66 +80,55 @@ contains
 
 
 
-  ! !+-----------------------------------------------------------------------------+!
-  ! !PURPOSE: Get the spectrum of the system GF from the Cluster tiling 
-  ! !+-----------------------------------------------------------------------------+!
-  ! subroutine vca_diag_system(Vmat)
-  !   real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Vmat
-  !   integer                                            :: ilat,jlat
-  !   integer                                            :: iorb,jorb
-  !   integer                                            :: ispin
-  !   integer                                            :: iexc,jexc
-  !   integer                                            :: i,j,Nexc
-  !   real(8),dimension(:,:),allocatable                 :: Mmat
-  !   real(8),dimension(:),allocatable                   :: Lvec
-
-  !   do ispin=1,Nspin
-  !      !
-  !      Nexc = Qcluster(ispin)%Nexc
-  !      call allocate_Qmatrix(Qsystem(ispin),ispin)
-  !      !
-  !      allocate(Mmat(Nexc,Nexc))
-  !      allocate(Lvec(Nexc))
-  !      !
-  !      Mmat = diag( Qcluster(ispin)%poles(:) )
-  !      !
-  !      ! do iexc=1,Nexc
-  !      !    do jexc=1,Nexc
-  !      !       !
-  !      !       do i=1,Nlat*Norb
-  !      !          do j=1,Nlat*Norb
-  !      !             Mmat(iexc,jexc) = Mmat(iexc,jexc) + &
-  !      !                  Qcluster(ispin)%cdg(iexc,i)*Vmat(i,j)*Qcluster(ispin)%c(j,jexc)
-  !      !          enddo
-  !      !       enddo
-  !      !       !
-  !      !    enddo
-  !      ! enddo
-  !      Mmat = matmul(Qcluster(ispin)%cdg, matmul(Vmat,Qcluster(ispin)%c))
-  !      Mmat = Mmat + diag( Qcluster(ispin)%poles )
-  !      !
-  !      call eigh(Mmat,Lvec)
-  !      !
-  !      do i=1,Nlat*Norb
-  !         do iexc=1,Nexc
-  !            do jexc=1,Nexc
-  !               Qsystem(ispin)%c(i,iexc)   = Qsystem(ispin)%c(i,iexc)   + &
-  !                    Qcluster(ispin)%c(i,jexc)*Mmat(jexc,iexc)
-  !               !
-  !               Qsystem(ispin)%cdg(iexc,i) = Qsystem(ispin)%cdg(iexc,i) + &
-  !                    Mmat(iexc,jexc)*Qcluster(ispin)%cdg(jexc,i)
-  !            enddo
-  !         enddo
-  !      enddo
-  !      Qsystem(ispin)%poles(:) = Lvec
-  !      !
-  !   enddo
-  ! end subroutine vca_diag_system
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: Get the spectrum of the system GF from the Cluster tiling 
+  !+-----------------------------------------------------------------------------+!
+  subroutine vca_diag_system(Vmat)
+    real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Vmat
+    integer                                            :: ilat,jlat
+    integer                                            :: iorb,jorb
+    integer                                            :: ispin
+    integer                                            :: iexc,jexc
+    integer                                            :: i,j,Nexc
+    real(8),dimension(:,:),allocatable                 :: Mmat
+    real(8),dimension(:),allocatable                   :: Lvec
+    !
+    Nexc = Qcluster%Nexc
+    call allocate_Qmatrix(Qsystem)
+    !
+    allocate(Mmat(Nexc,Nexc))
+    allocate(Lvec(Nexc))
+    !
+    Mmat = matmul(Qcluster%cdg, matmul(Vmat,Qcluster%c))
+    Mmat = Mmat + diag( Qcluster%poles )
+    !
+    call eigh(Mmat,Lvec)
+    !
+    Qsystem%c     = matmul( Qcluster%c, Mmat )              ![Nlos,Nexc][Nexc,Nexc]
+    Qsystem%cdg   = matmul( transpose(Mmat), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
+    Qsystem%poles = Lvec
+    !
+  end subroutine vca_diag_system
 
 
 
+  
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: Get the SFT grand potential
+  !+-----------------------------------------------------------------------------+!
+  subroutine vca_sft_potential()
+    real(8) :: sft_potential
+    real(8) :: Tr_system,Tr_cluster
+    integer :: unit
+    Tr_system  = -1d0/beta*sum( log(1d0+exp(-beta*Qsystem%poles(:))) )
+    Tr_cluster = -1d0/beta*sum( log(1d0+exp(-beta*Qcluster%poles(:))) )
 
+    sft_potential = omega_potential + Tr_system - Tr_cluster
 
-
+    write(*,*)sft_potential
+    open(free_unit(unit),file="SFT_potential.vca")
+    write(unit,*)sft_potential
+    close(unit)
+  end subroutine vca_sft_potential
 
 end module VCA_MAIN
