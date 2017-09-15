@@ -7,6 +7,15 @@ MODULE VCA_VARS_GLOBAL
 
 
 
+  !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
+  type effective_bath
+     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [Nlat][Nspin][1//Norb][Nbath]
+     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Nspin][Norb][Nbath]
+     logical                                     :: status=.false.
+  end type effective_bath
+
+
+
   !LOG UNITS
   !=========================================================
   integer,save                                    :: LOGfile=6
@@ -30,6 +39,7 @@ MODULE VCA_VARS_GLOBAL
   real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Norb][Norb][Nspin][Nspin]
 
 
+
   !Some maps between sectors and full Hilbert space (pointers)
   !=========================================================
   integer,allocatable,dimension(:,:)              :: getsector
@@ -37,6 +47,13 @@ MODULE VCA_VARS_GLOBAL
   integer,allocatable,dimension(:,:)              :: getCDGsector
   integer,allocatable,dimension(:)                :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                :: getNup,getNdw
+  integer,allocatable,dimension(:,:,:)            :: getBathStride
+
+
+  !Effective Bath used in the VCA code (this is opaque to user)
+  !=========================================================
+  type(effective_bath)                            :: vca_bath
+
 
 
   !Eigenvalues,Eigenvectors FULL DIAGONALIZATION
@@ -49,12 +66,13 @@ MODULE VCA_VARS_GLOBAL
   type(full_espace),dimension(:),allocatable      :: espace
 
 
-  !Partition function
+  !Partition function, Omega potential, SFT potential
   !=========================================================
   real(8)                                         :: zeta_function
   real(8)                                         :: omega_potential
+  real(8)                                         :: sft_potential
 
-
+  
   !Cluster Green's functions
   !(Nlat,Nlat,Nspin,Nspin,Norb,Norb,:)
   !=========================================================
@@ -83,6 +101,7 @@ MODULE VCA_VARS_GLOBAL
   real(8),dimension(:,:),allocatable              ::  imp_docc    ![Nlat][Norb]
 
 
+  
   !Suffix string attached to the output files.
   !=========================================================
   character(len=64)                               :: file_suffix=""

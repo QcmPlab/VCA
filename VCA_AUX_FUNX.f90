@@ -145,6 +145,7 @@ contains
 
 
 
+
   !> Get stride position in the one-particle many-body space 
   function index_stride_los(ilat,iorb,ispin) result(indx)
     integer :: ilat

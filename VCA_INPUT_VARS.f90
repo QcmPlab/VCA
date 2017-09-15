@@ -11,36 +11,38 @@ MODULE VCA_INPUT_VARS
   !INPUT VARIABLES (to be exported in MAIN module)
   !input variables
   !=========================================================
-  integer                                       :: Norb         !# of lattice orbitals per site
-  integer                                       :: Nspin        !# spin degeneracy (max 2)
-  real(8),dimension(2)                          :: Uloc         !local interactions
-  real(8)                                       :: Ust          !intra-orbitals interactions
-  real(8)                                       :: Jh           !J_Hund: Hunds' coupling constant 
-  real(8)                                       :: Jx           !J_X: coupling constant for the spin-eXchange interaction term
-  real(8)                                       :: Jp           !J_P: coupling constant for the Pair-hopping interaction term 
-  real(8)                                       :: xmu          !chemical potential
-  real(8)                                       :: beta         !inverse temperature
-  real(8)                                       :: eps          !broadening
-  real(8)                                       :: wini,wfin    !
-  logical                                       :: Jhflag       !spin-exchange and pair-hopping flag.
-  logical                                       :: HFmode       !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
-  real(8)                                       :: cutoff       !cutoff for spectral summation
-  real(8)                                       :: gs_threshold !Energy threshold for ground state degeneracy loop up
-  real(8)                                       :: sb_field     !symmetry breaking field
-  logical                                       :: print_G      !flag to print impurity Green`s functions
-  logical                                       :: diag_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
-  real(8)                                       :: nread        !fixed density. if 0.d0 fixed chemical potential calculation.
-  real(8)                                       :: nerr         !fix density threshold. a loop over from 1.d-1 to required nerr is performed
-  real(8)                                       :: ndelta       !initial chemical potential step
-  integer                                       :: niter        !
-  integer                                       :: verbose      !
+  integer              :: Norb         !# of lattice orbitals per site
+  integer              :: Nspin        !# spin degeneracy (max 2)
+  integer              :: Nbath        !# of bath sites (per orbital or not depending on bath_type)
+  real(8),dimension(2) :: Uloc         !local interactions
+  real(8)              :: Ust          !intra-orbitals interactions
+  real(8)              :: Jh           !J_Hund: Hunds' coupling constant 
+  real(8)              :: Jx           !J_X: coupling constant for the spin-eXchange interaction term
+  real(8)              :: Jp           !J_P: coupling constant for the Pair-hopping interaction term 
+  real(8)              :: xmu          !chemical potential
+  real(8)              :: beta         !inverse temperature
+  real(8)              :: eps          !broadening
+  real(8)              :: wini,wfin    !
+  logical              :: Jhflag       !spin-exchange and pair-hopping flag.
+  logical              :: HFmode       !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
+  real(8)              :: cutoff       !cutoff for spectral summation
+  real(8)              :: gs_threshold !Energy threshold for ground state degeneracy loop up
+  real(8)              :: sb_field     !symmetry breaking field
+  logical              :: print_G      !flag to print impurity Green`s functions
+  logical              :: diag_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
+  character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
+  real(8)              :: nread        !fixed density. if 0.d0 fixed chemical potential calculation.
+  real(8)              :: nerr         !fix density threshold. a loop over from 1.d-1 to required nerr is performed
+  real(8)              :: ndelta       !initial chemical potential step
+  integer              :: niter        !
+  integer              :: verbose      !
 
 
   !Some parameters for function dimension:
   !=========================================================
-  integer                                       :: Lmats
-  integer                                       :: Lreal
-  integer                                       :: Ltau
+  integer              :: Lmats
+  integer              :: Lreal
+  integer              :: Ltau
 
 
 
@@ -61,6 +63,7 @@ contains
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of orbitals per cluster site.")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy")
+    call parse_input_variable(Nbath,"NBATH",INPUTunit,default=0,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)")
     !
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0],comment="Values of the local interaction per orbital")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
@@ -80,6 +83,7 @@ contains
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=5.d0,comment="Largest real-axis frequency")
     call parse_input_variable(eps,"EPS",INPUTunit,default=0.01d0,comment="Broadening on the real-axis.")
     call parse_input_variable(print_G,"PRINT_G",INPUTunit,default=.true.,comment="Flag to print impurity Greens function")
+    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     !
     call parse_input_variable(nread,"NREAD",INPUTunit,default=0.d0,comment="Objective density for fixed density calculations.")
     call parse_input_variable(nerr,"NERR",INPUTunit,default=1.d-4,comment="Error threshold for fixed density calculations.")

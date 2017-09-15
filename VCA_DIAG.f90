@@ -161,190 +161,26 @@ contains
        !
        do ilat=1,Nlat
           do iorb=1,Norb
-             nup(ilat,iorb)=dble(ib(state_index(ilat,iorb,1)))
-             ndw(ilat,iorb)=dble(ib(state_index(ilat,iorb,2)))
+             nup(ilat,iorb)=dble(ib(imp_state_index(ilat,iorb,1)))
+             ndw(ilat,iorb)=dble(ib(imp_state_index(ilat,iorb,2)))
           enddo
        enddo
        !
-       !CLUSTER  HAMILTONIAN
-       !Diagonal Elements, i.e. local part
-       htmp = zero
-       htmp = htmp - xmu*(sum(nup)+sum(ndw))
+       include "vca_Hcluster.f90" 
        !
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             htmp = htmp + impHloc(ilat,ilat,1,1,iorb,iorb)*nup(ilat,iorb)
-             htmp = htmp + impHloc(ilat,ilat,Nspin,Nspin,iorb,iorb)*ndw(ilat,iorb)
-          enddo
-       enddo
+       include "vca_Hint.f90"
        !
-       Hmat(i,i)=Hmat(i,i) + htmp
-       !
-       !
-       !Off-diagonal elements, i.e. non-local part
-       !this loop considers only the site-orbitals off-diagonal terms
-       !because ilat/iorb=jlat/jorb can not have simultaneously
-       !occupation 0 and 1, as required by this if Jcondition:  
-       do ilat=1,Nlat
-          do jlat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   !
-                   !UP
-                   is = state_index(ilat,iorb,1)
-                   js = state_index(jlat,jorb,1)
-                   Jcondition = (impHloc(ilat,jlat,1,1,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
-                   if (Jcondition) then
-                      call c(js,m,k1,sg1)
-                      call cdg(is,k1,k2,sg2)
-                      j = binary_search(H%map,k2)
-                      htmp = impHloc(ilat,jlat,1,1,iorb,jorb)*sg1*sg2
-                      !
-                      Hmat(i,j) = Hmat(i,j) + htmp
-                      !
-                   endif
-                   !
-                   !DW
-                   is = state_index(ilat,iorb,2)
-                   js = state_index(jlat,jorb,2)
-                   Jcondition = (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(js)==1).AND.(ib(is)==0)
-                   if (Jcondition) then
-                      call c(js,m,k1,sg1)
-                      call cdg(is,k1,k2,sg2)
-                      j = binary_search(H%map,k2)
-                      htmp = impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)*sg1*sg2
-                      !
-                      Hmat(i,j) = Hmat(i,j) + htmp
-                      !
-                   endif
-                enddo
-             enddo
-          enddo
-       enddo
-       !
-       !LOCAL INTERACTION
-       !density-density interaction: same orbital, opposite spins:
-       ! = \sum_\a U_\a*(n_{\a,up}*n_{\a,dw})
-       htmp = zero
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             htmp = htmp + Uloc(iorb)*nup(ilat,iorb)*ndw(ilat,iorb)
-          enddo
-       enddo
-       if(Norb>1)then
-          !density-density interaction: different orbitals, opposite spins:
-          ! =   U'   *     sum_{i/=j} [ n_{i,up}*n_{j,dw} + n_{j,up}*n_{i,dw} ]
-          ! =  (Uloc-2*Jh)*sum_{i/=j} [ n_{i,up}*n_{j,dw} + n_{j,up}*n_{i,dw} ]
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                do jorb=iorb+1,Norb
-                   htmp = htmp + Ust*(nup(ilat,iorb)*ndw(ilat,jorb) + nup(ilat,jorb)*ndw(ilat,iorb))
-                enddo
-             enddo
-          enddo
-          !density-density interaction: different orbitals, parallel spins
-          ! = \sum_{i<j}    U''     *[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
-          ! = \sum_{i<j} (Uloc-3*Jh)*[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                do jorb=iorb+1,Norb
-                   htmp = htmp + (Ust-Jh)*(nup(ilat,iorb)*nup(ilat,jorb) + ndw(ilat,iorb)*ndw(ilat,jorb))
-                enddo
-             enddo
-          enddo
-       endif
-       !if using the Hartree-shifted chemical potential: mu=0 for half-filling
-       !sum up the contributions of hartree terms:
-       if(hfmode)then
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                htmp = htmp - 0.5d0*Uloc(iorb)*(nup(ilat,iorb)+ndw(ilat,iorb)) + 0.25d0*Uloc(iorb)
-             enddo
-          enddo
-          if(Norb>1)then
-             do ilat=1,Nlat
-                do iorb=1,Norb
-                   do jorb=iorb+1,Norb
-                      htmp=htmp-0.5d0*Ust*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*Ust
-                      htmp=htmp-0.5d0*(Ust-Jh)*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*(Ust-Jh)
-                   enddo
-                enddo
-             enddo
-          endif
+       if(vca_bath%status)then
+          include "vca_Hbath.f90"
+          !
+          include "vca_Hhyb_bath.f90"
        endif
        !
-       Hmat(i,i) = Hmat(i,i) + htmp
-       !
-       !
-       !
-       ! SPIN-EXCHANGE (S-E) and PAIR-HOPPING TERMS
-       !    S-E: J c^+_iorb_up c^+_jorb_dw c_iorb_dw c_jorb_up  (i.ne.j) 
-       !    S-E: J c^+_{iorb} c^+_{jorb+Ns} c_{iorb+Ns} c_{jorb}
-       if(Norb>1.AND.Jhflag)then
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   i_up = state_index(ilat,iorb,1)
-                   i_dw = state_index(ilat,iorb,2)
-                   j_up = state_index(ilat,jorb,1)
-                   j_dw = state_index(ilat,jorb,2)
-                   Jcondition=(&
-                        (iorb/=jorb).AND.&
-                        (ib(j_up)==1).AND.&
-                        (ib(i_dw)==1).AND.&
-                        (ib(j_dw)==0).AND.&
-                        (ib(i_up)==0))
-                   if(Jcondition)then
-                      call c(j_up,m,k1,sg1)
-                      call c(i_dw,k1,k2,sg2)
-                      call cdg(j_dw,k2,k3,sg3)
-                      call cdg(i_up,k3,k4,sg4)
-                      j=binary_search(H%map,k4)
-                      htmp = one*Jx*sg1*sg2*sg3*sg4
-                      !
-                      if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
-                      !
-                   endif
-                enddo
-             enddo
-          enddo
-       endif
-       !
-       ! PAIR-HOPPING (P-H) TERMS
-       !    P-H: J c^+_iorb_up c^+_iorb_dw   c_jorb_dw   c_jorb_up  (i.ne.j) 
-       !    P-H: J c^+_{iorb}  c^+_{iorb+Ns} c_{jorb+Ns} c_{jorb}
-       if(Norb>1.AND.Jhflag)then
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   i_up = state_index(ilat,iorb,1)
-                   i_dw = state_index(ilat,iorb,2)
-                   j_up = state_index(ilat,jorb,1)
-                   j_dw = state_index(ilat,jorb,2)
-                   Jcondition=(&
-                        (iorb/=jorb).AND.&
-                        (ib(j_up)==1).AND.&
-                        (ib(j_dw)==1).AND.&
-                        (ib(i_dw)==0).AND.&
-                        (ib(i_up)==0))
-                   if(Jcondition)then
-                      call c(j_up,m,k1,sg1)
-                      call c(j_dw,k1,k2,sg2)
-                      call cdg(i_dw,k2,k3,sg3)
-                      call cdg(i_up,k3,k4,sg4)
-                      j=binary_search(H%map,k4)
-                      htmp = one*Jp*sg1*sg2*sg3*sg4
-                      !
-                      if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
-                      !
-                   endif
-                enddo
-             enddo
-          enddo
-       endif
     enddo states
   end subroutine buildH_c
 
+
+  
 
 
   !> Count number of 1p-excitations per spin-channel 

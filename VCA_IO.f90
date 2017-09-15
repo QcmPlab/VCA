@@ -19,7 +19,7 @@ MODULE VCA_IO
   public :: vca_get_dens
   public :: vca_get_mag
   public :: vca_get_docc
-
+  public :: vca_get_sft_potential
 
 
 
@@ -191,8 +191,11 @@ contains
     real(8),dimension(Nlat,Norb) :: docc
     docc = imp_docc
   end subroutine vca_get_docc
-
-
+  !
+  subroutine vca_get_sft_potential(potential)
+    real(8)  :: potential
+    potential = sft_potential
+  end subroutine vca_get_sft_potential
 
 
   !+------------------------------------------------------------------+

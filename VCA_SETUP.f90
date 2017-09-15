@@ -28,7 +28,7 @@ MODULE VCA_SETUP
   public :: build_sector
   public :: delete_sector
   !
-  public :: state_index
+  public :: imp_state_index
   !
   public :: bdecomp
   !
@@ -56,7 +56,12 @@ contains
     integer                                           :: isector,in,shift
     logical                                           :: MPI_MASTER=.true.
     !
-    Ns = Nlat*Norb
+    select case(bath_type)
+    case default
+       Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
+    case ('hybrid')
+       Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
+    end select
     !
     Nlevels  = 2*Ns
     !
@@ -72,6 +77,7 @@ contains
     write(LOGfile,"(A,I15)") 'Total size            = ',Nlevels
     write(LOGfile,"(A,I15)") '# of sites            = ',Nlat
     write(LOGfile,"(A,I15)") '# of orbitals         = ',Norb
+    write(LOGfile,"(A,I15)")'# of bath              = ',Nbath
     write(LOGfile,"(A,2I15)")'Fock space size       = ',2**Ns*2**Ns
     write(LOGfile,"(A,2I15)")'Largest Sector        = ',dim_sector_max
     write(LOGfile,"(A,I15)") 'Number of sectors     = ',Nsectors
@@ -79,6 +85,7 @@ contains
     !
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     impHloc=zero
+    !
     !
     !Allocate indexing arrays
     allocate(getDim(Nsectors));getDim=0
@@ -93,6 +100,7 @@ contains
     allocate(getCsector(2,Nsectors));getCsector=0
     allocate(getCDGsector(2,Nsectors));getCDGsector=0
     !
+    allocate(getBathStride(Nlat,Norb,Nbath));getBathStride=0
     !
     !CHECKS:
     if(Nspin>2)stop "ED ERROR: Nspin > 2 is currently not supported"
@@ -110,12 +118,6 @@ contains
     impGmats=zero
     impGreal=zero
     !
-    !allocate Qmatrix and Lmatrix
-    ! allocate(Nexcitations(Nspin))
-    ! allocate(Qcluster(Nspin))
-    ! allocate(Qsystem(Nspin))
-    !> the content of these structure is allocated in VCA_GREENS_FUNCTIONS
-    !
     !allocate observables
     allocate(imp_dens(Nlat,Norb),imp_docc(Nlat,Norb),imp_dens_up(Nlat,Norb),imp_dens_dw(Nlat,Norb))
     imp_dens=0d0
@@ -128,34 +130,6 @@ contains
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine setup_eigenspace
-    integer :: isector,dim,jsector
-    if(allocated(espace)) deallocate(espace)
-    allocate(espace(1:Nsectors))
-    do isector=1,Nsectors
-       dim=getdim(isector);if(dim==0)stop "setup_eigenspace: dim==0!"
-       allocate(espace(isector)%e(dim))
-       allocate(espace(isector)%M(dim,dim))
-    enddo
-  end subroutine setup_eigenspace
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine delete_eigenspace
-    integer :: isector
-    if(allocated(espace))then
-       do isector=1,size(espace)
-          deallocate(espace(isector)%e)
-          deallocate(espace(isector)%M)
-       end do
-       deallocate(espace)
-    endif
-  end subroutine delete_eigenspace
 
 
 
@@ -166,14 +140,10 @@ contains
   !NORMAL CASE
   !
   subroutine setup_pointers_normal
-    integer                                           :: i,in,dim,isector,jsector
-    integer                                           :: nup,ndw,jup,jdw,iorb
-    integer                                           :: unit,status,istate
-    logical                                           :: IOfile
-    integer                                           :: anint
-    real(8)                                           :: adouble
-    integer                                           :: list_len
-    integer,dimension(:),allocatable                  :: list_sector
+    integer :: i,in,dim,isector,jsector
+    integer :: nup,ndw,jup,jdw,iorb,ilat
+    integer :: unit,status,istate,stride
+    logical :: IOfile
     isector=0
     do nup=0,Ns
        do ndw=0,Ns
@@ -187,6 +157,36 @@ contains
           getDimDw(isector)=get_normal_sector_dimension(ndw)
        enddo
     enddo
+    !normal:
+    !|(1..Na)_1
+    !  ...
+    ! (1..Na)_Nl; <-- Norb*Nlat
+    ! ([1..Nb]_1...[1..Nb]_Na)_1
+    !  ...
+    ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
+    !
+    !
+    !hybrid:
+    !|(1..Na)_1
+    !  ...
+    ! (1..Na)_Nl; <-- Norb*Nlat
+    ! [1..Nb]>    <-- Nbath
+    stride=Nlat*Norb
+    select case(bath_type)
+    case default
+       do ilat=1,Nlat
+          do iorb=1,Norb
+             do i=1,Nbath
+                getBathStride(ilat,iorb,i) = i + &
+                     (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride
+             enddo
+          enddo
+       enddo
+    case ('hybrid')
+       do i=1,Nbath
+          getBathStride(1:Nlat,1:Norb,i) = i + stride
+       enddo
+    end select
     !
     getCsector=0
     do isector=1,Nsectors
@@ -221,6 +221,38 @@ contains
 
 
 
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine setup_eigenspace
+    integer :: isector,dim,jsector
+    if(allocated(espace)) deallocate(espace)
+    allocate(espace(1:Nsectors))
+    do isector=1,Nsectors
+       dim=getdim(isector);if(dim==0)stop "setup_eigenspace: dim==0!"
+       allocate(espace(isector)%e(dim))
+       allocate(espace(isector)%M(dim,dim))
+    enddo
+  end subroutine setup_eigenspace
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine delete_eigenspace
+    integer :: isector
+    if(allocated(espace))then
+       do isector=1,size(espace)
+          deallocate(espace(isector)%e)
+          deallocate(espace(isector)%M)
+       end do
+       deallocate(espace)
+    endif
+  end subroutine delete_eigenspace
 
 
 
@@ -292,14 +324,15 @@ contains
 
 
 
+
   !> Find position in the state vector for a given lattice-spin-orbital position 
-  function state_index(ilat,iorb,ispin) result(indx)
+  function imp_state_index(ilat,iorb,ispin) result(indx)
     integer :: ilat
     integer :: ispin
     integer :: iorb
     integer :: indx
     indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
-  end function state_index
+  end function imp_state_index
 
 
 

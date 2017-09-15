@@ -121,7 +121,7 @@ contains
        do ilat=1,Nlat
           iexc = 0
           do ispin=1,Nspin
-             isite = state_index(ilat,iorb,ispin)
+             isite = imp_state_index(ilat,iorb,ispin)
              write(LOGfile,"(A,A)")&
                   "Get Q_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin),&
                   "Q^+_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin)
