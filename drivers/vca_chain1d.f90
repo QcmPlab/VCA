@@ -29,7 +29,6 @@ program vca_chain1d
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
-
   call parse_input_variable(Nx,"NX",finput,default=1)
   call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
   call parse_input_variable(tol,"TOL",finput,default=1.d-10)
@@ -56,7 +55,7 @@ program vca_chain1d
   Lx   = Rx*Nx
   !
   Nlat = Nx
-  Nsys = Lx
+   Nsys = Lx
 
   write(*,*)"Total size  :",Lx
 
@@ -69,16 +68,18 @@ program vca_chain1d
   !>build full system lattice tb hamiltonian
   Tsys = Htb_square_lattice(Lx,1,ts,file="Tsys_matrix.dat")
 
+
   if(wloop)then
      allocate(ts_array(Nloop))
      allocate(omega_array(Nloop))
-     ts_array = linspace(0d0,0.6d0,Nloop)
+     ts_array = linspace(0.2d0,1.7d0,Nloop)
      do i=1,Nloop
         omega_array(i)=solve_vca1d(ts_array(i))
      enddo
      call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
      min_loc = minloc(omega_array)
-     write(800,*)min_loc,ts_array(min_loc(1))
+     write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
+     stop
   endif
 
 
@@ -86,7 +87,14 @@ program vca_chain1d
      print*,"Guess:",ts
      call  brent(solve_vca1d,ts,[0d0,1d0])
      print*,"Result ts : ",ts
+     stop
   endif
+
+  allocate(omega_array(1))
+  omega_array(1)=solve_vca1d(ts)
+  open(10,file="sft_Omega_loopVSts.dat")
+  write(10,*)ts,omega_array(1)
+  close(10)
 
 contains
 

@@ -10,7 +10,7 @@ module VCA_MAIN
   USE SF_LINALG,  only: eigh,diag
   USE SF_IOTOOLS, only: str,free_unit
   USE SF_TIMER,only: start_timer,stop_timer
-  USE SF_MISC, only: assert_shape
+  USE SF_MISC, only: assert_shape,sort_array
   implicit none
   private
 
@@ -90,8 +90,9 @@ contains
     integer                                            :: i,j,Nexc
     complex(8),dimension(:,:),allocatable              :: Mmat
     real(8),dimension(:),allocatable                   :: Lvec
+    real(8)                                            :: earg
     !
-    real(8)                                            :: Tr(2)
+    real(8)                                            :: Tr,arg1,arg2
     integer                                            :: unit
     !
     Nlat = size(Hloc,1)
@@ -130,14 +131,20 @@ contains
     Qsystem%c     = matmul( Qcluster%c, Mmat )                     ![Nlos,Nexc][Nexc,Nexc]
     Qsystem%cdg   = matmul( conjg(transpose(Mmat)), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
     Qsystem%poles = Lvec
+    call sort_array(Qcluster%poles)
     !
     Nexc = Qcluster%Nexc    
     Tr=0d0
     do iexc=1,Nexc
-       Tr(1)  = Tr(1) - log(1d0 + exp(-beta*Qsystem%poles(iexc)) )
-       Tr(2)  = Tr(2) - log(1d0 + exp(-beta*Qcluster%poles(iexc)) )
+       arg1 = beta*Qcluster%poles(iexc)
+       arg2 = beta*Qsystem%poles(iexc)
+       if(arg1 < -20d0 .OR. arg2 < -20d0)then
+          Tr  = Tr - beta*( Qcluster%poles(iexc) - Qsystem%poles(iexc) )
+       else
+          Tr  = Tr + log( (1d0 + exp(-beta*Qcluster%poles(iexc)))/(1d0 + exp(-beta*Qsystem%poles(iexc))) )
+       endif
     enddo
-    sft_potential = omega_potential + Tr(1)/beta - Tr(2)/beta
+    sft_potential = omega_potential + Tr(3)/beta
     open(free_unit(unit),file="SFT_potential.vca",access='append')
     write(unit,*)sft_potential
     close(unit)
@@ -146,55 +153,4 @@ contains
 end module VCA_MAIN
 
 
-
-! !+-----------------------------------------------------------------------------+!
-! !PURPOSE: Get the spectrum of the system GF from the Cluster tiling 
-! !+-----------------------------------------------------------------------------+!
-! subroutine vca_diag_system(Vmat)
-!   real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Vmat
-!   integer                                            :: ilat,jlat
-!   integer                                            :: iorb,jorb
-!   integer                                            :: ispin
-!   integer                                            :: iexc,jexc
-!   integer                                            :: i,j,Nexc
-!   complex(8),dimension(:,:),allocatable              :: Mmat
-!   real(8),dimension(:),allocatable                   :: Lvec
-!   !
-!   Nexc = Qcluster%Nexc
-!   call allocate_Qmatrix(Qsystem)
-!   !
-!   allocate(Mmat(Nexc,Nexc))
-!   allocate(Lvec(Nexc))
-!   !   
-!   Mmat = diag( Qcluster%poles ) + matmul(Qcluster%cdg, matmul(Vmat,Qcluster%c))
-!   !
-!   call eigh(Mmat,Lvec)!>from here on M-->S
-!   !
-!   Qsystem%c     = matmul( Qcluster%c, Mmat )                     ![Nlos,Nexc][Nexc,Nexc]
-!   Qsystem%cdg   = matmul( conjg(transpose(Mmat)), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
-!   Qsystem%poles = Lvec
-!   !
-! end subroutine vca_diag_system
-
-
-
-
-! !+-----------------------------------------------------------------------------+!
-! !PURPOSE: Get the SFT grand potential
-! !+-----------------------------------------------------------------------------+!
-! subroutine vca_sft_potential(sft_potential)
-!   real(8) :: sft_potential
-!   real(8) :: Tr(2)
-!   integer :: unit,iexc,Nexc
-!   Nexc = Qcluster%Nexc    
-!   Tr=0d0
-!   do iexc=1,Nexc
-!      Tr(1)  = Tr(1) - log(1d0 + exp(-beta*Qsystem%poles(iexc)) )
-!      Tr(2)  = Tr(2) - log(1d0 + exp(-beta*Qcluster%poles(iexc)) )
-!   enddo
-!   sft_potential = omega_potential + Tr(1)/beta - Tr(2)/beta
-!   open(free_unit(unit),file="SFT_potential.vca",access='append')
-!   write(unit,*)sft_potential
-!   close(unit)
-! end subroutine vca_sft_potential
 
