@@ -5,20 +5,20 @@ MODULE VCA_BATH_SETUP
   USE SF_MISC, only: assert_shape
   USE VCA_INPUT_VARS
   USE VCA_VARS_GLOBAL
-  USE VCA_AUX_FUNX
   implicit none
 
+  
   private
 
-
+  
 
   !##################################################################
   !
   !     USER BATH ROUTINES:
   !
   !##################################################################
-  public :: get_bath_dimension
-  public :: check_bath_dimension
+  public :: vca_get_bath_dimension
+
 
 
 
@@ -28,19 +28,20 @@ MODULE VCA_BATH_SETUP
   !
   !##################################################################
   !VCA BATH procedures:
-  public :: allocate_vca_bath               !INTERNAL (for effective_bath)
-  public :: deallocate_vca_bath             !INTERNAL (for effective_bath)
-  public :: init_vca_bath                   !INTERNAL (for effective_bath)
-  public :: write_vca_bath                  !INTERNAL (for effective_bath)
-  public :: save_vca_bath                   !INTERNAL (for effective_bath)
-  public :: set_vca_bath                    !INTERNAL (for effective_bath)
-  public :: get_vca_bath                    !INTERNAL (for effective_bath)
+  public :: vca_allocate_bath               !INTERNAL (for effective_bath)
+  public :: vca_deallocate_bath             !INTERNAL (for effective_bath)
+  public :: vca_init_bath                   !INTERNAL (for effective_bath)
+  public :: vca_write_bath                  !INTERNAL (for effective_bath)
+  public :: vca_save_bath                   !INTERNAL (for effective_bath)
+  public :: vca_set_bath                    !INTERNAL (for effective_bath)
+  public :: vca_get_bath                    !INTERNAL (for effective_bath)
 
 
-
+  public :: check_bath_dimension
+  
 contains
 
-  
+
 
 
   !##################################################################
@@ -52,7 +53,7 @@ contains
   !PURPOSE  : Inquire the correct bath size to allocate the 
   ! the bath array in the calling program.
   !+-------------------------------------------------------------------+
-  function get_bath_dimension(ispin_) result(bath_size)
+  function vca_get_bath_dimension(ispin_) result(bath_size)
     integer,optional               :: ispin_
     integer                        :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
     !
@@ -62,11 +63,11 @@ contains
        bath_size = Nlat*Norb*Nbath + Nlat*Norb*Nbath
        if(.not.present(ispin_))bath_size=Nspin*bath_size
     case('hybrid')
-       !e:[1][1][Nspin][Nbath] + v [Nlat][Norb][Nspin][Nbath]
+       !e:[1][1][Nspin][Nbath] + v:[Nlat][Norb][Nspin][Nbath]
        bath_size = Nbath + Nlat*Norb*Nbath
        if(.not.present(ispin_))bath_size=Nspin*bath_size
     end select
-  end function get_bath_dimension
+  end function vca_get_bath_dimension
 
 
 
@@ -85,43 +86,47 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : Allocate the ED bath
   !+-------------------------------------------------------------------+
-  subroutine allocate_vca_bath(vca_bath_)
+  subroutine vca_allocate_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
     !
-    if(vca_bath_%status)call deallocate_vca_bath(vca_bath_)
+    if(vca_bath_%status)call vca_deallocate_bath(vca_bath_)
     !
     if(Nbath==0)stop "Allocate_vca_bath ERROR: Nbath==0"
     !
     select case(bath_type)
-    case default
+    case default!normal_normal
        !
        allocate(vca_bath_%e(Nlat,Norb,Nspin,Nbath))  !local energies of the bath per site,orb
        allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization per site,orb
        !
-    case('hybrid')
+    case('hybrid')                            !hybrid_normal
        !
        allocate(vca_bath_%e(1,1,Nspin,Nbath))        !local energies of the bath stand-alone
        allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
        !
+       ! case('normal_hybrid')
+       !    allocate(vca_bath_%e(Nlat,1,Nspin,Nbath))        !local energies of the bath stand-alone
+       !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
+       !
     end select
     vca_bath_%status=.true.
-  end subroutine allocate_vca_bath
+  end subroutine vca_allocate_bath
 
 
 
-  
+
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : Deallocate the ED bath
   !+-------------------------------------------------------------------+
-  subroutine deallocate_vca_bath(vca_bath_)
+  subroutine vca_deallocate_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
     if(allocated(vca_bath_%e))   deallocate(vca_bath_%e)
     if(allocated(vca_bath_%v))   deallocate(vca_bath_%v)
     vca_bath_%status=.false.
-  end subroutine deallocate_vca_bath
+  end subroutine vca_deallocate_bath
 
-  
+
 
 
 
@@ -129,28 +134,58 @@ contains
   !PURPOSE  : Initialize the VCA loop, builindg H parameters and/or 
   !reading previous (converged) solution
   !+------------------------------------------------------------------+
-  subroutine init_vca_bath(vca_bath_)
+  subroutine vca_init_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
     integer              :: i,unit,flen,Nh
     integer              :: io,jo,iorb,ispin,jorb,jspin,ilat
     logical              :: IOfile
-    real(8)              :: de,noise_tot
+    real(8)              :: de,hwband
     character(len=21)    :: space
     real,dimension(Nbath):: ran
     !
-    if(.not.vca_bath_%status)stop "init_vca_bath error: bath not allocated"
+    hwband=1d0
     !
-    if(Nbath==0)stop "Allocate_vca_bath ERROR: Nbath==0"
+    if(.not.vca_bath_%status)stop "vca_init_bath error: bath not allocated"
     !
-    !Get energies:
-    call random_number(ran)
-    forall(ilat=1:size(vca_bath_%e,1),iorb=1:size(vca_bath_%e,2),ispin=1:Nspin)&
-         vca_bath_%e(ilat,iorb,ispin,:) = impHloc(ilat,ilat,iorb,iorb,ispin,ispin) + ran/10d0
+    if(Nbath==0)stop "VCA_allocate_bath ERROR: Nbath==0"
     !
-    !Get spin-keep yhbridizations
-    do i=1,Nbath
-       vca_bath_%v(:,:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
-    enddo
+    ! !Get energies:
+    ! if(Nbath==1)then
+    !    vca_bath_%e(:,:,:,Nbath)= 0d0
+    ! else
+    !    vca_bath_%e(:,:,:,1)    =-hwband
+    !    vca_bath_%e(:,:,:,Nbath)= hwband
+    ! endif
+    ! Nh=Nbath/2
+    ! if(mod(Nbath,2)==0.and.Nbath>=4)then
+    !    de=hwband/max(Nh-1,1)
+    !    vca_bath_%e(:,:,:,Nh)  = -1.d-3
+    !    vca_bath_%e(:,:,:,Nh+1)=  1.d-3
+    !    do i=2,Nh-1
+    !       vca_bath_%e(:,:,:,i)        =-hwband + (i-1)*de
+    !       vca_bath_%e(:,:,:,Nbath-i+1)= hwband - (i-1)*de
+    !    enddo
+    ! elseif(mod(Nbath,2)/=0.and.Nbath>=3)then
+    !    de=hwband/Nh
+    !    vca_bath_%e(:,:,:,Nh+1)= 0.0d0
+    !    do i=2,Nh
+    !       vca_bath_%e(:,:,:,i)        =-hwband + (i-1)*de
+    !       vca_bath_%e(:,:,:,Nbath-i+1)= hwband - (i-1)*de
+    !    enddo
+    ! endif
+    ! ! call random_number(ran)
+    ! ! forall(ilat=1:size(vca_bath_%e,1),iorb=1:size(vca_bath_%e,2),ispin=1:Nspin)&
+    ! !      vca_bath_%e(ilat,iorb,ispin,:) = ran !impHloc(ilat,ilat,iorb,iorb,ispin,ispin) + ran/10d0
+    ! !
+    ! !Get spin-keep yhbridizations
+    ! do i=1,Nbath
+    !    vca_bath_%v(:,:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
+    ! enddo
+    !
+    !
+    vca_bath_%e = 0d0
+    vca_bath_%v = 0d0
+    !
     !
     !Read from file if exist:
     !
@@ -186,7 +221,7 @@ contains
        end select
        close(unit)
     endif
-  end subroutine init_vca_bath
+  end subroutine vca_init_bath
 
 
 
@@ -196,7 +231,7 @@ contains
   ! the following column formatting: 
   ! [(Ek_iorb,Vk_iorb)_iorb=1,Norb]_ispin=1,Nspin
   !+-------------------------------------------------------------------+
-  subroutine write_vca_bath(vca_bath_,unit)
+  subroutine vca_write_bath(vca_bath_,unit)
     type(effective_bath) :: vca_bath_
     integer,optional     :: unit
     integer              :: unit_
@@ -237,7 +272,7 @@ contains
           enddo
        enddo
     end select
-  end subroutine write_vca_bath
+  end subroutine vca_write_bath
 
 
 
@@ -248,7 +283,7 @@ contains
   !PURPOSE  : save the bath to a given file using the write bath
   ! procedure and formatting: 
   !+-------------------------------------------------------------------+
-  subroutine save_vca_bath(vca_bath_,file,used)
+  subroutine vca_save_bath(vca_bath_,file,used)
     type(effective_bath)      :: vca_bath_
     character(len=*),optional :: file
     character(len=256)        :: file_
@@ -266,9 +301,9 @@ contains
     if(present(file))file_=reg(file)
     unit_=free_unit()
     open(unit_,file=reg(file_))
-    call write_vca_bath(vca_bath_,unit_)
+    call vca_write_bath(vca_bath_,unit_)
     close(unit_)
-  end subroutine save_vca_bath
+  end subroutine vca_save_bath
 
 
 
@@ -277,7 +312,7 @@ contains
   !PURPOSE  : set the bath components from a given user provided 
   ! bath-array 
   !+-------------------------------------------------------------------+
-  subroutine set_vca_bath(bath_,vca_bath_)
+  subroutine vca_set_bath(bath_,vca_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: vca_bath_
     integer                :: stride,io,jo,i
@@ -300,7 +335,7 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
+                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
                    vca_bath_%e(ilat,iorb,ispin,i) = bath_(io)
                 enddo
              enddo
@@ -311,41 +346,41 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
+                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
                    vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
                 enddo
              enddo
           enddo
        enddo
        !
-    case ('hybrid')
-       stride = 0
-       do ispin=1,Nspin
-          do i=1,Nbath
-             io = stride + i + (ispin-1)*Nbath
-             vca_bath_%e(1,1,ispin,i) = bath_(io)
-          enddo
-       enddo
-       stride = Nspin*Nbath
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
-                   vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
-                enddo
-             enddo
-          enddo
-       enddo
+    ! case ('hybrid')
+    !    stride = 0
+    !    do ispin=1,Nspin
+    !       do i=1,Nbath
+    !          io = stride + i + (ispin-1)*Nbath
+    !          vca_bath_%e(1,1,ispin,i) = bath_(io)
+    !       enddo
+    !    enddo
+    !    stride = Nspin*Nbath
+    !    do ilat=1,Nlat
+    !       do iorb=1,Norb
+    !          do ispin=1,Nspin
+    !             do i=1,Nbath
+    !                io = stride + i + index_stride_los(ilat,iorb,ispin)
+    !                vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
+    !             enddo
+    !          enddo
+    !       enddo
+    !    enddo
     end select
-  end subroutine set_vca_bath
+  end subroutine vca_set_bath
 
 
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : copy the bath components back to a 1-dim array 
   !+-------------------------------------------------------------------+
-  subroutine get_vca_bath(vca_bath_,bath_)
+  subroutine vca_get_bath(vca_bath_,bath_)
     type(effective_bath)   :: vca_bath_
     real(8),dimension(:)   :: bath_
     complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
@@ -367,7 +402,7 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
+                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
                    bath_(io) = vca_bath_%e(ilat,iorb,ispin,i)
                 enddo
              enddo
@@ -378,35 +413,35 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
+                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
                    bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
                 enddo
              enddo
           enddo
        enddo
        !
-    case ('hybrid')
-       stride = 0
-       do ispin=1,Nspin
-          do i=1,Nbath
-             io = stride + i + (ispin-1)*Nbath
-             bath_(io) = vca_bath_%e(1,1,ispin,i)
-          enddo
-       enddo
-       stride = Nspin*Nbath
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + index_stride_los(ilat,iorb,ispin)
-                   bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
-                enddo
-             enddo
-          enddo
-       enddo
+    ! case ('hybrid')
+    !    stride = 0
+    !    do ispin=1,Nspin
+    !       do i=1,Nbath
+    !          io = stride + i + (ispin-1)*Nbath
+    !          bath_(io) = vca_bath_%e(1,1,ispin,i)
+    !       enddo
+    !    enddo
+    !    stride = Nspin*Nbath
+    !    do ilat=1,Nlat
+    !       do iorb=1,Norb
+    !          do ispin=1,Nspin
+    !             do i=1,Nbath
+    !                io = stride + i + index_stride_los(ilat,iorb,ispin)
+    !                bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
+    !             enddo
+    !          enddo
+    !       enddo
+    !    enddo
        !
     end select
-  end subroutine get_vca_bath
+  end subroutine vca_get_bath
 
 
 
@@ -426,7 +461,7 @@ contains
     real(8),dimension(:)           :: bath_
     integer                        :: Ntrue
     logical                        :: bool
-    Ntrue = get_bath_dimension()
+    Ntrue = vca_get_bath_dimension()
     bool  = ( size(bath_) == Ntrue )
   end function check_bath_dimension
 

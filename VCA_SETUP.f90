@@ -83,6 +83,11 @@ contains
     write(LOGfile,"(A,I15)") 'Number of sectors     = ',Nsectors
     write(LOGfile,"(A)")"--------------------------------------------"
     !
+    !>CHECKS:
+    if(bath_type/='normal')stop "VCA ERROR: bath_type != normal is not yet supported. ask developers"
+    if(Nspin>1)stop "VCA ERROR: Nspin > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
+    if(Norb>1)stop "VCA ERROR: Norb > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
+    !    
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     impHloc=zero
     !
@@ -158,6 +163,9 @@ contains
        enddo
     enddo
     !normal:
+    !|imp_up>|bath_up> * |imp_dw>|bath_dw>
+    !
+    !|imp_sigma>=
     !|(1..Na)_1
     !  ...
     ! (1..Na)_Nl; <-- Norb*Nlat
@@ -255,7 +263,7 @@ contains
   end subroutine delete_eigenspace
 
 
-
+  
 
   !+------------------------------------------------------------------+
   !PURPOSE  : return the dimension of a sector
@@ -276,6 +284,7 @@ contains
   end function get_normal_sector_dimension
 
 
+  
 
 
   !+------------------------------------------------------------------+
@@ -325,16 +334,24 @@ contains
 
 
 
-  !> Find position in the state vector for a given lattice-spin-orbital position 
+  !> Find position in the state vector for a given lattice-spin-orbital position for the cluster (no bath considered)
+  !normal:
+  !|imp_up>|bath_up> * |imp_dw>|bath_dw>
+  !
+  !|imp_sigma>=
+  !|(1..Na)_1
+  !  ...
+  ! (1..Na)_Nl; <-- Norb*Nlat
+  ! ([1..Nb]_1...[1..Nb]_Na)_1
+  !  ...
+  ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
   function imp_state_index(ilat,iorb,ispin) result(indx)
     integer :: ilat
     integer :: ispin
     integer :: iorb
     integer :: indx
-    indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+    indx = iorb + (ilat-1)*Norb + (ispin-1)*(Nbath+1)*Norb*Nlat
   end function imp_state_index
-
-
 
 
 

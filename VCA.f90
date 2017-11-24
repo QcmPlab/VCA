@@ -3,12 +3,16 @@ MODULE VCA
   USE VCA_INPUT_VARS
 
 
-  USE VCA_AUX_FUNX, only:                       &
-       los2nnn_reshape,                         &
-       nnn2los_reshape,                         &
-       set_Hcluster,                            &
+  USE VCA_AUX_FUNX, only:         &
+       vca_get_cluster_dimension, &
+       vca_get_system_dimension,  &
+       vca_tile_Hcluster,         &
+       vca_build_Hsystem,         &
+       vca_los2nnn_reshape,       &
+       vca_nnn2los_reshape,       &
+       vca_set_Hcluster,          &
        search_chemical_potential
-
+  
 
   USE VCA_IO, only:                             &
        vca_get_Gcluster_matsubara,              &
@@ -22,7 +26,7 @@ MODULE VCA
 
 
   USE VCA_BATH_SETUP, only:                     &
-       get_bath_dimension
+       vca_get_bath_dimension
 
 
   USE VCA_MAIN, only:                           &

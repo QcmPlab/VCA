@@ -130,10 +130,10 @@ contains
     logical                                                       :: check
     check= check_bath_dimension(bath_)
     if(.not.check)stop "delta_bath_mats_main_ error: wrong bath dimensions"
-    call allocate_vca_bath(vca_bath_)
-    call set_vca_bath(bath_,vca_bath_)
+    call vca_allocate_bath(vca_bath_)
+    call vca_set_bath(bath_,vca_bath_)
     Delta = delta_bath_mats_main(x,vca_bath_)
-    call deallocate_vca_bath(vca_bath_)
+    call vca_deallocate_bath(vca_bath_)
   end function delta_bath_mats_main_
 
 
@@ -213,10 +213,10 @@ contains
     logical                                             :: check
     check= check_bath_dimension(bath_)
     if(.not.check)stop "delta_bath_real_main_ error: wrong bath dimensions"
-    call allocate_vca_bath(vca_bath_)
-    call set_vca_bath(bath_,vca_bath_)
+    call vca_allocate_bath(vca_bath_)
+    call vca_set_bath(bath_,vca_bath_)
     Delta = delta_bath_real_main(x,vca_bath_)
-    call deallocate_vca_bath(vca_bath_)
+    call vca_deallocate_bath(vca_bath_)
   end function delta_bath_real_main_
 
 
@@ -230,163 +230,6 @@ contains
 
 
 
-
-  ! !+-------------------------------------------------------------------+
-  ! !PURPOSE  : compute the G0 function at a point x from
-  ! ! type(effective_bath) :: vca_bath
-  ! ! OR
-  ! ! real(8),dimension(:) :: bath_array
-  ! !+-------------------------------------------------------------------+
-  ! !+-----------------------------------------------------------------------------+!
-  ! !PURPOSE:  G0 and F0 non-interacting Green's functions on the Matsubara axis:
-  ! ! _1 : input type(effective_bath) vca_bath
-  ! ! _2 : input array bath
-  ! ! Delta_ : normal
-  ! !+-----------------------------------------------------------------------------+!
-  ! !NORMAL:
-  ! function g0and_bath_mats_main(x,vca_bath_) result(G0and)
-  !   complex(8),dimension(:),intent(in)                  :: x
-  !   type(effective_bath)                                :: vca_bath_
-  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
-  !   integer                                             :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
-  !   real(8),dimension(size(x))                          :: det
-  !   complex(8),dimension(size(x))                       :: fg,ff
-  !   complex(8),dimension(:,:),allocatable               :: fgorb,zeta
-  !   !
-  !   G0and = zero
-  !   !
-  !   L=size(x)
-  !   !
-  !   select case(bath_type)
-  !   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-  !      !
-  !      Delta = delta_bath_mats(x,vca_bath_)
-  !      do ispin=1,Nspin
-  !         do iorb=1,Norb
-  !            fg(:) = x(:) + xmu - impHloc(ispin,ispin,iorb,iorb) - Delta(ispin,ispin,iorb,iorb,:)
-  !            G0and(ispin,ispin,iorb,iorb,:) = one/fg(:)
-  !         enddo
-  !      enddo
-  !      !
-  !      !
-  !   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-  !      !
-  !      !
-  !      allocate(fgorb(Norb,Norb),zeta(Norb,Norb))
-  !      Delta = delta_bath_mats(x,vca_bath_)
-  !      do ispin=1,Nspin         !Spin diagonal
-  !         do i=1,L
-  !            fgorb= zero
-  !            zeta = (x(i)+xmu)*eye(Norb)
-  !            do iorb=1,Norb
-  !               do jorb=1,Norb
-  !                  fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-Delta(ispin,ispin,iorb,jorb,i)
-  !               enddo
-  !            enddo
-  !            call inv(fgorb)
-  !            G0and(ispin,ispin,:,:,i)=fgorb
-  !         enddo
-  !      enddo
-  !      deallocate(fgorb,zeta)
-  !      !
-  !   end select
-  ! end function g0and_bath_mats_main
-
-
-
-
-  ! function g0and_bath_mats_main_(x,bath_) result(G0and)
-  !   complex(8),dimension(:),intent(in)                  :: x
-  !   type(effective_bath)                                :: vca_bath_
-  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-  !   real(8),dimension(:)                                :: bath_
-  !   logical                                             :: check
-  !   check= check_bath_dimension(bath_)
-  !   if(.not.check)stop "g0and_bath_mats_main_ error: wrong bath dimensions"
-  !   call allocate_vca_bath(vca_bath_)
-  !   call set_vca_bath(bath_,vca_bath_)
-  !   G0and = g0and_bath_mats_main(x,vca_bath_)
-  !   call deallocate_vca_bath(vca_bath_)
-  ! end function g0and_bath_mats_main_
-
-
-
-
-
-
-
-
-
-
-
-
-  ! !+-----------------------------------------------------------------------------+!
-  ! !PURPOSE:  G0 and F0 non-interacting Green's functions on the real-axis:
-  ! ! _1 : input type(effective_bath) vca_bath
-  ! ! _2 : input array bath
-  ! ! Delta_ : normal
-  ! ! Fdelta_: anomalous
-  ! !+-----------------------------------------------------------------------------+!
-  ! !NORMAL:
-  ! function g0and_bath_real_main(x,vca_bath_) result(G0and)
-  !   complex(8),dimension(:),intent(in)                  :: x
-  !   type(effective_bath)                                :: vca_bath_
-  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
-  !   integer                                             :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
-  !   complex(8),dimension(size(x))                       :: det,fg,ff
-  !   complex(8),dimension(:,:),allocatable               :: fgorb,zeta
-  !   !
-  !   G0and = zero
-  !   !
-  !   L = size(x)
-  !   !
-  !   select case(bath_type)
-  !   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-  !      !
-  !      Delta = delta_bath_real(x,vca_bath_)
-  !      do ispin=1,Nspin
-  !         do iorb=1,Norb
-  !            fg(:)    = x(:) + xmu - impHloc(ispin,ispin,iorb,iorb) - Delta(ispin,ispin,iorb,iorb,:)
-  !            G0and(ispin,ispin,iorb,iorb,:) = one/fg(:)
-  !         enddo
-  !      enddo
-  !      !
-  !      !
-  !   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-  !      !
-  !      allocate(fgorb(Norb,Norb),zeta(Norb,Norb))
-  !      Delta = delta_bath_real(x,vca_bath_)
-  !      do ispin=1,Nspin
-  !         do i=1,L
-  !            fgorb= zero
-  !            zeta = (x(i)+xmu)*eye(Norb)
-  !            do iorb=1,Norb
-  !               do jorb=1,Norb
-  !                  fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-Delta(ispin,ispin,iorb,jorb,i)
-  !               enddo
-  !            enddo
-  !            call inv(fgorb)
-  !            G0and(ispin,ispin,:,:,i)=fgorb
-  !         enddo
-  !      enddo
-  !      deallocate(fgorb,zeta)
-  !      !
-  !   end select
-  ! end function g0and_bath_real_main
-
-  ! function g0and_bath_real_main_(x,bath_) result(G0and)
-  !   complex(8),dimension(:),intent(in)                  :: x
-  !   type(effective_bath)                                :: vca_bath_
-  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-  !   real(8),dimension(:)                                :: bath_
-  !   logical                                             :: check
-  !   check= check_bath_dimension(bath_)
-  !   if(.not.check)stop "g0and_bath_real_main_ error: wrong bath dimensions"
-  !   call allocate_vca_bath(vca_bath_)
-  !   call set_vca_bath(bath_,vca_bath_)
-  !   G0and = g0and_bath_real_main(x,vca_bath_)
-  !   call deallocate_vca_bath(vca_bath_)
-  ! end function g0and_bath_real_main_
 
 
 

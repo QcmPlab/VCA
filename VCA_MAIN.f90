@@ -7,7 +7,7 @@ module VCA_MAIN
   USE VCA_OBSERVABLES
   USE VCA_BATH_SETUP
   !
-  USE SF_LINALG,  only: eigh,diag
+  USE SF_LINALG,  only: eigh,diag,kron,eye
   USE SF_IOTOOLS, only: str,free_unit
   USE SF_TIMER,only: start_timer,stop_timer
   USE SF_MISC, only: assert_shape,sort_array
@@ -21,18 +21,6 @@ module VCA_MAIN
   public :: vca_solve
 
 
-  ! !> VCA DIAG CLUSTER
-  ! public :: vca_diag_cluster
-
-
-  ! !> VCA GF POLES UPDATE
-  ! public :: vca_diag_system
-
-
-  ! !> VCA SFT GRAND POTENTIAL
-  ! public :: vca_sft_potential
-
-
 contains
 
 
@@ -40,33 +28,26 @@ contains
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_init_solver(Hloc,bath)    
-    real(8),intent(in)             :: Hloc(:,:,:,:,:,:)
+  subroutine vca_init_solver(bath)
     real(8),intent(inout),optional :: bath(:)
     logical,save                   :: isetup=.true.
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
-    Nlat = size(Hloc,1)
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_init_solver","Hloc")
-    !
-    if(present(bath))then
-       if(.not.check_bath_dimension(bath))stop "vca_init_solver error: wrong bath dimensions"
-       bath=0d0
-       call allocate_vca_bath(vca_bath)
-       call init_vca_bath(vca_bath)
-       call get_vca_bath(vca_bath,bath)
-    endif
-    !
     !Init Structure & memory
     if(isetup)call init_cluster_structure()
     !
-    !Init Hcluster
-    call set_Hcluster(Hloc)
+    if(present(bath))then
+       if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
+       bath=0d0
+       call vca_allocate_bath(vca_bath)
+       call vca_init_bath(vca_bath)
+       call vca_get_bath(vca_bath,bath)
+    endif
     !
     if(isetup)call setup_pointers_normal
     !
-    if(vca_bath%status)call deallocate_vca_bath(vca_bath)
+    if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     !
     isetup=.false.
     !
@@ -79,75 +60,111 @@ contains
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
   subroutine vca_solve(Hloc,Vmat,bath)
-    real(8),optional,intent(in)                        :: Hloc(:,:,:,:,:,:)
-    real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Vmat
-    real(8),intent(inout),optional                     :: bath(:)
+    real(8),intent(in)                    :: Hloc(:,:,:,:,:,:)
+    real(8),dimension(:,:)                :: Vmat
+    real(8),intent(inout),optional        :: bath(:)
     !
-    integer                                            :: ilat,jlat
-    integer                                            :: iorb,jorb
-    integer                                            :: ispin
-    integer                                            :: iexc,jexc
-    integer                                            :: i,j,Nexc
-    complex(8),dimension(:,:),allocatable              :: Mmat
-    real(8),dimension(:),allocatable                   :: Lvec
-    real(8)                                            :: earg
+    integer                               :: ilat,jlat
+    integer                               :: iorb,jorb
+    integer                               :: ispin
+    integer                               :: iexc,jexc
+    integer                               :: i,j,Nexc,Nvmat,Nexc_sys,Nc
+    integer :: icopy,jcopy,i1,i2,j1,j2,ii1,ii2,jj1,jj2
+    complex(8),dimension(:,:),allocatable :: Mmat
+    real(8),dimension(:),allocatable      :: Lvec
+    real(8)                               :: earg
     !
-    real(8)                                            :: Tr,arg1,arg2
-    integer                                            :: unit
+    real(8)                               :: Tr,arg1,arg2
+    integer                               :: unit
+    !
+    write(LOGfile,"(A)")"SOLVING VCA"
     !
     Nlat = size(Hloc,1)
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_diag","Hloc")
+    call assert_shape(Hloc,[Nlat,Nlat,Norb,Norb,Nspin,Nspin],"vca_solve","Hloc")
+    Nvmat = vca_get_system_dimension(present(bath))
+    call assert_shape(Vmat,[Nvmat,Nvmat],"vca_solve","Vmat")
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
-       call allocate_vca_bath(vca_bath)
-       call set_vca_bath(bath,vca_bath)
-       call write_vca_bath(vca_bath,LOGfile)
-       call save_vca_bath(vca_bath,used=.true.)
+       call vca_allocate_bath(vca_bath)
+       call vca_set_bath(bath,vca_bath)
+       call vca_write_bath(vca_bath,LOGfile)
+       call vca_save_bath(vca_bath,used=.true.)
     endif
     !
-    if(present(Hloc))call set_Hcluster(Hloc)
+    call vca_set_Hcluster(Hloc)
     !
     call setup_eigenspace()
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
-    call observables_cluster()    !obtain impurity observables as thermal averages.  
+    call observables_cluster()    !obtain impurity observables as thermal averages.
     call build_Qmatrix_cluster()  !build the one-particle Q and Lambda matrices
     !
     call delete_eigenspace()
     !
-    if(vca_bath%status)call deallocate_vca_bath(vca_bath)
-    !
-    Nexc = Qcluster%Nexc
+    Nexc     = Qcluster%Nexc
+    Nexc_sys = Ncopies*Nexc
     call allocate_Qmatrix(Qsystem)
+    !    
+    allocate(Mmat(Nexc_sys,Nexc_sys));Mmat=zero
+    allocate(Lvec(Nexc_sys));Lvec=zero
     !
-    allocate(Mmat(Nexc,Nexc))
-    allocate(Lvec(Nexc))
-    !   
-    Mmat = diag( Qcluster%poles ) + matmul(Qcluster%cdg, matmul(Vmat,Qcluster%c))
+    Nc = vca_get_cluster_dimension(present(bath))
+    !
+    do icopy=1,Ncopies
+       do jcopy=1,Ncopies
+          i1 = 1 + (icopy-1)*Nc
+          i2 = icopy*Nc
+          j1 = 1 + (jcopy-1)*Nc
+          j2 = jcopy*Nc
+          !
+          ii1 = 1 + (icopy-1)*Nexc
+          ii2 = icopy*Nexc
+          jj1 = 1 + (jcopy-1)*Nexc
+          jj2 = jcopy*Nexc
+          !
+          ! print*,icopy,jcopy
+          ! print*,i1,i2,j1,j2
+          ! print*,ii1,ii2,jj1,jj2
+          ! print*,size(Qcluster%cdg,1),size(Qcluster%cdg,2)
+          ! print*,size(Vmat(i1:i2,j1:j2),1),size(Vmat(i1:i2,j1:j2),2)
+          ! print*,size(Qcluster%c,1),size(Qcluster%c,2)
+          ! print*,""
+          Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
+       enddo
+    enddo
+    !
+    Mmat = Mmat + kron(eye(Ncopies),diag( Qcluster%poles ))
     !
     call eigh(Mmat,Lvec)!>from here on M-->S
     !
-    Qsystem%c     = matmul( Qcluster%c, Mmat )                     ![Nlos,Nexc][Nexc,Nexc]
-    Qsystem%cdg   = matmul( conjg(transpose(Mmat)), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
+    !>
+    ! Qsystem%c     = matmul( Qcluster%c, Mmat )                     ![Nlos,Nexc][Nexc,Nexc]
+    ! Qsystem%cdg   = matmul( conjg(transpose(Mmat)), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
     Qsystem%poles = Lvec
     call sort_array(Qcluster%poles)
     !
-    Nexc = Qcluster%Nexc    
     Tr=0d0
     do iexc=1,Nexc
-       arg1 = beta*Qcluster%poles(iexc)
-       arg2 = beta*Qsystem%poles(iexc)
-       if(arg1 < -20d0 .OR. arg2 < -20d0)then
-          Tr  = Tr - beta*( Qcluster%poles(iexc) - Qsystem%poles(iexc) )
-       else
-          Tr  = Tr + log( (1d0 + exp(-beta*Qcluster%poles(iexc)))/(1d0 + exp(-beta*Qsystem%poles(iexc))) )
-       endif
+       do icopy=1,Ncopies
+          i = icopy + (iexc-1)*Ncopies
+          !
+          arg1 = beta*Qcluster%poles(iexc)
+          arg2 = beta*Qsystem%poles(i)
+          if(arg1 < -20d0 .OR. arg2 < -20d0)then
+             Tr  = Tr - beta*( Qcluster%poles(iexc) - Qsystem%poles(i) )
+          else
+             Tr  = Tr + log( (1d0 + exp(-beta*Qcluster%poles(iexc)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
+          endif
+       enddo
     enddo
-    sft_potential = omega_potential + Tr(3)/beta
-    open(free_unit(unit),file="SFT_potential.vca",access='append')
+    sft_potential = Ncopies*omega_potential + Tr/beta
+    open(free_unit(unit),file="SFT_potential.vca",position='append')
     write(unit,*)sft_potential
     close(unit)
+    !
+    if(vca_bath%status)call vca_deallocate_bath(vca_bath)
+    !
   end subroutine vca_solve
 
 end module VCA_MAIN

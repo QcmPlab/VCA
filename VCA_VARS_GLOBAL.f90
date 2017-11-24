@@ -6,14 +6,12 @@ MODULE VCA_VARS_GLOBAL
   implicit none
 
 
-
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
-     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [Nlat][Nspin][1//Norb][Nbath]
-     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Nspin][Norb][Nbath]
-     logical                                     :: status=.false.
+     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [1//Nlat][1//Norb][Nspin][Nbath]
+     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Norb][Nspin][Nbath]
+     logical                                       :: status=.false.
   end type effective_bath
-
 
 
   !LOG UNITS
@@ -29,10 +27,11 @@ MODULE VCA_VARS_GLOBAL
   integer                                         :: Nlevels
   integer                                         :: Nsectors
 
+
   !Other System dimension
   !=========================================================  
-  integer                                         :: Nlat
   integer                                         :: Nexcitations
+
 
   !non-interacting cluster Hamiltonian
   !=========================================================
@@ -72,7 +71,7 @@ MODULE VCA_VARS_GLOBAL
   real(8)                                         :: omega_potential
   real(8)                                         :: sft_potential
 
-  
+
   !Cluster Green's functions
   !(Nlat,Nlat,Nspin,Nspin,Norb,Norb,:)
   !=========================================================
@@ -87,7 +86,7 @@ MODULE VCA_VARS_GLOBAL
      integer                            :: Nexc
      real(8),dimension(:,:),allocatable :: c     ![Nlat*Norb*Nspin][Nexc]
      real(8),dimension(:,:),allocatable :: cdg   ![Nlat*Norb*Nspin][Nexc]
-     real(8),dimension(:),allocatable   :: poles ![Nexc] diagonal matrix
+     real(8),dimension(:),allocatable   :: poles ![Nspin][Nexc] diagonal matrix
   end type Qmatrix
   type(Qmatrix)                                   :: Qcluster
   type(Qmatrix)                                   :: Qsystem
@@ -101,7 +100,7 @@ MODULE VCA_VARS_GLOBAL
   real(8),dimension(:,:),allocatable              ::  imp_docc    ![Nlat][Norb]
 
 
-  
+
   !Suffix string attached to the output files.
   !=========================================================
   character(len=64)                               :: file_suffix=""
@@ -112,6 +111,19 @@ MODULE VCA_VARS_GLOBAL
   type sector_map
      integer,dimension(:),allocatable             :: map
   end type sector_map
+
+
+contains
+
+
+  !> Get stride position in the one-particle many-body space 
+  function index_stride_los(ilat,iorb,ispin) result(indx)
+    integer :: ilat
+    integer :: iorb
+    integer :: ispin
+    integer :: indx
+    indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+  end function index_stride_los
 
 
 END MODULE VCA_VARS_GLOBAL

@@ -27,7 +27,7 @@ contains
 
 
 
-  
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Build the Q and Lambda matrix from Spectral sum.
   !+------------------------------------------------------------------+
@@ -67,24 +67,17 @@ contains
     !
     iexc = 0
     do ispin=1,Nspin
-       !
        do isector=1,Nsectors
           jsector=getCDGsector(ispin,isector)
           if(jsector==0)cycle
-          !
           idim=getdim(isector)     !i-th sector dimension
           jdim=getdim(jsector)     !j-th sector dimension
-          !
           do i=1,idim          !loop over the states in the i-th sect.
              do j=1,jdim       !loop over the states in the j-th sect.
-                !
                 expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
                 if(expterm < cutoff)cycle
-                !
                 iexc=iexc+1
-                !
                 matrix%poles(iexc) = espace(jsector)%e(j)-espace(isector)%e(i)
-                !             
              enddo
           enddo
        enddo
@@ -100,12 +93,12 @@ contains
   !PURPOSE  : Spectral sum evaluation of the Green's functions
   ! Matsubara and Real-Axis
   !+------------------------------------------------------------------+
-  subroutine full_build_Qmatrix(matrix)!,ispin,ilat,jlat,iorb,jorb)
+  subroutine full_build_Qmatrix(matrix)
     type(Qmatrix)    :: matrix
     integer          :: ilat,jlat
     integer          :: iorb,jorb
     integer          :: ispin,jspin
-    integer          :: isite,jsite
+    integer          :: istate,isite,jsite
     integer          :: idim,isector
     integer          :: jdim,jsector
     real(8)          :: cdgOp_mat,cOp_mat
@@ -117,57 +110,52 @@ contains
     real(8)          :: expterm
     type(sector_map) :: HI,HJ
     !
-    do iorb=1,Norb
-       do ilat=1,Nlat
-          iexc = 0
-          do ispin=1,Nspin
-             isite = imp_state_index(ilat,iorb,ispin)
-             write(LOGfile,"(A,A)")&
-                  "Get Q_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin),&
-                  "Q^+_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin)
-             do isector=1,Nsectors
-                jsector=getCDGsector(ispin,isector)
-                if(jsector==0)cycle
-                idim=getdim(isector)     !i-th sector dimension
-                jdim=getdim(jsector)     !j-th sector dimension
-                call build_sector(isector,HI)
-                call build_sector(jsector,HJ)
-                do i=1,idim          !loop over the states in the i-th sect.
-                   do j=1,jdim       !loop over the states in the j-th sect.
-                      expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
-                      if(expterm < cutoff)cycle
-                      !
-                      iexc=iexc+1
-                      !
-                      cdgOp_mat = 0d0
-                      do ni=1,idim              !loop over the component of |I> (IN state!)
-                         n  = HI%map(ni)
-                         ib = bdecomp(n,2*Ns)
-                         if(ib(isite) == 1)cycle
-                         call cdg(isite,n,m,sgn_cdg)
-                         mj = binary_search(HJ%map,m)
-                         cdgOp_mat = cdgOp_mat + espace(jsector)%M(mj,j)*sgn_cdg*espace(isector)%M(ni,i)
-                      enddo
-                      matrix%cdg(iexc,isite) = cdgOp_mat*sqrt(expterm/zeta_function)
-                      !
-                      cOp_mat   = 0d0
-                      do mj=1,jdim              !loop over the component of |J> (IN state!)
-                         m  = HJ%map(mj)
-                         ib = bdecomp(m,2*Ns)
-                         if(ib(isite) == 0)cycle
-                         call c(isite,m,n,sgn_c)
-                         ni = binary_search(HI%map,n)
-                         cOp_mat = cOp_mat + espace(isector)%M(ni,i)*sgn_c*espace(jsector)%M(mj,j)
-                      enddo
-                      matrix%c(isite,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
-                      !             
+    do istate=1,Ns
+       write(LOGfile,"(A,A)")"Get Q_i"//str(istate,3)//", Q^+_i"//str(istate,3)
+       iexc = 0
+       do ispin=1,Nspin
+          isite = istate + (ispin-1)*Ns !imp_state_index(ilat,iorb,ispin)
+
+          do isector=1,Nsectors
+             jsector=getCDGsector(ispin,isector)
+             if(jsector==0)cycle
+             idim=getdim(isector)     !i-th sector dimension
+             jdim=getdim(jsector)     !j-th sector dimension
+             call build_sector(isector,HI)
+             call build_sector(jsector,HJ)
+             do i=1,idim          !loop over the states in the i-th sect.
+                do j=1,jdim       !loop over the states in the j-th sect.
+                   expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
+                   if(expterm < cutoff)cycle
+                   iexc=iexc+1
+                   cdgOp_mat = 0d0
+                   do ni=1,idim              !loop over the component of |I> (IN state!)
+                      n  = HI%map(ni)
+                      ib = bdecomp(n,2*Ns)
+                      if(ib(isite) == 1)cycle
+                      call cdg(isite,n,m,sgn_cdg)
+                      mj = binary_search(HJ%map,m)
+                      cdgOp_mat = cdgOp_mat + espace(jsector)%M(mj,j)*sgn_cdg*espace(isector)%M(ni,i)
                    enddo
+                   matrix%cdg(iexc,isite) = cdgOp_mat*sqrt(expterm/zeta_function)
+                   !
+                   cOp_mat   = 0d0
+                   do mj=1,jdim              !loop over the component of |J> (IN state!)
+                      m  = HJ%map(mj)
+                      ib = bdecomp(m,2*Ns)
+                      if(ib(isite) == 0)cycle
+                      call c(isite,m,n,sgn_c)
+                      ni = binary_search(HI%map,n)
+                      cOp_mat = cOp_mat + espace(isector)%M(ni,i)*sgn_c*espace(jsector)%M(mj,j)
+                   enddo
+                   matrix%c(isite,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
+                   !             
                 enddo
-                call delete_sector(isector,HI)
-                call delete_sector(jsector,HJ)
              enddo
-             !
+             call delete_sector(isector,HI)
+             call delete_sector(jsector,HJ)
           enddo
+          !
        enddo
     enddo
     !
@@ -190,6 +178,7 @@ contains
   subroutine allocate_Qmatrix(matrix)
     type(Qmatrix)    :: matrix
     integer          :: Nexc
+    integer          :: Ndim
     !
     if(matrix%allocated)call deallocate_Qmatrix(matrix)
     !
@@ -201,10 +190,11 @@ contains
     !
     matrix%allocated = .true.
     !
-    allocate(matrix%c(Nlat*Norb,Nexc))
+    Ndim = vca_get_cluster_dimension(vca_bath%status)
+    allocate(matrix%c(Ndim,Nexc))
     matrix%c=0d0
     !
-    allocate(matrix%cdg(Nexc,Nlat*Norb))
+    allocate(matrix%cdg(Nexc,Ndim))
     matrix%cdg=0d0
     !
     allocate(matrix%poles(Nexc))
@@ -237,6 +227,88 @@ end MODULE VCA_QMATRIX
 
 
 
+
+
+
+
+
+
+! !+------------------------------------------------------------------+
+! !PURPOSE  : Spectral sum evaluation of the Green's functions
+! ! Matsubara and Real-Axis
+! !+------------------------------------------------------------------+
+! subroutine full_build_Qmatrix(matrix)!,ispin,ilat,jlat,iorb,jorb)
+!   type(Qmatrix)    :: matrix
+!   integer          :: ilat,jlat
+!   integer          :: iorb,jorb
+!   integer          :: ispin,jspin
+!   integer          :: isite,jsite
+!   integer          :: idim,isector
+!   integer          :: jdim,jsector
+!   real(8)          :: cdgOp_mat,cOp_mat
+!   real(8)          :: sgn_cdg,sgn_c
+!   integer          :: ib(Nlevels)
+!   integer          :: n,m,p,iexc
+!   integer          :: ni,mj
+!   integer          :: i,j,is,js
+!   real(8)          :: expterm
+!   type(sector_map) :: HI,HJ
+!   !
+!   do iorb=1,Norb
+!      do ilat=1,Nlat
+!         iexc = 0
+!         do ispin=1,Nspin
+!            isite = imp_state_index(ilat,iorb,ispin)
+!            write(LOGfile,"(A,A)")&
+!                 "Get Q_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin),&
+!                 "Q^+_i"//str(ilat,3)//"_l"//str(iorb)//"_s"//str(ispin)
+!            do isector=1,Nsectors
+!               jsector=getCDGsector(ispin,isector)
+!               if(jsector==0)cycle
+!               idim=getdim(isector)     !i-th sector dimension
+!               jdim=getdim(jsector)     !j-th sector dimension
+!               call build_sector(isector,HI)
+!               call build_sector(jsector,HJ)
+!               do i=1,idim          !loop over the states in the i-th sect.
+!                  do j=1,jdim       !loop over the states in the j-th sect.
+!                     expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
+!                     if(expterm < cutoff)cycle
+!                     !
+!                     iexc=iexc+1
+!                     !
+!                     cdgOp_mat = 0d0
+!                     do ni=1,idim              !loop over the component of |I> (IN state!)
+!                        n  = HI%map(ni)
+!                        ib = bdecomp(n,2*Ns)
+!                        if(ib(isite) == 1)cycle
+!                        call cdg(isite,n,m,sgn_cdg)
+!                        mj = binary_search(HJ%map,m)
+!                        cdgOp_mat = cdgOp_mat + espace(jsector)%M(mj,j)*sgn_cdg*espace(isector)%M(ni,i)
+!                     enddo
+!                     matrix%cdg(iexc,isite) = cdgOp_mat*sqrt(expterm/zeta_function)
+!                     !
+!                     cOp_mat   = 0d0
+!                     do mj=1,jdim              !loop over the component of |J> (IN state!)
+!                        m  = HJ%map(mj)
+!                        ib = bdecomp(m,2*Ns)
+!                        if(ib(isite) == 0)cycle
+!                        call c(isite,m,n,sgn_c)
+!                        ni = binary_search(HI%map,n)
+!                        cOp_mat = cOp_mat + espace(isector)%M(ni,i)*sgn_c*espace(jsector)%M(mj,j)
+!                     enddo
+!                     matrix%c(isite,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
+!                     !             
+!                  enddo
+!               enddo
+!               call delete_sector(isector,HI)
+!               call delete_sector(jsector,HJ)
+!            enddo
+!            !
+!         enddo
+!      enddo
+!   enddo
+!   !
+! end subroutine full_build_Qmatrix
 
 
 

@@ -5,7 +5,7 @@ program vca_chain1d
   USE VCA
   !
   implicit none
-  integer                            :: Nlos,Nsos,Nsys,Nrat,Nlat
+  integer                            :: Nlos,Nsos,Nsys
   integer                            :: ilat,jlat
   integer                            :: i,j
   integer                            :: ix
@@ -29,8 +29,6 @@ program vca_chain1d
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
-  call parse_input_variable(Nx,"NX",finput,default=1)
-  call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
   call parse_input_variable(tol,"TOL",finput,default=1.d-10)
   call parse_input_variable(wloop,"wloop",finput,default=.false.,comment="T: includes loop over ts")
   call parse_input_variable(wmin,"wmin",finput,default=.true.,comment="T: includes global minimization")
@@ -48,31 +46,29 @@ program vca_chain1d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
 
-
+  
   if(Norb/=1)stop "Norb != 1"
   if(Nspin/=1)stop "Nspin != 1"
   !
-  Lx   = Rx*Nx
+  Nsys   = Ncopies*Nlat
   !
-  Nlat = Nx
-   Nsys = Lx
-
-  write(*,*)"Total size  :",Lx
-
-  write(*,*)"Cluster size:",Nx
+  write(*,*)"Total size  :",Nsys
+  write(*,*)"Cluster size:",Nlat
 
   allocate(Tsys(Nsys,Nsys))
   allocate(Tref(Nsys,Nsys))
   allocate(Vmat(Nsys,Nsys))
 
   !>build full system lattice tb hamiltonian
-  Tsys = Htb_square_lattice(Lx,1,ts,file="Tsys_matrix.dat")
+  Tsys = Htb_square_lattice(Nsys,1,ts,file="Tsys_matrix.dat")
 
+
+  call vca_init_solver()
 
   if(wloop)then
      allocate(ts_array(Nloop))
      allocate(omega_array(Nloop))
-     ts_array = linspace(0.2d0,1.7d0,Nloop)
+     ts_array = linspace(1d-2,1.7d0,Nloop)
      do i=1,Nloop
         omega_array(i)=solve_vca1d(ts_array(i))
      enddo
@@ -107,15 +103,14 @@ contains
     !
     write(300,*)tij
     !
-    Hcluster  = Htb_square_lattice(Nx,1,tij,file="Hcluster_matrix.dat")
+    Hcluster  = Htb_square_lattice(Nlat,1,tij,file="Hcluster_matrix.dat")
     !
     print*,"----- INIT -----"
-    call vca_tile_Treference(Hcluster,[Rx,1],Tref)
+    call vca_tile_Treference(Hcluster,[Ncopies,1],Tref)
     !
     Vmat = Tsys - Tref
     !
-    call vca_init_solver(los2nnn_reshape(Hcluster,Nlat,Norb,Nspin))
-    call vca_solve(los2nnn_reshape(Hcluster,Nlat,Norb,Nspin),Vmat) 
+    call vca_solve(vca_los2nnn_reshape(Hcluster,Nlat,Norb,Nspin),Vmat) 
     call vca_get_sft_potential(omega)
     print*,""
     print*,"------ DONE ------"
