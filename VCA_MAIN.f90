@@ -105,11 +105,14 @@ contains
     Nexc     = Qcluster%Nexc
     Nexc_sys = Ncopies*Nexc
     call allocate_Qmatrix(Qsystem)
-    !    
-    allocate(Mmat(Nexc_sys,Nexc_sys));Mmat=zero
+    !
+    print*,"Nexc_sys=",Nexc_sys
+    allocate(Mmat(Nexc_sys,Nexc_sys))
     allocate(Lvec(Nexc_sys));Lvec=zero
     !
     Nc = vca_get_cluster_dimension(present(bath))
+    !
+    Mmat=zero
     !
     do icopy=1,Ncopies
        do jcopy=1,Ncopies
@@ -123,13 +126,6 @@ contains
           jj1 = 1 + (jcopy-1)*Nexc
           jj2 = jcopy*Nexc
           !
-          ! print*,icopy,jcopy
-          ! print*,i1,i2,j1,j2
-          ! print*,ii1,ii2,jj1,jj2
-          ! print*,size(Qcluster%cdg,1),size(Qcluster%cdg,2)
-          ! print*,size(Vmat(i1:i2,j1:j2),1),size(Vmat(i1:i2,j1:j2),2)
-          ! print*,size(Qcluster%c,1),size(Qcluster%c,2)
-          ! print*,""
           Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
        enddo
     enddo
@@ -138,27 +134,29 @@ contains
     !
     call eigh(Mmat,Lvec)!>from here on M-->S
     !
-    !>
-    ! Qsystem%c     = matmul( Qcluster%c, Mmat )                     ![Nlos,Nexc][Nexc,Nexc]
-    ! Qsystem%cdg   = matmul( conjg(transpose(Mmat)), Qcluster%cdg)  ![Nexc,Nexc][Nexc,Nlos]
     Qsystem%poles = Lvec
     call sort_array(Qcluster%poles)
-    !
-    Tr=0d0
+    Lvec=zero
     do iexc=1,Nexc
        do icopy=1,Ncopies
           i = icopy + (iexc-1)*Ncopies
-          !
-          arg1 = beta*Qcluster%poles(iexc)
-          arg2 = beta*Qsystem%poles(i)
-          if(arg1 < -20d0 .OR. arg2 < -20d0)then
-             Tr  = Tr - beta*( Qcluster%poles(iexc) - Qsystem%poles(i) )
-          else
-             Tr  = Tr + log( (1d0 + exp(-beta*Qcluster%poles(iexc)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
-          endif
+          Lvec(i) = Qcluster%poles(iexc)
        enddo
     enddo
-    sft_potential = Ncopies*omega_potential + Tr/beta
+    !
+    Tr=0d0
+    do i=1,Nexc_sys
+       !
+       arg1 = beta*Lvec(i)
+       arg2 = beta*Qsystem%poles(i)
+       if(arg1 < -20d0 .OR. arg2 < -20d0)then
+          Tr  = Tr - beta*( Lvec(i) - Qsystem%poles(i) )
+       else
+          Tr  = Tr + log( (1d0 + exp(-beta*Lvec(i)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
+       endif
+    enddo
+    !
+    sft_potential = omega_potential + Tr/beta - 1d0/beta*log(dble(Ncopies))
     open(free_unit(unit),file="SFT_potential.vca",position='append')
     write(unit,*)sft_potential
     close(unit)

@@ -137,7 +137,7 @@ contains
                       mj = binary_search(HJ%map,m)
                       cdgOp_mat = cdgOp_mat + espace(jsector)%M(mj,j)*sgn_cdg*espace(isector)%M(ni,i)
                    enddo
-                   matrix%cdg(iexc,isite) = cdgOp_mat*sqrt(expterm/zeta_function)
+                   matrix%cdg(iexc,isite) = cdgOp_mat*sqrt(expterm/zeta_function/Ncopies)
                    !
                    cOp_mat   = 0d0
                    do mj=1,jdim              !loop over the component of |J> (IN state!)
@@ -148,7 +148,7 @@ contains
                       ni = binary_search(HI%map,n)
                       cOp_mat = cOp_mat + espace(isector)%M(ni,i)*sgn_c*espace(jsector)%M(mj,j)
                    enddo
-                   matrix%c(isite,iexc)   =   cOp_mat*sqrt(expterm/zeta_function)
+                   matrix%c(isite,iexc)   =   cOp_mat*sqrt(expterm/zeta_function/Ncopies)
                    !             
                 enddo
              enddo
