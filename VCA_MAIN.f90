@@ -106,10 +106,12 @@ contains
     Nexc_sys = Ncopies*Nexc
     call allocate_Qmatrix(Qsystem)
     !    
-    allocate(Mmat(Nexc_sys,Nexc_sys));Mmat=zero
+    allocate(Mmat(Nexc_sys,Nexc_sys))
     allocate(Lvec(Nexc_sys));Lvec=zero
     !
     Nc = vca_get_cluster_dimension(present(bath))
+    !
+    Mmat=zero
     !
     do icopy=1,Ncopies
        do jcopy=1,Ncopies
@@ -123,13 +125,6 @@ contains
           jj1 = 1 + (jcopy-1)*Nexc
           jj2 = jcopy*Nexc
           !
-          ! print*,icopy,jcopy
-          ! print*,i1,i2,j1,j2
-          ! print*,ii1,ii2,jj1,jj2
-          ! print*,size(Qcluster%cdg,1),size(Qcluster%cdg,2)
-          ! print*,size(Vmat(i1:i2,j1:j2),1),size(Vmat(i1:i2,j1:j2),2)
-          ! print*,size(Qcluster%c,1),size(Qcluster%c,2)
-          ! print*,""
           Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
        enddo
     enddo
@@ -158,7 +153,7 @@ contains
           endif
        enddo
     enddo
-    sft_potential = Ncopies*omega_potential + Tr/beta
+    sft_potential = omega_potential + Tr/beta - 1d0/beta*log(dble(Ncopies))
     open(free_unit(unit),file="SFT_potential.vca",position='append')
     write(unit,*)sft_potential
     close(unit)
