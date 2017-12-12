@@ -5,7 +5,7 @@ program vca_test
   USE VCA
   !
   implicit none
-  integer                                         :: Nlos,Nsos,Nsys,Nrat
+  integer                                         :: Nlos,Nsys
   integer                                         :: ilat,jlat
   integer                                         :: i,j
   integer                                         :: ix,iy
@@ -18,21 +18,31 @@ program vca_test
   complex(8)                                      :: iw
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal
   character(len=16)                               :: finput
-  real(8)                                         :: ts,tsp
+  real(8)                                         :: ts
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
   integer                                         :: unit
 
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
-  call parse_input_variable(tsp,"tsp",finput,default=1d0)
-  call parse_input_variable(Nx,"NX",finput,default=1)
-  call parse_input_variable(Ny,"Ny",finput,default=2)
   call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
-  call parse_input_variable(Ry,"Ry",finput,default=5,comment="Ratio L/Lc=Ry along Y-directions, aka # of copies along Y")
+  call parse_input_variable(Ry,"Ry",finput,default=1,comment="Ratio L/Lc=Ry along Y-directions, aka # of copies along Y")
   !
   call vca_read_input(trim(finput))
 
+
+  if(Norb/=1)stop "Norb != 1"
+  if(Nspin/=1)stop "Nspin != 1"
+  !
+  Nx=2
+  Ny=2
+  Lx   = Rx*Nx
+  Ly   = Ry*Ny
+  !
+  Nlat = Nx*Ny
+  Nsys = Lx*Ly
+  !
+  Nlos = Nlat*Norb*Nspin
 
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
@@ -45,41 +55,32 @@ program vca_test
   call add_ctrl_var(eps,"eps")
 
 
-  if(Norb/=1)stop "Norb != 1"
-  if(Nspin/=1)stop "Nspin != 1"
-  !
-  Lx   = Rx*Nx
-  Ly   = Ry*Ny
-  !
-  Nlat = Nx*Ny
-  Nsys = Lx*Ly
-  !
-  Nlos = Nlat*Norb*Nspin
-  Nsos = Nsys*Norb*Nspin
-
-
   allocate(Tsys(Nsys,Nsys))
   allocate(Tref(Nsys,Nsys))
   allocate(Vmat(Nsys,Nsys))
   allocate(Htb(Nlat,Nlat))
+
   !>build full system lattice tb hamiltonian
   Tsys = Htb_square_lattice(Lx,Ly,ts,file="Tsys_matrix.dat")
+
   !>build cluster tight binding hamiltonian (one could extract it)
   Htb  = Htb_square_lattice(Nx,Ny,ts,file="Htb_matrix.dat")
+
   !>build Tref: tiling of Htb decoupled clusters;
   call vca_tile_Treference(Htb,[Rx,Ry],Tref)
+
   !>build Vmat=Tsys-Tref
   Vmat = Tsys - Tref
+
   !>printing lattice structures.
   call print_2DLattice_Structure(Htb,[Nx,Ny],1,1,file="Htb")
   call print_2DLattice_Structure(Tsys,[Lx,Ly],1,1,file="Tsys")
   call print_2DLattice_Structure(Tref,[Lx,Ly],1,1,file="Tref")
   call print_2DLattice_Structure(Vmat,[Lx,Ly],1,1,file="Vmat")  
 
-  call vca_init_solver(los2nnn_reshape(Htb,Nlat,Norb,Nspin))
-  call vca_diag_cluster(los2nnn_reshape(Htb,Nlat,Norb,Nspin)) 
-  call vca_diag_system(Vmat)
-  call vca_sft_potential
+  call vca_init_solver()
+
+  call vca_solve(one*vca_los2nnn_reshape(Htb,Nlat,Nspin,Norb))
 
 
   allocate(wm(Lmats),wr(Lreal))
@@ -87,16 +88,16 @@ program vca_test
   wr = linspace(wini,wfin,Lreal)
 
 
-  allocate(Gmats(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(Greal(Nlat,Nlat,Norb,Norb,Nspin,Nspin,Lmats))
+  allocate(Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(dens(Nlat,Nlat))
 
-  call vca_get_Gcluster_matsubara(Gmats)
-  call vca_get_Gcluster_realaxis(Greal)
+  call vca_get_gimp_matsubara(Gmats)
+  call vca_get_gimp_realaxis(Greal)
   do ilat=1,Nlat
      do jlat=1,Nlat
-        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gref_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+        call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+        call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
         dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
      enddo
   enddo
@@ -104,19 +105,6 @@ program vca_test
 
 
 
-  allocate(Gmats(Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(Greal(Nsys,Nsys,Norb,Norb,Nspin,Nspin,Lmats))
-  allocate(dens(Nsys,Nsys))
-
-  call vca_get_Gsystem_matsubara(Gmats)
-  call vca_get_Gsystem_realaxis(Greal)
-  do ilat=1,Nsys
-     do jlat=1,Nsys
-        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gsys_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-        dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
-     enddo
-  enddo
 
 
 

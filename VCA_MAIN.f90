@@ -3,8 +3,8 @@ module VCA_MAIN
   USE VCA_AUX_FUNX
   USE VCA_SETUP
   USE VCA_DIAG
-  USE VCA_QMATRIX
   USE VCA_OBSERVABLES
+  USE VCA_GREENS_FUNCTIONS
   USE VCA_BATH_SETUP
   !
   USE SF_LINALG,  only: eigh,diag,kron,eye
@@ -14,11 +14,15 @@ module VCA_MAIN
   implicit none
   private
 
+
   !>INIT VCA SOLVER
   public :: vca_init_solver
 
+
   !>VCA SOLVER
   public :: vca_solve
+
+
 
 
 contains
@@ -59,30 +63,26 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve(Hloc,Vmat,bath)
-    real(8),intent(in)                    :: Hloc(:,:,:,:,:,:)
-    real(8),dimension(:,:)                :: Vmat
-    real(8),intent(inout),optional        :: bath(:)
+  subroutine vca_solve(Hloc,Vq,bath)
+    complex(8),intent(in),dimension(:,:,:,:,:,:) :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
+    real(8),intent(in),dimension(:,:,:),optional :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
+    real(8),intent(inout),dimension(:),optional  :: bath
     !
-    integer                               :: ilat,jlat
-    integer                               :: iorb,jorb
-    integer                               :: ispin
-    integer                               :: iexc,jexc
-    integer                               :: i,j,Nexc,Nvmat,Nexc_sys,Nc
-    integer :: icopy,jcopy,i1,i2,j1,j2,ii1,ii2,jj1,jj2
-    complex(8),dimension(:,:),allocatable :: Mmat
-    real(8),dimension(:),allocatable      :: Lvec
-    real(8)                               :: earg
-    !
-    real(8)                               :: Tr,arg1,arg2
-    integer                               :: unit
+    integer                                      :: Lk,Nsites
+    integer                                      :: ilat,jlat
+    integer                                      :: iorb,jorb
+    integer                                      :: ispin
+
+    integer                                      :: i,j
+    real(8)                                      :: Tr
+    integer                                      :: unit
+
     !
     write(LOGfile,"(A)")"SOLVING VCA"
     !
-    Nlat = size(Hloc,1)
-    call assert_shape(Hloc,[Nlat,Nlat,Norb,Norb,Nspin,Nspin],"vca_solve","Hloc")
-    Nvmat = vca_get_system_dimension(present(bath))
-    call assert_shape(Vmat,[Nvmat,Nvmat],"vca_solve","Vmat")
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
+    ! if(present(Vq))Lk     = size(Vq,3)
+    ! call assert_shape(Vq,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk],"vca_solve","Vq")
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -97,66 +97,14 @@ contains
     call setup_eigenspace()
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
+    call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
-    call build_Qmatrix_cluster()  !build the one-particle Q and Lambda matrices
     !
     call delete_eigenspace()
     !
-    Nexc     = Qcluster%Nexc
-    Nexc_sys = Ncopies*Nexc
-    call allocate_Qmatrix(Qsystem)
-    !
-    print*,"Nexc_sys=",Nexc_sys
-    allocate(Mmat(Nexc_sys,Nexc_sys))
-    allocate(Lvec(Nexc_sys));Lvec=zero
-    !
-    Nc = vca_get_cluster_dimension(present(bath))
-    !
-    Mmat=zero
-    !
-    do icopy=1,Ncopies
-       do jcopy=1,Ncopies
-          i1 = 1 + (icopy-1)*Nc
-          i2 = icopy*Nc
-          j1 = 1 + (jcopy-1)*Nc
-          j2 = jcopy*Nc
-          !
-          ii1 = 1 + (icopy-1)*Nexc
-          ii2 = icopy*Nexc
-          jj1 = 1 + (jcopy-1)*Nexc
-          jj2 = jcopy*Nexc
-          !
-          Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
-       enddo
-    enddo
-    !
-    Mmat = Mmat + kron(eye(Ncopies),diag( Qcluster%poles ))
-    !
-    call eigh(Mmat,Lvec)!>from here on M-->S
-    !
-    Qsystem%poles = Lvec
-    call sort_array(Qcluster%poles)
-    Lvec=zero
-    do iexc=1,Nexc
-       do icopy=1,Ncopies
-          i = icopy + (iexc-1)*Ncopies
-          Lvec(i) = Qcluster%poles(iexc)
-       enddo
-    enddo
-    !
-    Tr=0d0
-    do i=1,Nexc_sys
-       !
-       arg1 = beta*Lvec(i)
-       arg2 = beta*Qsystem%poles(i)
-       if(arg1 < -20d0 .OR. arg2 < -20d0)then
-          Tr  = Tr - beta*( Lvec(i) - Qsystem%poles(i) )
-       else
-          Tr  = Tr + log( (1d0 + exp(-beta*Lvec(i)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
-       endif
-    enddo
-    !
-    sft_potential = omega_potential + Tr/beta - 1d0/beta*log(dble(Ncopies))
+
+
+    sft_potential = omega_potential 
     open(free_unit(unit),file="SFT_potential.vca",position='append')
     write(unit,*)sft_potential
     close(unit)
@@ -169,3 +117,62 @@ end module VCA_MAIN
 
 
 
+
+
+
+
+
+! Nexc     = Qcluster%Nexc
+! Nexc_sys = Ncopies*Nexc
+! call allocate_Qmatrix(Qsystem)
+! !
+! print*,"Nexc_sys=",Nexc_sys
+! allocate(Mmat(Nexc_sys,Nexc_sys))
+! allocate(Lvec(Nexc_sys));Lvec=zero
+! !
+! Nc = vca_get_cluster_dimension(present(bath))
+! !
+! Mmat=zero
+! !
+! do icopy=1,Ncopies
+!    do jcopy=1,Ncopies
+!       i1 = 1 + (icopy-1)*Nc
+!       i2 = icopy*Nc
+!       j1 = 1 + (jcopy-1)*Nc
+!       j2 = jcopy*Nc
+!       !
+!       ii1 = 1 + (icopy-1)*Nexc
+!       ii2 = icopy*Nexc
+!       jj1 = 1 + (jcopy-1)*Nexc
+!       jj2 = jcopy*Nexc
+!       !
+!       Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
+!    enddo
+! enddo
+! !
+! Mmat = Mmat + kron(eye(Ncopies),diag( Qcluster%poles ))
+! !
+! call eigh(Mmat,Lvec)!>from here on M-->S
+! !
+! Qsystem%poles = Lvec
+! call sort_array(Qcluster%poles)
+! Lvec=zero
+! do iexc=1,Nexc
+!    do icopy=1,Ncopies
+!       i = icopy + (iexc-1)*Ncopies
+!       Lvec(i) = Qcluster%poles(iexc)
+!    enddo
+! enddo
+! !
+! Tr=0d0
+! do i=1,Nexc_sys
+!    !
+!    arg1 = beta*Lvec(i)
+!    arg2 = beta*Qsystem%poles(i)
+!    if(arg1 < -20d0 .OR. arg2 < -20d0)then
+!       Tr  = Tr - beta*( Lvec(i) - Qsystem%poles(i) )
+!    else
+!       Tr  = Tr + log( (1d0 + exp(-beta*Lvec(i)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
+!    endif
+! enddo
+! !

@@ -2,6 +2,7 @@ MODULE VCA_VARS_GLOBAL
   USE VCA_INPUT_VARS
   !
   USE SF_CONSTANTS
+  USE SF_ARRAYS,  only: arange,linspace
   USE SF_IOTOOLS, only:str
   implicit none
 
@@ -28,14 +29,9 @@ MODULE VCA_VARS_GLOBAL
   integer                                         :: Nsectors
 
 
-  !Other System dimension
-  !=========================================================  
-  integer                                         :: Nexcitations
-
-
   !non-interacting cluster Hamiltonian
   !=========================================================
-  real(8),dimension(:,:,:,:,:,:),allocatable      :: impHloc ![Nlat][Nlat][Norb][Norb][Nspin][Nspin]
+  complex(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
 
@@ -54,13 +50,12 @@ MODULE VCA_VARS_GLOBAL
   type(effective_bath)                            :: vca_bath
 
 
-
   !Eigenvalues,Eigenvectors FULL DIAGONALIZATION
   !Hamiltonian eig-space structure
   !=========================================================
   type full_espace
      real(8),dimension(:),pointer                 :: e
-     real(8),dimension(:,:),pointer               :: M
+     complex(8),dimension(:,:),pointer            :: M
   end type full_espace
   type(full_espace),dimension(:),allocatable      :: espace
 
@@ -75,21 +70,15 @@ MODULE VCA_VARS_GLOBAL
   !Cluster Green's functions
   !(Nlat,Nlat,Nspin,Nspin,Norb,Norb,:)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Norb][Norb][Nspin][Nspin][L]
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Norb][Norb][Nspin][Nspin][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  !
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impG0mats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impG0real ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  !
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impSmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impSreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
 
-
-  !Q and Lambda VCA matrices:
-  !=============================================== ==========
-  type Qmatrix
-     logical                            :: allocated
-     integer                            :: Nexc
-     real(8),dimension(:,:),allocatable :: c     ![Nlat*Norb*Nspin][Nexc]
-     real(8),dimension(:,:),allocatable :: cdg   ![Nlat*Norb*Nspin][Nexc]
-     real(8),dimension(:),allocatable   :: poles ![Nspin][Nexc] diagonal matrix
-  end type Qmatrix
-  type(Qmatrix)                                   :: Qcluster
-  type(Qmatrix)                                   :: Qsystem
 
 
   !Cluster local observables:
@@ -113,7 +102,14 @@ MODULE VCA_VARS_GLOBAL
   end type sector_map
 
 
+  !Frequency and time arrays:
+  !=========================================================
+  real(8),dimension(:),allocatable                :: wm,tau,wr,vm
+
+
+
 contains
+
 
 
   !> Get stride position in the one-particle many-body space 
@@ -124,6 +120,33 @@ contains
     integer :: indx
     indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
   end function index_stride_los
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Allocate arrays and setup frequencies and times
+  !+------------------------------------------------------------------+
+  subroutine vca_allocate_time_freq_arrays
+    integer :: i
+    call vca_deallocate_time_freq_arrays()
+    allocate(wm(Lmats))
+    allocate(vm(0:Lmats))          !bosonic frequencies
+    allocate(wr(Lreal))
+    allocate(tau(0:Ltau))
+    wm     = pi/beta*(2*arange(1,Lmats)-1)
+    do i=0,Lmats
+       vm(i) = pi/beta*2*dble(i)
+    enddo
+    wr     = linspace(wini,wfin,Lreal)
+    tau(0:)= linspace(0d0,beta,Ltau+1)
+  end subroutine vca_allocate_time_freq_arrays
+  !
+  subroutine vca_deallocate_time_freq_arrays
+    if(allocated(wm))deallocate(wm)
+    if(allocated(vm))deallocate(vm)
+    if(allocated(tau))deallocate(tau)
+    if(allocated(wr))deallocate(wr)
+  end subroutine vca_deallocate_time_freq_arrays
 
 
 END MODULE VCA_VARS_GLOBAL

@@ -15,7 +15,6 @@ MODULE VCA_INPUT_VARS
   integer              :: Nspin        !# spin degeneracy (max 2)
   integer              :: Nlat         !# size of cluster
   integer              :: Nbath        !# of bath sites (per orbital or not depending on bath_type)
-  integer              :: Ncopies      !# of cluster copies tiling the whole system
   real(8),dimension(2) :: Uloc         !local interactions
   real(8)              :: Ust          !intra-orbitals interactions
   real(8)              :: Jh           !J_Hund: Hunds' coupling constant 
@@ -30,7 +29,9 @@ MODULE VCA_INPUT_VARS
   real(8)              :: cutoff       !cutoff for spectral summation
   real(8)              :: gs_threshold !Energy threshold for ground state degeneracy loop up
   real(8)              :: sb_field     !symmetry breaking field
-  logical              :: print_G      !flag to print impurity Green`s functions
+  logical              :: print_Sigma  !flag to print impurity Green`s functions
+  logical              :: print_impG   !flag to print impurity Green`s functions
+  logical              :: print_impG0  !flag to print impurity Green`s functions
   logical              :: diag_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   real(8)              :: nread        !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -40,7 +41,6 @@ MODULE VCA_INPUT_VARS
   integer              :: verbose      !
 
 
-  
   !Some parameters for function dimension:
   !=========================================================
   integer              :: Lmats
@@ -53,6 +53,7 @@ MODULE VCA_INPUT_VARS
 
 contains
 
+  
 
 
   !+-------------------------------------------------------------------+
@@ -60,16 +61,12 @@ contains
   !+-------------------------------------------------------------------+
   subroutine vca_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    integer          :: i
-
-
+    !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of orbitals per cluster site.")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy")
     call parse_input_variable(Nlat,"NLAT",INPUTunit,default=1,comment="Number of cluster copies tiling the system")
     call parse_input_variable(Nbath,"NBATH",INPUTunit,default=0,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)")
-    call parse_input_variable(Ncopies,"NCOPIES",INPUTunit,default=200,comment="Number of cluster copies tiling the system")
-
     !
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0],comment="Values of the local interaction per orbital")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
@@ -88,7 +85,9 @@ contains
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=5.d0,comment="Largest real-axis frequency")
     call parse_input_variable(eps,"EPS",INPUTunit,default=0.01d0,comment="Broadening on the real-axis.")
-    call parse_input_variable(print_G,"PRINT_G",INPUTunit,default=.true.,comment="Flag to print impurity Greens function")
+    call parse_input_variable(print_Sigma,"PRINT_SIGMA",INPUTunit,default=.true.,comment="Flag to print impurity Self-energy")
+    call parse_input_variable(print_impG,"PRINT_IMPG",INPUTunit,default=.true.,comment="Flag to print impurity interacting Greens function")
+    call parse_input_variable(print_impG0,"PRINT_IMPG0",INPUTunit,default=.true.,comment="Flag to print impurity non-interacting Greens function")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     !
     call parse_input_variable(nread,"NREAD",INPUTunit,default=0.d0,comment="Objective density for fixed density calculations.")
@@ -104,7 +103,6 @@ contains
     call save_input_file(INPUTunit)
     call scifor_version()
     call code_version(revision)
-
   end subroutine vca_read_input
 
 

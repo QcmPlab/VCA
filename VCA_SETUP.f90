@@ -118,10 +118,21 @@ contains
     !
     !
     !allocate functions
+    allocate(impSmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(impSreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    impSmats=zero
+    impSreal=zero
+    !
     allocate(impGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(impGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     impGmats=zero
     impGreal=zero
+    !
+    !allocate functions
+    allocate(impG0mats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(impG0real(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    impG0mats=zero
+    impG0real=zero
     !
     !allocate observables
     allocate(imp_dens(Nlat,Norb),imp_docc(Nlat,Norb),imp_dens_up(Nlat,Norb),imp_dens_dw(Nlat,Norb))

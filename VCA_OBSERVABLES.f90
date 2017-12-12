@@ -35,25 +35,24 @@ contains
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine observables_cluster()
-    integer,dimension(Nlevels)   :: ib
-    integer                      :: i,j,ilat,jlat
-    integer                      :: izero,istate
-    integer                      :: isector,jsector
-    integer                      :: idim,jdim
-    integer                      :: isz,jsz
-    integer                      :: iorb,jorb,ispin,jspin,isite,jsite
-    integer                      :: numstates
-    integer                      :: r,m,k
-    real(8)                      :: sgn,sgn1,sgn2
-    real(8)                      :: boltzman_weight
-    real(8)                      :: state_weight
-    real(8)                      :: weight
-    real(8)                      :: Ei
-    real(8)                      :: norm
-    real(8),dimension(Nlat,Norb) :: nup,ndw,Sz,nt
-    type(sector_map)             :: H,HJ
-    real(8),allocatable          :: vvinit(:)
-    real(8),dimension(:),pointer :: evec
+    integer,dimension(Nlevels)      :: ib
+    integer                         :: i,j,ilat,jlat
+    integer                         :: izero,istate
+    integer                         :: isector,jsector
+    integer                         :: idim,jdim
+    integer                         :: isz,jsz
+    integer                         :: iorb,jorb,ispin,jspin,isite,jsite
+    integer                         :: numstates
+    integer                         :: r,m,k
+    real(8)                         :: sgn,sgn1,sgn2
+    real(8)                         :: boltzman_weight
+    real(8)                         :: state_weight
+    real(8)                         :: weight
+    real(8)                         :: Ei
+    real(8)                         :: norm
+    real(8),dimension(Nlat,Norb)    :: nup,ndw,Sz,nt
+    type(sector_map)                :: H,HJ
+    complex(8),dimension(:),pointer :: evec
     !
     !
     !LOCAL OBSERVABLES:

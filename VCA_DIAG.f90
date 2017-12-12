@@ -51,6 +51,7 @@ contains
 
 
 
+
   !+-------------------------------------------------------------------+
   !PURPOSE  : diagonalize the Hamiltonian in each sector 
   !+------------------------------------------------------------------+
@@ -82,7 +83,7 @@ contains
        call buildH_c(espace(isector)%M)
        call delete_Hv_sector()
        call eigh(espace(isector)%M,espace(isector)%e,'V','U')
-       if(dim==1)espace(isector)%M=1d0
+       if(dim==1)espace(isector)%M=one
        !
        e0(isector)=minval(espace(isector)%e)
        !
@@ -116,8 +117,6 @@ contains
     write(LOGfile,"(A,F20.12)")'Z     =',zeta_function
     write(LOGfile,"(A,F20.12)")'Omega =',omega_potential
     !
-    call Enumerate_Nexcitations
-    !
     return
   end subroutine diagonalize_cluster
 
@@ -127,7 +126,7 @@ contains
 
   !> Build the Cluster Hamiltonian (into Hmat)
   subroutine buildH_c(Hmat)
-    real(8),dimension(:,:)       :: Hmat
+    complex(8),dimension(:,:)    :: Hmat
     integer                      :: isector
     integer,dimension(Nlevels)   :: ib
     real(8),dimension(Nlat,Norb) :: nup,ndw
@@ -179,47 +178,40 @@ contains
     enddo states
   end subroutine buildH_c
 
-
-  
-
-
-  !> Count number of 1p-excitations per spin-channel 
-  subroutine enumerate_Nexcitations
-    integer          :: ispin
-    integer          :: isector,jsector
-    integer          :: idim,jdim
-    integer          :: i,j,iexc
-    real(8)          :: expterm
-    iexc=0
-    do ispin=1,Nspin
-       do isector=1,Nsectors
-          jsector=getCDGsector(ispin,isector)
-          if(jsector==0)cycle
-          idim=getdim(isector)     !i-th sector dimension
-          jdim=getdim(jsector)     !j-th sector dimension
-          do i=1,idim          !loop over the states in the i-th sect.
-             do j=1,jdim       !loop over the states in the j-th sect.
-                expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
-                if(expterm < cutoff)cycle
-                iexc=iexc+1
-             enddo
-          enddo
-       enddo
-    enddo
-    !
-    Nexcitations = iexc
-    !
-    write(LOGfile,"(A,I5,A,I2)")"Found N =",iexc," excitations with the actual cut-off"
-    !
-  end subroutine enumerate_Nexcitations
-
-
-
-
-
-
-
 END MODULE VCA_DIAG
+
+
+
+
+! !> Count number of 1p-excitations per spin-channel 
+! subroutine enumerate_Nexcitations
+!   integer          :: ispin
+!   integer          :: isector,jsector
+!   integer          :: idim,jdim
+!   integer          :: i,j,iexc
+!   real(8)          :: expterm
+!   iexc=0
+!   do ispin=1,Nspin
+!      do isector=1,Nsectors
+!         jsector=getCDGsector(ispin,isector)
+!         if(jsector==0)cycle
+!         idim=getdim(isector)     !i-th sector dimension
+!         jdim=getdim(jsector)     !j-th sector dimension
+!         do i=1,idim          !loop over the states in the i-th sect.
+!            do j=1,jdim       !loop over the states in the j-th sect.
+!               expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
+!               if(expterm < cutoff)cycle
+!               iexc=iexc+1
+!            enddo
+!         enddo
+!      enddo
+!   enddo
+!   !
+!   Nexcitations = iexc
+!   !
+!   write(LOGfile,"(A,I5,A,I2)")"Found N =",iexc," excitations with the actual cut-off"
+!   !
+! end subroutine enumerate_Nexcitations
 
 
 
