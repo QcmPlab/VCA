@@ -48,8 +48,9 @@
         enddo
      endif
   endif
-  !
-  Hmat(i,i) = Hmat(i,i) + htmp
+  !  
+  ! Hmat(i,i) = Hmat(i,i) + htmp
+  call sp_insert_element(spH0,htmp,i,i)
   !
   !
   !
@@ -78,7 +79,8 @@
                  j=binary_search(H%map,k4)
                  htmp = one*Jx*sg1*sg2*sg3*sg4
                  !
-                 if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
+                 ! if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
+                 if(j/=0)call sp_insert_element(spH0,htmp,i,j)
                  !
               endif
            enddo
@@ -111,7 +113,8 @@
                  j=binary_search(H%map,k4)
                  htmp = one*Jp*sg1*sg2*sg3*sg4
                  !
-                 if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
+                 ! if(j/=0)Hmat(i,j) = Hmat(i,j) + htmp
+                 if(j/=0)call sp_insert_element(spH0,htmp,i,j)
                  !
               endif
            enddo

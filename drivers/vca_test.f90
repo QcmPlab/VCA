@@ -83,25 +83,24 @@ program vca_test
   call vca_solve(one*vca_los2nnn_reshape(Htb,Nlat,Nspin,Norb))
 
 
-  allocate(wm(Lmats),wr(Lreal))
-  wm = pi/beta*(2*arange(1,Lmats)-1)
-  wr = linspace(wini,wfin,Lreal)
+  ! allocate(wm(Lmats),wr(Lreal))
+  ! wm = pi/beta*(2*arange(1,Lmats)-1)
+  ! wr = linspace(wini,wfin,Lreal)
 
+  ! allocate(Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  ! allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  ! allocate(dens(Nlat,Nlat))
 
-  allocate(Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(dens(Nlat,Nlat))
-
-  call vca_get_gimp_matsubara(Gmats)
-  call vca_get_gimp_realaxis(Greal)
-  do ilat=1,Nlat
-     do jlat=1,Nlat
-        call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
-        call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
-        dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
-     enddo
-  enddo
-  deallocate(Gmats,Greal,dens)
+  ! call vca_get_gimp_matsubara(Gmats)
+  ! call vca_get_gimp_realaxis(Greal)
+  ! do ilat=1,Nlat
+  !    do jlat=1,Nlat
+  !       call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_iw.vca",wm,Gmats(ilat,jlat,1,1,1,1,:))
+  !       call splot("Gimp_i"//str(ilat,3)//"_j"//str(jlat,3)//"_l11_s1_realw.vca",wr,Greal(ilat,jlat,1,1,1,1,:))
+  !       dens(ilat,jlat) = fft_get_density(Gmats(ilat,jlat,1,1,1,1,:),beta)
+  !    enddo
+  ! enddo
+  ! deallocate(Gmats,Greal,dens)
 
 
 

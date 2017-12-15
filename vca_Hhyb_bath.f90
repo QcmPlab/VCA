@@ -13,7 +13,8 @@
               call cdg(ms,k1,k2,sg2)
               j = binary_search(H%map,k2)
               htmp = vca_bath%v(ilat,iorb,1,kp)*sg1*sg2
-              Hmat(i,j) = Hmat(i,j) + htmp
+              ! Hmat(i,j) = Hmat(i,j) + htmp
+              call sp_insert_element(spH0,htmp,i,j)
            endif
            Jcondition = (vca_bath%v(ilat,iorb,1,kp)/=0d0).AND.(ib(is)==0).AND.(ib(ms)==1)
            if(Jcondition)then
@@ -21,7 +22,8 @@
               call cdg(is,k1,k2,sg2)
               j=binary_search(H%map,k2)
               htmp = vca_bath%v(ilat,iorb,1,kp)*sg1*sg2
-              Hmat(i,j) = Hmat(i,j) + htmp
+              ! Hmat(i,j) = Hmat(i,j) + htmp
+              call sp_insert_element(spH0,htmp,i,j)
            endif
            !
            !IMP DW <--> BATH DW
@@ -32,7 +34,8 @@
               call cdg(ms+Ns,k1,k2,sg2)
               j=binary_search(H%map,k2)
               htmp=vca_bath%v(ilat,iorb,Nspin,kp)*sg1*sg2
-              Hmat(i,j) = Hmat(i,j) + htmp
+              ! Hmat(i,j) = Hmat(i,j) + htmp
+              call sp_insert_element(spH0,htmp,i,j)
            endif
            Jcondition = (vca_bath%v(ilat,iorb,Nspin,kp)/=0d0).AND.(ib(is)==0).AND.(ib(ms+Ns)==1)
            if(Jcondition)then
@@ -40,7 +43,8 @@
               call cdg(is,k1,k2,sg2)
               j=binary_search(H%map,k2)
               htmp=vca_bath%v(ilat,iorb,Nspin,kp)*sg1*sg2
-              Hmat(i,j) = Hmat(i,j) + htmp
+              ! Hmat(i,j) = Hmat(i,j) + htmp
+              call sp_insert_element(spH0,htmp,i,j)
            endif
         enddo
      enddo

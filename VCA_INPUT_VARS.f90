@@ -33,7 +33,24 @@ MODULE VCA_INPUT_VARS
   logical              :: print_impG   !flag to print impurity Green`s functions
   logical              :: print_impG0  !flag to print impurity Green`s functions
   logical              :: diag_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
-  character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
+  ! character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
+  !
+  character(len=6)     :: vca_method          !flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)
+  !
+  real(8)              :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
+  integer              :: lanc_niter          !Max number of Lanczos iterations
+  integer              :: lanc_niter_spectrum !Max number of iterations in the spectrum annealing
+  integer              :: lanc_ngfiter        !Max number of iteration in resolvant tri-diagonalization
+  integer              :: lanc_ncv_factor     !Set the size of the block used in Lanczos-Arpack by multiplying the required Neigen (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)
+  integer              :: lanc_ncv_add        !Adds up to the size of the block to prevent it to become too small (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)
+  integer              :: lanc_nstates_sector !Max number of required eigenvalues per sector
+  integer              :: lanc_nstates_total  !Max number of states hold in the finite T calculation
+  integer              :: lanc_nstates_step   !Number of states added at each step to determine the optimal spectrum size at finite T
+  integer              :: lanc_dim_threshold  !Min dimension threshold to use Lanczos determination of the spectrum rather than Lapack based exact diagonalization.
+  real(8)              :: lanc_spectrum_threshold  !Threshold for the spectrum annealing error.
+  logical              :: vca_sparse_H         !flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE
+  !
+
   real(8)              :: nread        !fixed density. if 0.d0 fixed chemical potential calculation.
   real(8)              :: nerr         !fix density threshold. a loop over from 1.d-1 to required nerr is performed
   real(8)              :: ndelta       !initial chemical potential step
@@ -53,7 +70,7 @@ MODULE VCA_INPUT_VARS
 
 contains
 
-  
+
 
 
   !+-------------------------------------------------------------------+
@@ -88,7 +105,24 @@ contains
     call parse_input_variable(print_Sigma,"PRINT_SIGMA",INPUTunit,default=.true.,comment="Flag to print impurity Self-energy")
     call parse_input_variable(print_impG,"PRINT_IMPG",INPUTunit,default=.true.,comment="Flag to print impurity interacting Greens function")
     call parse_input_variable(print_impG0,"PRINT_IMPG0",INPUTunit,default=.true.,comment="Flag to print impurity non-interacting Greens function")
-    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
+    ! call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
+    !
+    call parse_input_variable(vca_method,"VCA_METHOD",INPUTunit,default="lanc",comment="flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)")
+    !
+    call parse_input_variable(diag_twin,"DIAG_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
+    !
+    call parse_input_variable(vca_sparse_H,"VCA_SPARSE_H",INPUTunit,default=.true.,comment="flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
+    call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=6,comment="Initial number of states per sector to be determined.")
+    call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
+    call parse_input_variable(lanc_nstates_step,"LANC_NSTATES_STEP",INPUTunit,default=2,comment="Number of states added to the spectrum at each step.")
+    call parse_input_variable(lanc_ncv_factor,"LANC_NCV_FACTOR",INPUTunit,default=3,comment="Set the size of the block used in Lanczos-Arpack by multiplying the required Neigen (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)")
+    call parse_input_variable(lanc_ncv_add,"LANC_NCV_ADD",INPUTunit,default=5,comment="Adds up to the size of the block to prevent it to become too small (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)")
+    call parse_input_variable(lanc_niter,"LANC_NITER",INPUTunit,default=512,comment="Number of Lanczos iteration in spectrum determination.")
+    call parse_input_variable(lanc_niter_spectrum,"LANC_NITER_SPECTRUM",INPUTunit,default=10,comment="Number of iterations in spectrum annealing.")
+    call parse_input_variable(lanc_ngfiter,"LANC_NGFITER",INPUTunit,default=200,comment="Number of Lanczos iteration in GF determination. Number of momenta.")
+    call parse_input_variable(lanc_tolerance,"LANC_TOLERANCE",INPUTunit,default=0.000000000001d0,comment="Tolerance for the Lanczos iterations as used in Arpack and plain lanczos.")
+    call parse_input_variable(lanc_dim_threshold,"LANC_DIM_THRESHOLD",INPUTunit,default=256,comment="Min dimension threshold to use Lanczos determination of the spectrum rather than Lapack based exact diagonalization.")
+    call parse_input_variable(lanc_spectrum_threshold,"LANC_SPECTRUM_THRESHOLD",INPUTunit,default=1d-5,comment="Threshold for the spectrum annealing error.")
     !
     call parse_input_variable(nread,"NREAD",INPUTunit,default=0.d0,comment="Objective density for fixed density calculations.")
     call parse_input_variable(nerr,"NERR",INPUTunit,default=1.d-4,comment="Error threshold for fixed density calculations.")

@@ -11,5 +11,6 @@
      enddo
   enddo
   !
-  Hmat(i,i) = Hmat(i,i) + htmp
+  ! Hmat(i,i) = Hmat(i,i) + htmp
+  call sp_insert_element(spH0,htmp,i,i)
   !

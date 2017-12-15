@@ -32,6 +32,10 @@ MODULE VCA_AUX_FUNX
   end interface vca_print_Hcluster
 
 
+
+
+  public :: vca_get_cluster_dimension
+  !
   public :: vca_loS2nnn_reshape
   public :: vca_nnn2loS_reshape
   !
@@ -46,6 +50,34 @@ MODULE VCA_AUX_FUNX
 
 
 contains
+
+  !##################################################################
+  !                   DIMENSION PROCEDURES
+  !##################################################################
+  function vca_get_cluster_dimension(with_bath) result(Ncluster)
+    logical,optional :: with_bath
+    logical          :: bool
+    integer          :: Ns
+    integer          :: Ncluster
+    !
+    bool = .false. ; if(present(with_bath))bool = with_bath
+    !
+    !Count how many levels are there in the cluster:
+    Ns = Nlat*Norb
+    if(bool)then
+       ! select case(bath_type)
+       ! case default
+       Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
+       ! case ('hybrid')
+       !    Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
+       ! end select
+    endif
+    !
+    !Count the spin:
+    Ncluster  = Nspin*Ns
+    !
+  end function vca_get_cluster_dimension
+
 
 
 

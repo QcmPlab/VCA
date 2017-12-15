@@ -6,6 +6,8 @@ module VCA_MAIN
   USE VCA_OBSERVABLES
   USE VCA_GREENS_FUNCTIONS
   USE VCA_BATH_SETUP
+  USE VCA_EIGENSPACE
+  USE VCA_HAMILTONIAN_MATVEC
   !
   USE SF_LINALG,  only: eigh,diag,kron,eye
   USE SF_IOTOOLS, only: str,free_unit
@@ -92,6 +94,15 @@ contains
        call vca_save_bath(vca_bath,used=.true.)
     endif
     !
+    ! select case(vca_sparse_H)
+    ! case (.true.)
+    spHtimesV_cc => spMatVec_cc
+    ! case (.false.)
+    !    spHtimesV_cc => directMatVec_cc
+    ! case default
+    !    stop "vca_solve_single ERROR: vca_sparse_H undefined"
+    ! end select
+    !
     call vca_set_Hcluster(Hloc)
     !
     call setup_eigenspace()
@@ -101,7 +112,8 @@ contains
     call observables_cluster()    !obtain impurity observables as thermal averages.
     !
     call delete_eigenspace()
-    !
+    call es_delete_espace(state_list)
+    nullify(spHtimesV_cc)
 
 
     sft_potential = omega_potential 

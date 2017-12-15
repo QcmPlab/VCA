@@ -145,18 +145,21 @@ SET(PREFIX  "$ENV{HOME}/.bin" CACHE PATH "Prefix prepended to install directorie
 SET(CMAKE_INSTALL_PREFIX "${PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
 
 # define the executable to compiler
-SET(EXE vca_chain1d CACHE STRING "Driver code to compile")
+SET(EXE vca_test CACHE STRING "Driver code to compile")
 # SET(CMAKE_INSTALL_EXE "${EXE}" CACHE INTERNAL "Driver code to compile" FORCE)
 
 
 FILE(GLOB VCA_LOCAL_SRC
+  VCA_SPARSE_MATRIX.f90
   VCA_INPUT_VARS.f90
   VCA_VARS_GLOBAL.f90
   VCA_AUX_FUNX.f90
   VCA_IO.f90
   VCA_SETUP.f90
+  VCA_EIGENSPACE.f90
   VCA_BATH_SETUP.f90
   VCA_BATH_FUNCTIONS.f90
+  VCA_HAMILTONIAN_MATVEC.f90
   VCA_DIAG.f90
   VCA_OBSERVABLES.f90
   VCA_GREENS_FUNCTIONS.f90

@@ -57,16 +57,16 @@ contains
     integer,optional               :: ispin_
     integer                        :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
     !
-    select case(bath_type)
-    case default
-       !e:[Nlat][Norb][Nspin][Nbath] + v:[Nlat][Norb][Nspin][Nbath]
-       bath_size = Nlat*Norb*Nbath + Nlat*Norb*Nbath
-       if(.not.present(ispin_))bath_size=Nspin*bath_size
-    case('hybrid')
-       !e:[1][1][Nspin][Nbath] + v:[Nlat][Norb][Nspin][Nbath]
-       bath_size = Nbath + Nlat*Norb*Nbath
-       if(.not.present(ispin_))bath_size=Nspin*bath_size
-    end select
+    ! select case(bath_type)
+    ! case default
+    !e:[Nlat][Norb][Nspin][Nbath] + v:[Nlat][Norb][Nspin][Nbath]
+    bath_size = Nlat*Norb*Nbath + Nlat*Norb*Nbath
+    if(.not.present(ispin_))bath_size=Nspin*bath_size
+    ! case('hybrid')
+    !    !e:[1][1][Nspin][Nbath] + v:[Nlat][Norb][Nspin][Nbath]
+    !    bath_size = Nbath + Nlat*Norb*Nbath
+    !    if(.not.present(ispin_))bath_size=Nspin*bath_size
+    ! end select
   end function vca_get_bath_dimension
 
 
@@ -93,22 +93,22 @@ contains
     !
     if(Nbath==0)stop "Allocate_vca_bath ERROR: Nbath==0"
     !
-    select case(bath_type)
-    case default!normal_normal
-       !
-       allocate(vca_bath_%e(Nlat,Norb,Nspin,Nbath))  !local energies of the bath per site,orb
-       allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization per site,orb
-       !
-    case('hybrid')                            !hybrid_normal
-       !
-       allocate(vca_bath_%e(1,1,Nspin,Nbath))        !local energies of the bath stand-alone
-       allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
-       !
-       ! case('normal_hybrid')
-       !    allocate(vca_bath_%e(Nlat,1,Nspin,Nbath))        !local energies of the bath stand-alone
-       !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
-       !
-    end select
+    ! select case(bath_type)
+    ! case default!normal_normal
+    !
+    allocate(vca_bath_%e(Nlat,Norb,Nspin,Nbath))  !local energies of the bath per site,orb
+    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization per site,orb
+    !
+    ! case('hybrid')                            !hybrid_normal
+    !    !
+    !    allocate(vca_bath_%e(1,1,Nspin,Nbath))        !local energies of the bath stand-alone
+    !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
+    !    !
+    !    ! case('normal_hybrid')
+    !    !    allocate(vca_bath_%e(Nlat,1,Nspin,Nbath))        !local energies of the bath stand-alone
+    !    !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
+    !    !
+    ! end select
     vca_bath_%status=.true.
   end subroutine vca_allocate_bath
 
@@ -197,28 +197,28 @@ contains
        open(unit,file="bath.restart")
        !
        read(unit,*)          !read the header:
-       select case(bath_type)
-       case default
-          do ilat=1,Nlat
-             do i=1,Nbath
-                read(unit,*)((&
-                     vca_bath_%e(ilat,iorb,ispin,i),&
-                     vca_bath_%v(ilat,iorb,ispin,i),&
-                     iorb=1,Norb),ispin=1,Nspin)
-             enddo
+       ! select case(bath_type)
+       ! case default
+       do ilat=1,Nlat
+          do i=1,Nbath
+             read(unit,*)((&
+                  vca_bath_%e(ilat,iorb,ispin,i),&
+                  vca_bath_%v(ilat,iorb,ispin,i),&
+                  iorb=1,Norb),ispin=1,Nspin)
           enddo
-          !
-       case ('hybrid')
-          do ilat=1,Nlat
-             do i=1,Nbath
-                read(unit,*)(&
-                     vca_bath_%e(1,1,ispin,i),&
-                     (&
-                     vca_bath_%v(ilat,iorb,ispin,i),&
-                     iorb=1,Norb),ispin=1,Nspin)
-             enddo
-          enddo
-       end select
+       enddo
+       !
+       ! case ('hybrid')
+       !    do ilat=1,Nlat
+       !       do i=1,Nbath
+       !          read(unit,*)(&
+       !               vca_bath_%e(1,1,ispin,i),&
+       !               (&
+       !               vca_bath_%v(ilat,iorb,ispin,i),&
+       !               iorb=1,Norb),ispin=1,Nspin)
+       !       enddo
+       !    enddo
+       ! end select
        close(unit)
     endif
   end subroutine vca_init_bath
@@ -244,8 +244,8 @@ contains
     !
     if(.not.vca_bath_%status)stop "write_vca_bath error: bath not allocated"
     !
-    select case(bath_type)
-    case default
+    ! select case(bath_type)
+    ! case default
        write(unit_,"(90(A21,1X))")((&
             "#Ek_l"//str(iorb)//"_s"//str(ispin),"Vk_l"//str(iorb)//"_s"//str(ispin),&
             iorb=1,Norb),ispin=1,Nspin)
@@ -258,20 +258,20 @@ contains
           enddo
        enddo
        !
-    case('hybrid')
-       !
-       write(unit_,"(90(A21,1X))")(&
-            "#Ek_s"//reg(txtfy(ispin)),("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-            iorb=1,Norb),ispin=1,Nspin)
-       do ilat=1,Nlat
-          do i=1,Nbath
-             write(unit_,"(90(F21.12,1X))")(&
-                  vca_bath_%e(ilat,1,ispin,i),&
-                  (vca_bath_%v(ilat,iorb,ispin,i),&
-                  iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       enddo
-    end select
+    ! case('hybrid')
+    !    !
+    !    write(unit_,"(90(A21,1X))")(&
+    !         "#Ek_s"//reg(txtfy(ispin)),("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+    !         iorb=1,Norb),ispin=1,Nspin)
+    !    do ilat=1,Nlat
+    !       do i=1,Nbath
+    !          write(unit_,"(90(F21.12,1X))")(&
+    !               vca_bath_%e(ilat,1,ispin,i),&
+    !               (vca_bath_%v(ilat,iorb,ispin,i),&
+    !               iorb=1,Norb),ispin=1,Nspin)
+    !       enddo
+    !    enddo
+    ! end select
   end subroutine vca_write_bath
 
 
@@ -328,31 +328,31 @@ contains
     check = check_bath_dimension(bath_)
     if(.not.check)stop "set_vca_bath error: wrong bath dimensions"
     !
-    select case(bath_type)
-    case default
-       stride = 0
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                   vca_bath_%e(ilat,iorb,ispin,i) = bath_(io)
-                enddo
+    ! select case(bath_type)
+    ! case default
+    stride = 0
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             do i=1,Nbath
+                io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+                vca_bath_%e(ilat,iorb,ispin,i) = bath_(io)
              enddo
           enddo
        enddo
-       stride = Nlat*Nspin*Norb*Nbath
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                   vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
-                enddo
+    enddo
+    stride = Nlat*Nspin*Norb*Nbath
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             do i=1,Nbath
+                io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+                vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
              enddo
           enddo
        enddo
-       !
+    enddo
+    !
     ! case ('hybrid')
     !    stride = 0
     !    do ispin=1,Nspin
@@ -372,7 +372,7 @@ contains
     !          enddo
     !       enddo
     !    enddo
-    end select
+    ! end select
   end subroutine vca_set_bath
 
 
@@ -395,31 +395,31 @@ contains
     check=check_bath_dimension(bath_)
     if(.not.check)stop "get_vca_bath error: wrong bath dimensions"
     !
-    select case(bath_type)
-    case default
-       stride = 0
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                   bath_(io) = vca_bath_%e(ilat,iorb,ispin,i)
-                enddo
+    ! select case(bath_type)
+    ! case default
+    stride = 0
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             do i=1,Nbath
+                io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+                bath_(io) = vca_bath_%e(ilat,iorb,ispin,i)
              enddo
           enddo
        enddo
-       stride = Nlat*Nspin*Norb*Nbath
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
-                do i=1,Nbath
-                   io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                   bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
-                enddo
+    enddo
+    stride = Nlat*Nspin*Norb*Nbath
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             do i=1,Nbath
+                io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+                bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
              enddo
           enddo
        enddo
-       !
+    enddo
+    !
     ! case ('hybrid')
     !    stride = 0
     !    do ispin=1,Nspin
@@ -439,8 +439,8 @@ contains
     !          enddo
     !       enddo
     !    enddo
-       !
-    end select
+    !
+    ! end select
   end subroutine vca_get_bath
 
 

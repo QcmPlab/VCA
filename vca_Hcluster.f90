@@ -10,7 +10,7 @@
      enddo
   enddo
   !
-  Hmat(i,i)=Hmat(i,i) + htmp
+  call sp_insert_element(spH0,htmp,i,i)
   !
   !
   !Off-diagonal elements, i.e. non-local part
@@ -32,7 +32,7 @@
                  j = binary_search(H%map,k2)
                  htmp = impHloc(ilat,jlat,1,1,iorb,jorb)*sg1*sg2
                  !
-                 Hmat(i,j) = Hmat(i,j) + htmp
+                 call sp_insert_element(spH0,htmp,i,j)
                  !
               endif
               !
@@ -46,7 +46,7 @@
                  j = binary_search(H%map,k2)
                  htmp = impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)*sg1*sg2
                  !
-                 Hmat(i,j) = Hmat(i,j) + htmp
+                 call sp_insert_element(spH0,htmp,i,j)
                  !
               endif
            enddo

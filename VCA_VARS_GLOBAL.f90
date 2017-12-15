@@ -1,9 +1,10 @@
 MODULE VCA_VARS_GLOBAL
   USE VCA_INPUT_VARS
+  USE VCA_SPARSE_MATRIX
   !
   USE SF_CONSTANTS
   USE SF_ARRAYS,  only: arange,linspace
-  USE SF_IOTOOLS, only:str
+  USE SF_IOTOOLS, only: str
   implicit none
 
 
@@ -13,6 +14,38 @@ MODULE VCA_VARS_GLOBAL
      real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Norb][Nspin][Nbath]
      logical                                       :: status=.false.
   end type effective_bath
+
+
+  !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
+  type sector_map
+     integer,dimension(:),allocatable :: map
+  end type sector_map
+
+  interface map_allocate
+     module procedure :: map_allocate_scalar
+     module procedure :: map_allocate_vector
+  end interface map_allocate
+
+  interface map_deallocate
+     module procedure :: map_deallocate_scalar
+     module procedure :: map_deallocate_vector
+  end interface map_deallocate
+
+
+
+  !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
+  !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+  !cmplxMat*cmplxVec
+  abstract interface
+     subroutine cc_sparse_HxV(Nloc,v,Hv)
+       integer                    :: Nloc
+       complex(8),dimension(Nloc) :: v
+       complex(8),dimension(Nloc) :: Hv
+     end subroutine cc_sparse_HxV
+  end interface
+
+
+
 
 
   !LOG UNITS
@@ -43,7 +76,7 @@ MODULE VCA_VARS_GLOBAL
   integer,allocatable,dimension(:)                :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                :: getNup,getNdw
   integer,allocatable,dimension(:,:,:)            :: getBathStride
-
+  logical,allocatable,dimension(:)                :: twin_mask
 
   !Effective Bath used in the VCA code (this is opaque to user)
   !=========================================================
@@ -58,6 +91,20 @@ MODULE VCA_VARS_GLOBAL
      complex(8),dimension(:,:),pointer            :: M
   end type full_espace
   type(full_espace),dimension(:),allocatable      :: espace
+
+
+  !Sparse matrix for Lanczos diagonalization.
+  !=========================================================  
+  type(sparse_matrix)                             :: spH0
+  type(sparse_matrix)                             :: spH0up,spH0dw
+  procedure(cc_sparse_HxV),pointer                :: spHtimesV_cc=>null()
+
+
+
+  !Variables for DIAGONALIZATION
+  !=========================================================  
+  integer,allocatable,dimension(:)                :: neigen_sector
+  logical                                         :: trim_state_list=.false.
 
 
   !Partition function, Omega potential, SFT potential
@@ -95,17 +142,15 @@ MODULE VCA_VARS_GLOBAL
   character(len=64)                               :: file_suffix=""
 
 
-  !SECTOR-TO-FOCK SPACE STRUCTURE
-  !=========================================================
-  type sector_map
-     integer,dimension(:),allocatable             :: map
-  end type sector_map
-
-
   !Frequency and time arrays:
   !=========================================================
   real(8),dimension(:),allocatable                :: wm,tau,wr,vm
 
+
+
+  !flag for finite temperature calculation
+  !=========================================================
+  logical                                         :: finiteT 
 
 
 contains
@@ -123,9 +168,7 @@ contains
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Allocate arrays and setup frequencies and times
-  !+------------------------------------------------------------------+
+  !>Allocate arrays and setup frequencies and times
   subroutine vca_allocate_time_freq_arrays
     integer :: i
     call vca_deallocate_time_freq_arrays()
@@ -147,6 +190,38 @@ contains
     if(allocated(tau))deallocate(tau)
     if(allocated(wr))deallocate(wr)
   end subroutine vca_deallocate_time_freq_arrays
+
+
+
+
+  !>Allocate and Deallocate Hilbert space maps (sector<-->Fock)
+  subroutine map_allocate_scalar(H,N)
+    type(sector_map) :: H
+    integer :: N
+    allocate(H%map(N))
+  end subroutine map_allocate_scalar
+  !
+  subroutine map_allocate_vector(H,N)
+    type(sector_map),dimension(:) :: H
+    integer,dimension(size(H))    :: N
+    integer :: i
+    do i=1,size(H)
+       allocate(H(i)%map(N(i)))
+    enddo
+  end subroutine map_allocate_vector
+
+  subroutine map_deallocate_scalar(H)
+    type(sector_map) :: H
+    deallocate(H%map)
+  end subroutine map_deallocate_scalar
+  !
+  subroutine map_deallocate_vector(H)
+    type(sector_map),dimension(:) :: H
+    integer :: i
+    do i=1,size(H)
+       deallocate(H(i)%map)
+    enddo
+  end subroutine map_deallocate_vector
 
 
 END MODULE VCA_VARS_GLOBAL

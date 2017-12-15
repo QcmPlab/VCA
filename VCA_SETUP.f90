@@ -3,19 +3,9 @@ MODULE VCA_SETUP
   USE VCA_AUX_FUNX
   !
   USE SF_TIMER
-  USE SF_IOTOOLS, only:free_unit,reg
+  USE SF_IOTOOLS, only:free_unit,reg,file_length
   implicit none
   private
-
-  interface map_allocate
-     module procedure :: map_allocate_scalar
-     module procedure :: map_allocate_vector
-  end interface map_allocate
-
-  interface map_deallocate
-     module procedure :: map_deallocate_scalar
-     module procedure :: map_deallocate_vector
-  end interface map_deallocate
 
 
   public :: init_cluster_structure
@@ -31,13 +21,16 @@ MODULE VCA_SETUP
   public :: imp_state_index
   !
   public :: bdecomp
+  public :: bjoin
+  public :: flip_state
   !
   public :: c,cdg
   !
   public :: binary_search
   !
-  public :: map_allocate
-  public :: map_deallocate
+  public :: twin_sector_order
+  public :: get_twin_sector
+
 
 contains
 
@@ -56,12 +49,12 @@ contains
     integer                                           :: isector,in,shift
     logical                                           :: MPI_MASTER=.true.
     !
-    select case(bath_type)
-    case default
-       Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
-    case ('hybrid')
-       Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
-    end select
+    ! select case(bath_type)
+    ! case default
+    Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
+    ! case ('hybrid')
+    !    Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
+    ! end select
     !
     Nlevels  = 2*Ns
     !
@@ -84,7 +77,7 @@ contains
     write(LOGfile,"(A)")"--------------------------------------------"
     !
     !>CHECKS:
-    if(bath_type/='normal')stop "VCA ERROR: bath_type != normal is not yet supported. ask developers"
+    ! if(bath_type/='normal')stop "VCA ERROR: bath_type != normal is not yet supported. ask developers"
     if(Nspin>1)stop "VCA ERROR: Nspin > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
     if(Norb>1)stop "VCA ERROR: Norb > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
     !    
@@ -106,6 +99,40 @@ contains
     allocate(getCDGsector(2,Nsectors));getCDGsector=0
     !
     allocate(getBathStride(Nlat,Norb,Nbath));getBathStride=0
+    allocate(twin_mask(Nsectors));
+    allocate(neigen_sector(Nsectors))
+    !
+    !check finiteT
+    finiteT=.true.              !assume doing finite T per default
+    if(lanc_nstates_total==1)then     !is you only want to keep 1 state
+       finiteT=.false.          !set to do zero temperature calculations
+       write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+    endif
+    !
+    !
+    !check whether lanc_nstates_sector and lanc_states are even (we do want to keep doublet among states)
+    if(finiteT)then
+       if(mod(lanc_nstates_sector,2)/=0)then
+          lanc_nstates_sector=lanc_nstates_sector+1
+          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
+       endif
+       if(mod(lanc_nstates_total,2)/=0)then
+          lanc_nstates_total=lanc_nstates_total+1
+          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
+       endif
+    endif
+    !
+    !
+    if(finiteT)then
+       write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
+       write(LOGfile,"(A,I3)")"Nstates x Sector = ", lanc_nstates_sector
+       write(LOGfile,"(A,I3)")"Nstates   Total  = ", lanc_nstates_total
+       call sleep(1)
+    else
+       write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+       call sleep(1)
+    endif
+
     !
     !CHECKS:
     if(Nspin>2)stop "ED ERROR: Nspin > 2 is currently not supported"
@@ -156,10 +183,14 @@ contains
   !NORMAL CASE
   !
   subroutine setup_pointers_normal
-    integer :: i,in,dim,isector,jsector
-    integer :: nup,ndw,jup,jdw,iorb,ilat
-    integer :: unit,status,istate,stride
-    logical :: IOfile
+    integer                          :: i,in,dim,isector,jsector
+    integer                          :: nup,ndw,jup,jdw,iorb,ilat
+    integer                          :: unit,status,istate,stride
+    logical                          :: IOfile
+    integer                          :: anint
+    real(8)                          :: adouble
+    integer                          :: list_len
+    integer,dimension(:),allocatable :: list_sector
     isector=0
     do nup=0,Ns
        do ndw=0,Ns
@@ -173,6 +204,47 @@ contains
           getDimDw(isector)=get_normal_sector_dimension(ndw)
        enddo
     enddo
+
+
+    inquire(file="state_list"//reg(file_suffix)//".restart",exist=IOfile)
+    if(IOfile)then
+       write(LOGfile,"(A)")"Restarting from a state_list file:"
+       list_len=file_length("state_list"//reg(file_suffix)//".restart")
+       allocate(list_sector(list_len))
+       open(free_unit(unit),file="state_list"//reg(file_suffix)//".restart",status="old")
+       read(unit,*)!read comment line
+       status=0
+       do while(status>=0)
+          read(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)",iostat=status)istate,adouble,adouble,nup,ndw,isector,anint
+          list_sector(istate)=isector
+          if(nup/=getnup(isector).OR.ndw/=getndw(isector))&
+               stop "setup_pointers_normal error: nup!=getnup(isector).OR.ndw!=getndw(isector) "
+       enddo
+       close(unit)
+       lanc_nstates_total = list_len
+       do isector=1,Nsectors
+          neigen_sector(isector) = max(1,count(list_sector==isector))
+       enddo
+    else
+       do isector=1,Nsectors
+          neigen_sector(isector) = min(getdim(isector),lanc_nstates_sector)   !init every sector to required eigenstates
+       enddo
+    endif
+    !
+    !
+    twin_mask=.true.
+    if(diag_twin)then
+       ! stop "WARNING: In this updated version with Nup-Ndw factorization the twin-sectors have not been tested!!"
+       do isector=1,Nsectors
+          nup=getnup(isector)
+          ndw=getndw(isector)
+          if(nup<ndw)twin_mask(isector)=.false.
+       enddo
+       write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+    endif
+
+
+
     !normal:
     !|imp_up>|bath_up> * |imp_dw>|bath_dw>
     !
@@ -183,29 +255,27 @@ contains
     ! ([1..Nb]_1...[1..Nb]_Na)_1
     !  ...
     ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
-    !
-    !
+    stride=Nlat*Norb
+    ! select case(bath_type)
+    ! case default
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do i=1,Nbath
+             getBathStride(ilat,iorb,i) = i + &
+                  (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride
+          enddo
+       enddo
+    enddo
+    ! case ('hybrid')
     !hybrid:
     !|(1..Na)_1
     !  ...
     ! (1..Na)_Nl; <-- Norb*Nlat
     ! [1..Nb]>    <-- Nbath
-    stride=Nlat*Norb
-    select case(bath_type)
-    case default
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do i=1,Nbath
-                getBathStride(ilat,iorb,i) = i + &
-                     (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride
-             enddo
-          enddo
-       enddo
-    case ('hybrid')
-       do i=1,Nbath
-          getBathStride(1:Nlat,1:Norb,i) = i + stride
-       enddo
-    end select
+    !    do i=1,Nbath
+    !       getBathStride(1:Nlat,1:Norb,i) = i + stride
+    !    enddo
+    ! end select
     !
     getCsector=0
     do isector=1,Nsectors
@@ -274,7 +344,7 @@ contains
   end subroutine delete_eigenspace
 
 
-  
+
 
   !+------------------------------------------------------------------+
   !PURPOSE  : return the dimension of a sector
@@ -295,7 +365,7 @@ contains
   end function get_normal_sector_dimension
 
 
-  
+
 
 
   !+------------------------------------------------------------------+
@@ -406,48 +476,76 @@ contains
 
 
 
+  !##################################################################
+  !##################################################################
+  !TWIN SECTORS ROUTINES:
+  !##################################################################
+  !##################################################################
 
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE: Allocate a Map from the sector to Fock space
-  !+-------------------------------------------------------------------+
-  subroutine map_allocate_scalar(H,N)
-    type(sector_map)                              :: H
-    integer                                       :: N
-    allocate(H%map(N))
-  end subroutine map_allocate_scalar
-  !
-  subroutine map_allocate_vector(H,N)
-    type(sector_map),dimension(:)                 :: H
-    integer,dimension(size(H))                    :: N
-    integer                                       :: i
-    do i=1,size(H)
-       allocate(H(i)%map(N(i)))
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Build the re-ordering map to go from sector A(nup,ndw)
+  ! to its twin sector B(ndw,nup), with nup!=ndw. 
+  !+------------------------------------------------------------------+
+  subroutine twin_sector_order(isector,order)
+    integer                          :: isector
+    integer,dimension(:)             :: order
+    type(sector_map)                 :: H,Hup,Hdw
+    integer                          :: i,dim
+    dim = getdim(isector)
+    if(size(Order)/=dim)stop "twin_sector_order error: wrong dimensions of *order* array"
+    !- build the map from the A-sector to \HHH
+    !- get the list of states in \HHH corresponding to sector B twin of A
+    !- return the ordering of B-states in \HHH with respect to those of A
+    call build_sector(isector,H)
+    do i=1,dim
+       Order(i)=flip_state(H%map(i))
     enddo
-  end subroutine map_allocate_vector
-
-
-
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE: Destruct a Map from the sector to Fock space
-  !+-------------------------------------------------------------------+
-  subroutine map_deallocate_scalar(H)
-    type(sector_map)                              :: H
+    call sort_array(Order)
     deallocate(H%map)
-  end subroutine map_deallocate_scalar
+    !
+  end subroutine twin_sector_order
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into:
   !
-  subroutine map_deallocate_vector(H)
-    type(sector_map),dimension(:)                 :: H
-    integer                                       :: i
-    do i=1,size(H)
-       deallocate(H(i)%map)
-    enddo
-  end subroutine map_deallocate_vector
+  ! normal: j=|{dw}>|{up}>  , nup --> ndw
+  ! superc: j=|{dw}>|{up}>  , sz  --> -sz
+  ! nonsu2: j=|{!up}>|{!dw}>, n   --> 2*Ns-n
+  !+------------------------------------------------------------------+
+  function flip_state(m,n) result(j)
+    integer          :: m
+    integer,optional :: n
+    integer          :: j
+    integer          :: ivec(2*Ns),foo(2*Ns),ivup(Ns),ivdw(Ns)
+    ! Ivup = bdecomp(m,Ns)
+    ! Ivdw = bdecomp(n,Ns)
+    Ivec = bdecomp(m,2*Ns)
+    foo(1:Ns)     =Ivec(Ns+1:2*Ns)!Ivdw
+    foo(Ns+1:2*Ns)=Ivec(1:Ns)     !Ivup
+    !
+    j = bjoin(foo,2*Ns)
+    !
+  end function flip_state
 
 
 
+  !+------------------------------------------------------------------+
+  !PURPOSE  : get the twin of a given sector (the one with opposite 
+  ! quantum numbers): 
+  ! nup,ndw ==> ndw,nup (spin-exchange)
+  ! sz      ==> -sz     (total spin flip)
+  ! n       ==> 2*Ns-n  (particle hole)
+  !+------------------------------------------------------------------+
+  function get_twin_sector(isector) result(jsector)
+    integer,intent(in) :: isector
+    integer :: jsector
+    integer :: iup,idw,in,isz
+    iup=getnup(isector)
+    idw=getndw(isector)
+    jsector=getsector(idw,iup)
+  end function get_twin_sector
 
 
 
@@ -561,6 +659,63 @@ contains
 
 
 
+
+  !+------------------------------------------------------------------+
+  !PURPOSE : sort array of integer using random algorithm
+  !+------------------------------------------------------------------+
+  subroutine sort_array(array)
+    integer,dimension(:),intent(inout)      :: array
+    integer,dimension(size(array))          :: order
+    integer                                 :: i
+    forall(i=1:size(array))order(i)=i
+    call qsort_sort( array, order, 1, size(array) )
+    array=order
+  contains
+    recursive subroutine qsort_sort( array, order, left, right )
+      integer, dimension(:)                 :: array
+      integer, dimension(:)                 :: order
+      integer                               :: left
+      integer                               :: right
+      integer                               :: i
+      integer                               :: last
+      if ( left .ge. right ) return
+      call qsort_swap( order, left, qsort_rand(left,right) )
+      last = left
+      do i = left+1, right
+         if ( compare(array(order(i)), array(order(left)) ) .lt. 0 ) then
+            last = last + 1
+            call qsort_swap( order, last, i )
+         endif
+      enddo
+      call qsort_swap( order, left, last )
+      call qsort_sort( array, order, left, last-1 )
+      call qsort_sort( array, order, last+1, right )
+    end subroutine qsort_sort
+    !---------------------------------------------!
+    subroutine qsort_swap( order, first, second )
+      integer, dimension(:)                 :: order
+      integer                               :: first, second
+      integer                               :: tmp
+      tmp           = order(first)
+      order(first)  = order(second)
+      order(second) = tmp
+    end subroutine qsort_swap
+    !---------------------------------------------!
+    function qsort_rand( lower, upper )
+      implicit none
+      integer                               :: lower, upper
+      real(8)                               :: r
+      integer                               :: qsort_rand
+      call random_number(r)
+      qsort_rand =  lower + nint(r * (upper-lower))
+    end function qsort_rand
+    function compare(f,g)
+      integer                               :: f,g
+      integer                               :: compare
+      compare=1
+      if(f<g)compare=-1
+    end function compare
+  end subroutine sort_array
 
 
 
