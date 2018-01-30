@@ -15,6 +15,12 @@ MODULE VCA_VARS_GLOBAL
      logical                                       :: status=.false.
   end type effective_bath
 
+  !------------------ FULL HAMILTONIAN STRUCTURE ---------------------!
+  type full_espace
+     real(8),dimension(:),pointer      :: e
+     complex(8),dimension(:,:),pointer :: M
+  end type full_espace
+
 
   !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
   type sector_map
@@ -31,6 +37,22 @@ MODULE VCA_VARS_GLOBAL
      module procedure :: map_deallocate_vector
   end interface map_deallocate
 
+
+  !-------------- GMATRIX FOR FAST EVALUATION OF GF ------------------!
+  !note that we use a single Qmatrix here which must be intended as
+  !the product Q^+.Q, corresponding to the weights of the GF, and a
+  !component corresponding to the poles. 
+  type GFspectrum
+     real(8),dimension(:),allocatable :: weight
+     real(8),dimension(:),allocatable :: poles
+  end type GFspectrum
+  type GFmatrix
+     type(GFspectrum),dimension(:),allocatable :: channel
+  end type GFmatrix
+  interface GFmatrix_allocate
+     module procedure :: allocate_GFmatrix_Nchan
+     module procedure :: allocate_GFmatrix_Nexc
+  end interface GFmatrix_allocate
 
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
@@ -84,73 +106,69 @@ MODULE VCA_VARS_GLOBAL
 
 
   !Eigenvalues,Eigenvectors FULL DIAGONALIZATION
-  !Hamiltonian eig-space structure
   !=========================================================
-  type full_espace
-     real(8),dimension(:),pointer                 :: e
-     complex(8),dimension(:,:),pointer            :: M
-  end type full_espace
-  type(full_espace),dimension(:),allocatable      :: espace
+  type(full_espace),dimension(:),allocatable        :: espace
 
 
   !Sparse matrix for Lanczos diagonalization.
   !=========================================================  
-  type(sparse_matrix)                             :: spH0
-  type(sparse_matrix)                             :: spH0up,spH0dw
-  procedure(cc_sparse_HxV),pointer                :: spHtimesV_cc=>null()
+  type(sparse_matrix)                               :: spH0
+  type(sparse_matrix)                               :: spH0up,spH0dw
+  procedure(cc_sparse_HxV),pointer                  :: spHtimesV_cc=>null()
 
 
 
   !Variables for DIAGONALIZATION
   !=========================================================  
-  integer,allocatable,dimension(:)                :: neigen_sector
-  logical                                         :: trim_state_list=.false.
+  integer,allocatable,dimension(:)                  :: neigen_sector
+  logical                                           :: trim_state_list=.false.
 
 
   !Partition function, Omega potential, SFT potential
   !=========================================================
-  real(8)                                         :: zeta_function
-  real(8)                                         :: omega_potential
-  real(8)                                         :: sft_potential
+  real(8)                                           :: zeta_function
+  real(8)                                           :: omega_potential
+  real(8)                                           :: sft_potential
 
 
   !Cluster Green's functions
   !(Nlat,Nlat,Nspin,Nspin,Norb,Norb,:)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impG0mats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impG0real ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impG0mats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impG0real ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impSmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: impSreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
-
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impSmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impSreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
+  !
+  type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: impGmatrix
 
 
   !Cluster local observables:
   !=========================================================
-  real(8),dimension(:,:),allocatable              ::  imp_dens    ![Nlat][Norb]
-  real(8),dimension(:,:),allocatable              ::  imp_dens_up ![Nlat][Norb]
-  real(8),dimension(:,:),allocatable              ::  imp_dens_dw ![Nlat][Norb]
-  real(8),dimension(:,:),allocatable              ::  imp_docc    ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable                ::  imp_dens    ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable                ::  imp_dens_up ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable                ::  imp_dens_dw ![Nlat][Norb]
+  real(8),dimension(:,:),allocatable                ::  imp_docc    ![Nlat][Norb]
 
 
 
   !Suffix string attached to the output files.
   !=========================================================
-  character(len=64)                               :: file_suffix=""
+  character(len=64)                                 :: file_suffix=""
 
 
   !Frequency and time arrays:
   !=========================================================
-  real(8),dimension(:),allocatable                :: wm,tau,wr,vm
+  real(8),dimension(:),allocatable                  :: wm,tau,wr,vm
 
 
 
   !flag for finite temperature calculation
   !=========================================================
-  logical                                         :: finiteT 
+  logical                                           :: finiteT 
 
 
 contains
@@ -222,6 +240,27 @@ contains
        deallocate(H(i)%map)
     enddo
   end subroutine map_deallocate_vector
+
+
+
+  !Allocate the channels in GFmatrix structure
+  subroutine allocate_gfmatrix_Nchan(self,N)
+    type(GFmatrix) :: self
+    integer        :: N
+    if(allocated(self%channel))deallocate(self%channel)
+    allocate(self%channel(N))
+  end subroutine allocate_gfmatrix_Nchan
+
+  !Allocate the Excitations spectrum at a given channel
+  subroutine allocate_gfmatrix_Nexc(self,i,Nexc)
+    type(GFmatrix) :: self
+    integer        :: i
+    integer        :: Nexc
+    if(allocated(self%channel(i)%weight))deallocate(self%channel(i)%weight)
+    if(allocated(self%channel(i)%poles))deallocate(self%channel(i)%poles)
+    allocate(self%channel(i)%weight(Nexc))
+    allocate(self%channel(i)%poles(Nexc))
+  end subroutine allocate_gfmatrix_Nexc
 
 
 END MODULE VCA_VARS_GLOBAL

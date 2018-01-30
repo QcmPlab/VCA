@@ -33,7 +33,6 @@ MODULE VCA_GREENS_FUNCTIONS
 
 
 
-
 contains
 
 
@@ -69,30 +68,24 @@ contains
   !PURPOSE  : Evaluate Green's functions
   !+------------------------------------------------------------------+
   subroutine build_gf_normal()
-    integer :: iorb,ispin    
+    integer :: iorb,ispin
+    !
+    if(allocated(impGmatrix))deallocate(impGmatrix)
+    allocate(impGmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !
     select case(vca_method)
     case ("full")
        !NORMAL: (default)
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
-             call full_build_gf_normal(iorb,ispin)
-          enddo
-       enddo
+       call full_build_gf_normal()
     case ("lanc")
        !NORMAL: (default)    
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
-             call lanc_build_gf_normal(iorb,ispin)
-          enddo
-       enddo
+       call lanc_build_gf_normal()
     case default
        stop "build_gf_normal error: vca_method != ['full','lanc']"
     end select
   end subroutine build_gf_normal
 
-  
+
   !=========================================================
   !=========================================================
   include 'vca_full_gf_normal.f90'
@@ -167,6 +160,13 @@ contains
     call vca_deallocate_time_freq_arrays()
     !
   end subroutine get_sigma_normal
+
+
+
+
+
+
+
 
 
 

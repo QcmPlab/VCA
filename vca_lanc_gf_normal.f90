@@ -1,7 +1,7 @@
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Green's functions
 !+------------------------------------------------------------------+
-subroutine lanc_build_gf_normal(iorb,ispin)
+subroutine lanc_build_gf_normal()
   integer :: iorb,ispin
   integer :: isite,jsite
   !
@@ -9,22 +9,34 @@ subroutine lanc_build_gf_normal(iorb,ispin)
   !
   call vca_allocate_time_freq_arrays()
   !
-  do isite=1,Nlat
-     call lanc_build_gf_normal_diag_c(isite,iorb,ispin)
-     do jsite=1,Nlat
-        if(isite==jsite)cycle   !this is not elegant but who cares?
-        call lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
-     enddo
-  enddo
-  !
-  !
-  do isite=1,Nlat
-     do jsite=1,Nlat
-        if(isite==jsite)cycle
-        impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
-             - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
-        impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
-             - (one-xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))
+  !Spin-Orbital diagonal:
+  do ispin=1,Nspin
+     do iorb=1,Norb
+        write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
+        !
+        do isite=1,Nlat
+           !site-digonal:
+           call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
+           call lanc_build_gf_normal_diag_c(isite,iorb,ispin)
+           !site-off-diagonal:
+           do jsite=1,Nlat
+              if(isite==jsite)cycle   !this is not elegant but who cares?
+              call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,iorb),N=4)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
+              call lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
+           enddo
+        enddo
+        !
+        !
+        do isite=1,Nlat
+           do jsite=1,Nlat
+              if(isite==jsite)cycle
+              impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                   - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
+              impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                   - (one-xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))
+           enddo
+        enddo
+        !
      enddo
   enddo
   call vca_deallocate_time_freq_arrays()
@@ -88,7 +100,7 @@ subroutine lanc_build_gf_normal_diag_c(isite,iorb,ispin)
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,ispin)
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,ispin,1)
         !
         call delete_Hv_sector()
         !
@@ -122,7 +134,7 @@ subroutine lanc_build_gf_normal_diag_c(isite,iorb,ispin)
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,isite,iorb,ispin)
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,isite,iorb,ispin,2)
         !
         call delete_Hv_sector()
         !
@@ -204,7 +216,7 @@ subroutine lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,ispin)
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,ispin,1)
         !
         call delete_Hv_sector()
         !
@@ -247,7 +259,7 @@ subroutine lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,ispin)
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,ispin,2)
         !
         call delete_Hv_sector()
         !
@@ -290,7 +302,7 @@ subroutine lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         call sp_lanc_tridiag(spHtimesV_cc,cvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,ispin)
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,ispin,3)
         !
         call delete_Hv_sector()
         !
@@ -332,8 +344,8 @@ subroutine lanc_build_gf_normal_offdiag_c(isite,jsite,iorb,ispin)
         !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
-        call sp_lanc_tridiag(spHtimesV_cc,cvinit,alfa_,beta_)
-        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,ispin)
+        call sp_lanc_tridiag(spHtimesV_cc,cvinit,alfa_,beta_)        
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,ispin,4)
         !
         call delete_Hv_sector()
         !
@@ -368,14 +380,14 @@ end subroutine lanc_build_gf_normal_offdiag_c
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,ispin)
+subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,ispin,ichan)
   integer                                    :: ilat,jlat
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
   integer                                    :: nlanc,itype
   real(8),dimension(:)                       :: alanc
   real(8),dimension(size(alanc))             :: blanc 
-  integer                                    :: isign,iorb,jorb,ispin
+  integer                                    :: isign,iorb,jorb,ispin,ichan
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
@@ -403,9 +415,15 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
+  call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb),i=ichan,Nexc=Nlanc)
+  !
   do j=1,nlanc
      de = diag(j)-Ei
      peso = pesoBZ*Z(1,j)*Z(1,j)
+     !
+     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(j) = peso
+     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(j)  = isign*de
+     !
      do i=1,Lmats
         iw=xi*wm(i)
         impGmats(ilat,jlat,ispin,ispin,iorb,iorb,i)=impGmats(ilat,jlat,ispin,ispin,iorb,iorb,i) + peso/(iw-isign*de)

@@ -35,6 +35,14 @@ MODULE VCA_IO
   end interface vca_get_gimp_realaxis
 
 
+  interface vca_gf_cluster
+     module procedure :: vca_gf_cluster_scalar
+     module procedure :: vca_gf_cluster_array
+  end interface vca_gf_cluster
+
+
+  
+  public :: vca_gf_cluster
   !
   public :: vca_get_sigma_matsubara
   public :: vca_get_sigma_realaxis
@@ -59,6 +67,80 @@ MODULE VCA_IO
 contains
 
 
+  !+-----------------------------------------------------------------------------+!
+  ! PURPOSE: Retrieve measured values of the impurity green's functions 
+  !+-----------------------------------------------------------------------------+!
+  subroutine vca_gf_cluster_scalar(zeta,gf)
+    complex(8)                                                          :: zeta
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb),intent(inout) :: gf
+    complex(8)                                                          :: green
+    integer                                                             :: ispin
+    integer                                                             :: ilat,jlat
+    integer                                                             :: iorb,jorb
+    integer                                                             :: iexc,Nexc
+    integer                                                             :: ichan,Nchannel
+    integer                                                             :: i,is,js
+    real(8)                                                             :: weight,de
+    !
+    if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
+    !
+    gf = zero
+    !
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          do iorb=1,Norb
+             do ispin=1,Nspin
+                !
+                green = zero
+                Nchannel = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel)
+                do ichan=1,Nchannel
+                   Nexc  = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles)
+                   do iexc=1,Nexc
+                      weight = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(iexc)
+                      de     = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(iexc)
+                      green = green + weight/(zeta-de)
+                   enddo
+                enddo
+                gf(ilat,jlat,ispin,ispin,iorb,iorb) = green
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+  end subroutine vca_gf_cluster_scalar
+
+  subroutine vca_gf_cluster_array(zeta,gf)
+    complex(8),dimension(:)                                                        :: zeta
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta)),intent(inout) :: gf
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                          :: green
+    integer                                                                        :: ispin
+    integer                                                                        :: ilat,jlat
+    integer                                                                        :: iorb,jorb
+    integer                                                                        :: iexc,Nexc
+    integer                                                                        :: ichan,Nchannel
+    integer                                                                        :: i,is,js
+    real(8)                                                                        :: weight,de
+    !
+    if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
+    !
+    gf = zero
+    do i=1,size(zeta)
+       call vca_gf_cluster_scalar(zeta(i),green)
+       gf(:,:,:,:,:,:,i) = green
+    enddo
+    !
+  end subroutine vca_gf_cluster_array
+
+
+
+
+
+
+
+
+  
+
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Print impurity Functions case:
   ! - impSigma
@@ -66,9 +148,9 @@ contains
   ! - impG0
   !+------------------------------------------------------------------+
   subroutine vca_print_impSigma
-    integer                                           :: i
-    character(len=64)                                 :: suffix
-    integer :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: i
+    character(len=64) :: suffix
+    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
     call vca_allocate_time_freq_arrays()
     !Print the impurity Sigma:
@@ -87,34 +169,31 @@ contains
   end subroutine vca_print_impSigma
 
   subroutine vca_print_impG
-    integer                                           :: i
-    character(len=64)                                 :: suffix
-    integer :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: i
+    character(len=64) :: suffix
+    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
     call vca_allocate_time_freq_arrays()
-    !Print the impurity GF:
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
              do ispin=1,Nspin
                 suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
                 call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,iorb,:))
-                call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impGreal(ilat,jlat,ispin,ispin,iorb,iorb,:))
+                call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impGreal(ilat,jlat,ispin,ispin,iorb,iorb,:))                
              enddo
           enddo
        enddo
     enddo
     call vca_deallocate_time_freq_arrays()
-    !
   end subroutine vca_print_impG
 
   subroutine vca_print_impG0
-    integer                                           :: i
-    character(len=64)                                 :: suffix
-    integer :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: i
+    character(len=64) :: suffix
+    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
     call vca_allocate_time_freq_arrays()
-    !Print the impurity GF:
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb

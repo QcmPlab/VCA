@@ -26,14 +26,10 @@ module VCA_DIAG
 
 contains
 
-
-
-
-
-
-
+  !+-------------------------------------------------------------------+
   !>Setup the Hilbert space, create the Hamiltonian, get the
   ! GS, build the Green's functions calling all the necessary routines
+  !+-------------------------------------------------------------------+
   subroutine diagonalize_cluster
     select case(vca_method)
     case ("full")
@@ -122,7 +118,7 @@ contains
   end subroutine vca_diag_h
 
 
-  
+
 
 
 
@@ -399,7 +395,11 @@ contains
   end subroutine vca_lanc_analysis
 
 
-  
+
+
+
+
+
   subroutine print_state_list(unit)
     integer :: nup,ndw,sz,n,isector
     integer :: istate
@@ -482,35 +482,6 @@ END MODULE VCA_DIAG
 
 
 
-! !> Count number of 1p-excitations per spin-channel 
-! subroutine enumerate_Nexcitations
-!   integer          :: ispin
-!   integer          :: isector,jsector
-!   integer          :: idim,jdim
-!   integer          :: i,j,iexc
-!   real(8)          :: expterm
-!   iexc=0
-!   do ispin=1,Nspin
-!      do isector=1,Nsectors
-!         jsector=getCDGsector(ispin,isector)
-!         if(jsector==0)cycle
-!         idim=getdim(isector)     !i-th sector dimension
-!         jdim=getdim(jsector)     !j-th sector dimension
-!         do i=1,idim          !loop over the states in the i-th sect.
-!            do j=1,jdim       !loop over the states in the j-th sect.
-!               expterm=exp(-beta*espace(isector)%e(i))+exp(-beta*espace(jsector)%e(j))
-!               if(expterm < cutoff)cycle
-!               iexc=iexc+1
-!            enddo
-!         enddo
-!      enddo
-!   enddo
-!   !
-!   Nexcitations = iexc
-!   !
-!   write(LOGfile,"(A,I5,A,I2)")"Found N =",iexc," excitations with the actual cut-off"
-!   !
-! end subroutine enumerate_Nexcitations
 
 
 
