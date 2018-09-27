@@ -8,40 +8,38 @@ MODULE VCA_AUX_FUNX
 
 
 
-  interface vca_los2nnn_reshape
-     module procedure :: d_nlos2nnn_scalar
-     module procedure :: c_nlos2nnn_scalar
-  end interface vca_los2nnn_reshape
+  interface vca_lso2nnn_reshape
+     module procedure :: d_nlso2nnn_scalar
+     module procedure :: c_nlso2nnn_scalar
+  end interface vca_lso2nnn_reshape
 
 
-  interface vca_nnn2los_reshape
-     module procedure :: d_nnn2nlos_scalar
-     module procedure :: c_nnn2nlos_scalar
-  end interface vca_nnn2los_reshape
+  interface vca_nnn2lso_reshape
+     module procedure :: d_nnn2nlso_scalar
+     module procedure :: c_nnn2nlso_scalar
+  end interface vca_nnn2lso_reshape
 
 
   interface vca_set_Hcluster
      module procedure :: set_Hcluster_nnn
-     module procedure :: set_Hcluster_los
+     module procedure :: set_Hcluster_lso
   end interface vca_set_Hcluster
 
 
   interface vca_print_Hcluster
      module procedure :: print_Hcluster_nnn
-     module procedure :: print_Hcluster_los
+     module procedure :: print_Hcluster_lso
   end interface vca_print_Hcluster
-
-
 
 
   public :: vca_get_cluster_dimension
   !
-  public :: vca_loS2nnn_reshape
-  public :: vca_nnn2loS_reshape
-  !
   public :: vca_set_Hcluster
-  !
   public :: vca_print_Hcluster
+  !
+  public :: vca_lso2nnn_reshape
+  public :: vca_nnn2lso_reshape
+  !
   !
   public :: search_chemical_potential
 
@@ -87,33 +85,6 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : 
   !+------------------------------------------------------------------+
-  subroutine set_Hcluster_nnn(hloc)
-    complex(8),dimension(:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"set_Hcluster_nnn","Hloc")
-    !
-    impHloc = Hloc
-    !
-    write(LOGfile,"(A)")"Set Hcluster: done"
-    if(verbose>2)call vca_print_Hcluster(impHloc)
-  end subroutine set_Hcluster_nnn
-
-  subroutine set_Hcluster_los(hloc)
-    complex(8),dimension(:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
-    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"set_Hcluster_los","Hloc")
-    !
-    impHloc = vca_los2nnn_reshape(Hloc,Nlat,Nspin,Norb)
-    !
-    write(LOGfile,"(A)")"Set Hcluster: done"
-    if(verbose>2)call vca_print_Hcluster(impHloc)
-  end subroutine set_Hcluster_los
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
   subroutine print_Hcluster_nnn(hloc,file)
     complex(8),dimension(:,:,:,:,:,:) :: hloc
     character(len=*),optional         :: file
@@ -151,7 +122,7 @@ contains
     if(present(file))close(unit)
   end subroutine print_Hcluster_nnn
   !
-  subroutine print_Hcluster_los(hloc,file)
+  subroutine print_Hcluster_lso(hloc,file)
     complex(8),dimension(:,:) :: hloc
     character(len=*),optional :: file
     integer                   :: ilat,jlat
@@ -160,7 +131,7 @@ contains
     integer                   :: unit,is,js
     character(len=32)         :: fmt
     !
-    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"print_Hcluster_los","Hloc")
+    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"print_Hcluster_lso","Hloc")
     !
     unit=LOGfile;
     !
@@ -174,7 +145,34 @@ contains
     enddo
     write(unit,*)""
     if(present(file))close(unit)
-  end subroutine print_Hcluster_los
+  end subroutine print_Hcluster_lso
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine set_Hcluster_nnn(hloc)
+    complex(8),dimension(:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"set_Hcluster_nnn","Hloc")
+    !
+    impHloc = Hloc
+    !
+    write(LOGfile,"(A)")"Set Hcluster: done"
+    if(verbose>2)call vca_print_Hcluster(impHloc)
+  end subroutine set_Hcluster_nnn
+
+  subroutine set_Hcluster_lso(hloc)
+    complex(8),dimension(:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb],"set_Hcluster_lso","Hloc")
+    !
+    impHloc = vca_lso2nnn_reshape(Hloc,Nlat,Nspin,Norb)
+    !
+    write(LOGfile,"(A)")"Set Hcluster: done"
+    if(verbose>2)call vca_print_Hcluster(impHloc)
+  end subroutine set_Hcluster_lso
+
+
+
 
 
 
@@ -190,14 +188,14 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: 
   ! reshape a matrix from/to the
-  ! [Nlos][Nlos] and
+  ! [Nlso][Nlso] and
   ! [Nlat][Nlat][Norb][Norb][Nspin][Nspin]
   ! shapes.
   ! - dble & cmplx
   ! 0-Reshape a scalar array, dble & cmplx
   ! 1-Reshape a function array (:,:,:,:,:,:,1:L)
   !+-----------------------------------------------------------------------------+!
-  function d_nlos2nnn_scalar(Hlso,Nlat,Nspin,Norb) result(Hnnn)
+  function d_nlso2nnn_scalar(Hlso,Nlat,Nspin,Norb) result(Hnnn)
     integer                                            :: Nlat,Nspin,Norb
     real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
     real(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
@@ -212,8 +210,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_los(ilat,ispin,iorb)
-                      js = index_stride_los(jlat,jspin,jorb)
+                      is = index_stride_lso(ilat,ispin,iorb)
+                      js = index_stride_lso(jlat,jspin,jorb)
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -221,9 +219,9 @@ contains
           enddo
        enddo
     enddo
-  end function d_nlos2nnn_scalar
+  end function d_nlso2nnn_scalar
   !
-  function d_nnn2nlos_scalar(Hnnn,Nlat,Nspin,Norb) result(Hlso)
+  function d_nnn2nlso_scalar(Hnnn,Nlat,Nspin,Norb) result(Hlso)
     integer                                            :: Nlat,Nspin,Norb
     real(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
     real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
@@ -238,8 +236,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_los(ilat,ispin,iorb)
-                      js = index_stride_los(jlat,jspin,jorb)
+                      is = index_stride_lso(ilat,ispin,iorb)
+                      js = index_stride_lso(jlat,jspin,jorb)
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
@@ -247,9 +245,9 @@ contains
           enddo
        enddo
     enddo
-  end function d_nnn2nlos_scalar
+  end function d_nnn2nlso_scalar
   !
-  function c_nlos2nnn_scalar(Hlso,Nlat,Nspin,Norb) result(Hnnn)
+  function c_nlso2nnn_scalar(Hlso,Nlat,Nspin,Norb) result(Hnnn)
     integer                                               :: Nlat,Nspin,Norb
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
@@ -264,8 +262,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_los(ilat,ispin,iorb)
-                      js = index_stride_los(jlat,jspin,jorb)
+                      is = index_stride_lso(ilat,ispin,iorb)
+                      js = index_stride_lso(jlat,jspin,jorb)
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -273,9 +271,9 @@ contains
           enddo
        enddo
     enddo
-  end function c_nlos2nnn_scalar
+  end function c_nlso2nnn_scalar
   !
-  function c_nnn2nlos_scalar(Hnnn,Nlat,Nspin,Norb) result(Hlso)
+  function c_nnn2nlso_scalar(Hnnn,Nlat,Nspin,Norb) result(Hlso)
     integer                                               :: Nlat,Nspin,Norb
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
@@ -290,8 +288,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_los(ilat,ispin,iorb)
-                      js = index_stride_los(jlat,jspin,jorb)
+                      is = index_stride_lso(ilat,ispin,iorb)
+                      js = index_stride_lso(jlat,jspin,jorb)
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
@@ -299,7 +297,7 @@ contains
           enddo
        enddo
     enddo
-  end function c_nnn2nlos_scalar
+  end function c_nnn2nlso_scalar
 
 
 
@@ -454,245 +452,3 @@ END MODULE VCA_AUX_FUNX
 
 
 
-
-! interface vca_tile_Hcluster
-!    module procedure :: vca_tile_Hcluster_normal
-!    module procedure :: vca_tile_Hcluster_bath
-! end interface vca_tile_Hcluster
-
-
-! interface vca_build_Hsystem
-!    module procedure :: vca_build_Hsystem_normal
-!    module procedure :: vca_build_Hsystem_bath
-! end interface vca_build_Hsystem
-
-
-! public :: vca_get_system_dimension
-! public :: vca_get_cluster_dimension
-! !
-! public :: vca_tile_Hcluster
-! public :: vca_build_Hsystem
-!  
-
-! !##################################################################
-! !                   DIMENSION PROCEDURES
-! !##################################################################
-! function vca_get_cluster_dimension(with_bath) result(Ncluster)
-!   logical,optional :: with_bath
-!   logical          :: bool
-!   integer          :: Ns
-!   integer          :: Ncluster
-!   !
-!   bool = .false. ; if(present(with_bath))bool = with_bath
-!   !
-!   !Count how many levels are there in the cluster:
-!   Ns = Nlat*Norb
-!   if(bool)then
-!      ! select case(bath_type)
-!      ! case default
-!      Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
-!      ! case ('hybrid')
-!      !    Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
-!      ! end select
-!   endif
-!   !
-!   !Count the spin:
-!   Ncluster  = Nspin*Ns
-!   !
-! end function vca_get_cluster_dimension
-! !
-! function vca_get_system_dimension(with_bath) result(Nsys)
-!   logical,optional :: with_bath
-!   logical          :: bool
-!   integer          :: Ns, Nlevels
-!   integer          :: Nsys
-!   !
-!   bool = .false. ; if(present(with_bath))bool = with_bath
-!   !
-!   !Count how many levels are there in the cluster:
-!   Ns  = vca_get_cluster_dimension(bool)
-!   !
-!   !Count the copies:
-!   Nsys = Ncopies*Ns
-!   !
-! end function vca_get_system_dimension
-
-
-
-
-
-! !##################################################################
-! !                  CLUSTER TILING PROCEDURES
-! !##################################################################
-! subroutine vca_tile_Hcluster_normal(Hcluster,Htile)
-!   real(8),dimension(:,:) :: Hcluster
-!   real(8),dimension(:,:) :: Htile
-!   integer                :: Nsys
-!   integer                :: Nc,unit
-!   integer                :: i,j,icopy,ic,jc
-!   !
-!   Nc   = vca_get_cluster_dimension()
-!   Nsys = vca_get_system_dimension()
-!   !
-!   call assert_shape(Hcluster,[Nlat*Nspin*Norb,Nc],"vca_tile_Hcluster","Hcluster")
-!   call assert_shape(Htile,[size(Htile,1),Nsys],"vca_tile_Hcluster","Htile")
-!   Htile=0d0
-!   do icopy=1,Ncopies          !loop over the number of copies of the cluster:
-!      !
-!      do ic=1,Nc           !loop over the orbital-site-spin index of the cluster 
-!         do jc=1,Nc
-!            i = ic + (icopy-1)*Nc
-!            j = jc + (icopy-1)*Nc
-!            Htile(i,j) = Hcluster(ic,jc)
-!         enddo
-!      enddo
-!   enddo
-!   !
-!   open(free_unit(unit),file="Htile_matrix.dat")
-!   do i=1,Nsys
-!      write(unit,"(1000000(F5.2,1x))")(Htile(i,j),j=1,Nsys)
-!   enddo
-!   close(unit)
-! end subroutine vca_tile_Hcluster_normal
-! !
-! subroutine vca_tile_Hcluster_bath(Hcluster,bath,Htile_bath)
-!   real(8),dimension(:,:)               :: Hcluster
-!   real(8),dimension(:)                 :: bath
-!   real(8),dimension(:,:)               :: Htile_bath
-!   integer                              :: Nsys,Nsys_bath
-!   integer                              :: Nc,Nc_bath,unit
-!   integer                              :: i,j,icopy,ic,jc,ilat,iorb,ispin,ii,jj,ibath
-!   type(effective_bath)                 :: vca_bath_
-!   !
-!   Nc        = vca_get_cluster_dimension(.false.)
-!   Nc_bath   = vca_get_cluster_dimension(.true.)
-!   Nsys      = vca_get_system_dimension(.false.)
-!   Nsys_bath = vca_get_system_dimension(.true.)    
-!   !
-!   call assert_shape(Hcluster,[Nlat*Nspin*Norb,Nc],"vca_tile_Hcluster_bath","Hcluster")
-!   call assert_shape(Htile_bath,[size(Htile_bath,1),Nsys_bath],"vca_tile_Hcluster_bath","Htile_bath")
-!   !
-!   call vca_allocate_bath(vca_bath_)
-!   call vca_set_bath(bath,vca_bath_)
-!   !
-!   Htile_bath=0d0
-!   do icopy=1,Ncopies
-!      !
-!      do ilat=1,Nlat              !# of cluster sites
-!         do iorb=1,Norb           !# of orbital per site
-!            do ispin=1,Nspin      !# of spin per site
-!               ic = index_stride_los(ilat,iorb,ispin)
-!               !
-!               i  = ic + (icopy-1)*Nc
-!               ii = i  + (i-1)*Nbath
-!               do ibath=1,Nbath
-!                  Htile_bath(ii+ibath,ii+ibath) = vca_bath_%e(ilat,iorb,ispin,ibath)
-!                  Htile_bath(ii,ii+ibath)       = vca_bath_%v(ilat,iorb,ispin,ibath)
-!                  Htile_bath(ii+ibath,ii)       = vca_bath_%v(ilat,iorb,ispin,ibath)
-!               enddo
-!               !
-!               do jc=1,Nc
-!                  j  = jc + (icopy-1)*Nc
-!                  jj = j  + (j-1)*Nbath
-!                  Htile_bath(ii,jj) = Hcluster(ic,jc)
-!               enddo
-!               !
-!            enddo
-!         enddo
-!      enddo
-!   enddo
-!   !
-!   call vca_deallocate_bath(vca_bath_)
-!   !
-!   open(free_unit(unit),file="Htile_bath_matrix.dat")
-!   do i=1,Nsys_bath
-!      write(unit,"(1000000(F5.2,1x))")(Htile_bath(i,j),j=1,Nsys_bath)
-!   enddo
-!   close(unit)
-! end subroutine vca_tile_Hcluster_bath
-
-
-
-
-
-
-
-
-
-! !##################################################################
-! !                  SYSTEM BUILDING PROCEDURES
-! !##################################################################
-! subroutine vca_build_Hsystem_normal(Hsys,Hsys_bath)
-!   real(8),dimension(:,:),intent(in)    :: Hsys
-!   real(8),dimension(:,:),intent(out)   :: Hsys_bath
-!   integer                              :: Nsys
-!   !
-!   Nsys  = vca_get_system_dimension(with_bath=.false.)
-!   !
-!   call assert_shape(Hsys,[Nsys,Ncopies*Nlat*Norb*Nspin],"vca_build_Hsystem","Hsys")
-!   call assert_shape(Hsys_bath,[Nsys,Nsys],"vca_build_Hsystem","Hsys_bath")
-!   Hsys_bath = Hsys
-!   !
-! end subroutine vca_build_Hsystem_normal
-
-! subroutine vca_build_Hsystem_bath(Hsys,Bath,Hsys_bath)
-!   real(8),dimension(:,:),intent(in)  :: Hsys
-!   real(8),dimension(:),intent(in)    :: Bath
-!   real(8),dimension(:,:),intent(out) :: Hsys_bath
-!   integer                            :: Nlos
-!   integer                            :: ibath,unit
-!   integer                            :: icopy,jcopy
-!   integer                            :: i,ii
-!   integer                            :: j,jj
-!   integer                            :: io,jo,ilat,iorb,ispin    
-!   integer                            :: Nsys,Nsys_bath,Nb
-!   type(effective_bath)               :: vca_bath_
-!   !
-!   write(LOGfile,"(A)")"Enter Build Hsystem"
-!   !
-!   Nsys          = vca_get_system_dimension(with_bath=.false.)
-!   Nsys_bath     = vca_get_system_dimension(with_bath=.true.)
-!   Nlos          = vca_get_cluster_dimension(with_bath=.false.)
-!   !
-!   call assert_shape(Hsys,[Nsys,Ncopies*Nlat*Norb*Nspin],"vca_build_Hsystem_bath","Hsys")
-!   call assert_shape(Hsys_bath,[Nsys_bath,Nsys_bath],"vca_build_Hsystem_bath","Hsys_bath")
-!   !
-!   call vca_allocate_bath(vca_bath_)
-!   call vca_set_bath(bath,vca_bath_)
-!   !
-!   Hsys_bath=0d0
-!   do icopy=1,Ncopies
-!      do ilat=1,Nlat              !# of cluster sites
-!         do iorb=1,Norb           !# of orbital per site
-!            do ispin=1,Nspin      !# of spin per site
-!               io = index_stride_los(ilat,iorb,ispin)
-!               i  = io + (icopy-1)*Nlat*Norb*Nspin
-!               ii = i  + (i-1)*Nbath
-!               do ibath=1,Nbath
-!                  Hsys_bath(ii+ibath,ii+ibath) = vca_bath_%e(ilat,iorb,ispin,ibath)
-!                  Hsys_bath(ii,ii+ibath)       = vca_bath_%v(ilat,iorb,ispin,ibath)
-!                  Hsys_bath(ii+ibath,ii)       = vca_bath_%v(ilat,iorb,ispin,ibath)
-!               enddo
-!               !
-!               do jcopy=1,Ncopies
-!                  do jo=1,Nlos
-!                     j  = jo + (jcopy-1)*Nlat*Norb*Nspin
-!                     jj = j  + (j-1)*Nbath
-!                     Hsys_bath(ii,jj) = Hsys(i,j)
-!                     Hsys_bath(jj,ii) = Hsys(j,i)
-!                  enddo
-!               enddo
-!               !
-!            enddo
-!         enddo
-!      enddo
-!   enddo
-!   !
-!   call vca_deallocate_bath(vca_bath_)
-!   !
-!   open(free_unit(unit),file="Hsys_bath_matrix.dat")
-!   do i=1,Nsys_bath
-!      write(unit,"(1000000(F5.2,1x))")(Hsys_bath(i,j),j=1,Nsys_bath)
-!   enddo
-!   close(unit)
-! end subroutine vca_build_Hsystem_bath
