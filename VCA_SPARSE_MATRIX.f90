@@ -1,475 +1,178 @@
 MODULE VCA_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY COMPLX ELEMENT: (HERMITIAN MATRIX) 
-
+  USE SF_IOTOOLS, only: str,free_unit
   implicit none
   private
 
   complex(8),parameter :: zero=dcmplx(0d0,0d0)
   
-  type sparse_element
-     complex(8)                            :: cval !value of the entry: double complex
-     integer                               :: col  !col connected to this compress value
-     type(sparse_element),pointer          :: next !link to next entry in the row
-  end type sparse_element
-  public :: sparse_element
+!  type sparse_element
+!     complex(8)                            :: cval !value of the entry: double complex
+!     integer                               :: col  !col connected to this compress value
+!     type(sparse_element),pointer          :: next !link to next entry in the row
+!  end type sparse_element
+!  public :: sparse_element
 
-  type sparse_row
-     integer                               :: size    !size of the list
-     type(sparse_element),pointer          :: root    !head/root of the list\== list itself
-  end type sparse_row
-  public :: sparse_row
+  type sparse_row_csr
+     integer                                   :: size !actual 
+     real(8),dimension(:),allocatable          :: vals
+     integer,dimension(:),allocatable          :: cols
+  end type sparse_row_csr
 
-  type sparse_matrix
-     integer                               :: Nrow
-     logical                               :: status=.false.
-     type(sparse_row),dimension(:),pointer :: row
-  end type sparse_matrix
-  public :: sparse_matrix
+  type sparse_matrix_csr
+     type(sparse_row_csr),dimension(:),pointer :: row
+     integer                                   :: Nrow
+     integer                                   :: Ncol
+     logical                                   :: status=.false.
+  end type sparse_matrix_csr
 
 
-  !INIT SPARSE MATRICES (LL)
+  !INIT SPARSE MATRICES 
   interface sp_init_matrix
-     module procedure sp_init_matrix_ll
+     module procedure :: sp_init_matrix_csr
   end interface sp_init_matrix
-  public :: sp_init_matrix      !init the sparse matrix   !checked
 
 
-  !DELETE SPARSE MATRIX (LL) OR ONE OF ITS ELEMENTS (LL)
+  !DELETE SPARSE MATRIX 
   interface sp_delete_matrix
-     module procedure sp_delete_matrix_ll
+     module procedure :: sp_delete_matrix_csr
   end interface sp_delete_matrix
-  public :: sp_delete_matrix    !delete the sparse matrix !checked
-  public :: sp_delete_element   !delete n-th/last element !checked
 
 
-
-  !GET NUMBER OF NON-ZERO ELEMENTS
-  interface sp_get_nnz
-     module procedure sp_get_nnz_ll
-  end interface sp_get_nnz
-  public :: sp_get_nnz
-
-
-  !INSERT ELEMENTS (D,C) IN LL-SPARSE MATRIX
+  !INSERT ELEMENTS
   interface sp_insert_element
-     module procedure sp_insert_element_c
+     module procedure :: sp_insert_element_csr
   end interface sp_insert_element
-  public :: sp_insert_element   !insert an element        !checked
-
-
-
-  !INSERT DIAGONAL ENTRY IN LL-SPARSE MATRIX
-  interface sp_insert_diag
-     module procedure sp_insert_diag_c
-  end interface sp_insert_diag
-  public :: sp_insert_diag      !insert a vector at diag  !checked
-
-
-
-  !GET ELEMENTS ALONG THE DIAGONAL
-  interface sp_get_diagonal
-     module procedure sp_get_diagonal_c
-  end interface sp_get_diagonal
-  public :: sp_get_diagonal     !get diagonal elements    !checked
 
 
 
   !LOAD STANDARD MATRIX INTO SPARSE MATRICES
   interface sp_load_matrix
-     module procedure sp_load_matrix_c
+     module procedure :: sp_load_matrix_csr
   end interface sp_load_matrix
-  public :: sp_load_matrix      !create sparse from array !checked
 
 
 
   !DUMP SPARSE MATRIX INTO STANDARD MATRIX
   interface sp_dump_matrix
-     module procedure sp_dump_matrix_c
+     module procedure :: sp_dump_matrix_csr
   end interface sp_dump_matrix
+
+  !SPY PRINT SPARSE MATRIX
+  interface sp_spy_matrix
+     module procedure :: sp_spy_matrix_csr
+  end interface sp_spy_matrix
+
+
+  !Linked-List Sparse Matrix
+  public :: sparse_matrix_csr
+
+  public :: sp_init_matrix      !init the sparse matrix   !checked
+  public :: sp_delete_matrix    !delete the sparse matrix !checked
+  public :: sp_insert_element   !insert an element        !checked
+  public :: sp_load_matrix      !create sparse from array !checked
   public :: sp_dump_matrix      !dump sparse into array   !checked
+  public :: sp_spy_matrix       !
 
 
+  interface add_to
+     module procedure :: add_to_I
+     module procedure :: add_to_D
+     module procedure :: add_to_Z
+  end interface add_to
 
-  !PRETTY PRINTING
-  interface sp_print_matrix
-     module procedure sp_print_matrix_ll
-  end interface sp_print_matrix
-  public :: sp_print_matrix     !print sparse             !checked
-
-
-  !TEST
-  public :: sp_test_symmetric
-
-
-
-  !GET ELEMENT FROM SPARSE MATRIX
-  public :: sp_get_element_c    !""                       !checked
-
-
-  !INQUIRE IF ELEMENT EXISTS
-  public :: sp_inquire_element  !inquire an element       !checked
-
-
-
-
+  integer :: MpiIerr
 
 contains       
-
-
 
 
   !+------------------------------------------------------------------+
   !PURPOSE:  initialize the sparse matrix list
   !+------------------------------------------------------------------+
-  subroutine sp_init_matrix_ll(sparse,N)
-    type(sparse_matrix),intent(inout) :: sparse
-    integer                           :: i,N
+  subroutine sp_init_matrix_csr(sparse,N,N1)
+    type(sparse_matrix_csr),intent(inout) :: sparse
+    integer                               :: N
+    integer,optional                      :: N1
+    integer                               :: i
+    !
     !put here a delete statement to avoid problems
     if(sparse%status)stop "sp_init_matrix: alreay allocate can not init"
+    !
     sparse%Nrow=N
-    sparse%status=.true.
+    sparse%Ncol=N 
+    if(present(N1))sparse%Ncol=N1
+    !
     allocate(sparse%row(N))
     do i=1,N
-       allocate(sparse%row(i)%root)
-       sparse%row(i)%root%next => null()
        sparse%row(i)%size=0
+       allocate(sparse%row(i)%vals(0)) !empty array
+       allocate(sparse%row(i)%cols(0)) !empty array
     end do
-  end subroutine sp_init_matrix_ll
-
-
-
-
-
+    !
+    sparse%status=.true.
+    !
+  end subroutine sp_init_matrix_csr
 
 
 
   !+------------------------------------------------------------------+
   !PURPOSE: delete an entire sparse matrix
   !+------------------------------------------------------------------+
-  subroutine sp_delete_matrix_ll(sparse)    
-    type(sparse_matrix),intent(inout) :: sparse
-    integer                           :: i
-    if(.not.sparse%status)stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
+  subroutine sp_delete_matrix_csr(sparse)    
+    type(sparse_matrix_csr),intent(inout) :: sparse
+    integer                               :: i
+    type(sparse_row_csr),pointer          :: row
+    !
+    if(.not.sparse%status)return !stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
+    !
     do i=1,sparse%Nrow
-       call delete_row(sparse%row(i))
-       deallocate(sparse%row(i)%root)
-    end do
-    deallocate(sparse%row)
-    sparse%Nrow=0
-    sparse%status=.false.
-  end subroutine sp_delete_matrix_ll
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: delete a single element at (i,j) from the sparse matrix
-  !+------------------------------------------------------------------+
-  subroutine sp_delete_element(matrix,i,j)
-    type(sparse_matrix),intent(inout) :: matrix
-    integer,intent(in)                :: i,j
-    logical :: delete
-    delete = delete_element_from_row(matrix%row(i),col=j)
-    if(.not.delete)write(*,"(A,I3,I3)")"sp_delete_element: can not delete element in",i,j
-  end subroutine sp_delete_element
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: delete an entire row from the sparse matrix (private)
-  !+------------------------------------------------------------------+
-  subroutine delete_row(row)
-    type(sparse_row),intent(inout) :: row
-    type(sparse_element),pointer   :: p,c
-    do
-       p => row%root
-       c => p%next
-       if(.not.associated(c))exit  !empty list
-       p%next => c%next !
-       c%next=>null()
-       deallocate(c)
-    end do
-  end subroutine delete_row
-
-
-
-
-  !This shoud be better tested!
-  !+------------------------------------------------------------------+
-  !PURPOSE: delete a given element from a row of the sparse matrix (private)
-  !+------------------------------------------------------------------+
-  function delete_element_from_row(row,n,col) result(found)
-    type(sparse_row),intent(inout)    :: row
-    integer,optional                  :: n
-    integer,optional                  :: col
-    integer                           :: i,pos
-    type(sparse_element),pointer      :: p,c
-    logical                           :: found
-    pos= row%size ; if(present(n))pos=n
-    p => row%root
-    c => p%next
-    found = .false.
-    if(present(col))then
-       do 
-          if(found .OR. .not.associated(c))return
-          if(col == c%col)then
-             found=.true.
-             exit
-          else
-             p => c
-             c => c%next
-          endif
-       end do
-       if(found)then
-          p%next => c%next !reallocate skipping the deleted link
-          deallocate(c)           !free link
-          row%size=row%size-1
-       endif
-    else
-       do i=1,pos 
-          if(.not.associated(c))return !empty list
-          p => c
-          c => c%next
-       end do
-       found=.true.
-       p%next => c%next !reallocate skipping the deleted link
-       deallocate(c)           !free link
-       row%size=row%size-1
-    endif
-  end function delete_element_from_row
-
-
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE:  return total number of non-zero elements stored in sparse
-  !+------------------------------------------------------------------+
-  function sp_get_nnz_ll(sparse) result(Nnz)
-    type(sparse_matrix) :: sparse
-    integer             :: i
-    integer             :: Nnz
-    Nnz=0
-    do i=1,sparse%Nrow
-       Nnz=Nnz+sparse%row(i)%size
+       deallocate(sparse%row(i)%vals)
+       deallocate(sparse%row(i)%cols)
+       sparse%row(i)%Size  = 0
     enddo
-  end function sp_get_nnz_ll
+    deallocate(sparse%row)
+    !
+    sparse%Nrow=0
+    sparse%Ncol=0
+    sparse%status=.false.
+  end subroutine sp_delete_matrix_csr
 
 
 
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
+!+------------------------------------------------------------------+
   !PURPOSE: insert an element value at position (i,j) in the sparse matrix
   !+------------------------------------------------------------------+
-  subroutine sp_insert_element_c(sparse,value,i,j)
-    type(sparse_matrix),intent(inout) :: sparse
-    complex(8),intent(in)             :: value
-    integer,intent(in)                :: i,j
-    call insert_element_in_row_c(sparse%row(i),value,j)
-  end subroutine sp_insert_element_c
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: insert a vector of elements at the diagonal of the sparse matrix
-  !+------------------------------------------------------------------+
-  subroutine sp_insert_diag_c(sparse,diag)
-    type(sparse_matrix),intent(inout)  :: sparse
-    complex(8),intent(in),dimension(:) :: diag
-    integer                            :: i
-    if(size(diag)/=sparse%Nrow)stop "sp_insert_diag: error in dimensions"
-    do i=1,size(diag)
-       call insert_element_in_row_c(sparse%row(i),diag(i),i)
-    enddo
-  end subroutine sp_insert_diag_c
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: insert an element in a given row (private) 
-  !+------------------------------------------------------------------+
-  subroutine insert_element_in_row_c(row,value,column)
-    type(sparse_row),intent(inout)    :: row
-    complex(8) ,intent(in)            :: value
-    integer, intent(in)               :: column
-    type(sparse_element),pointer      :: p,c
-    logical :: iadd
-    p => row%root
-    c => p%next
-    iadd = .false.                !check if column already exist
-    do                            !traverse the list
-       if(.not.associated(c))exit !empty list or end of the list
-       if(c%col == column)then
-          iadd=.true.
-          exit
-       endif
-       !if(c%col > column)exit
-       if(column <= c%col)exit
-       p => c
-       c => c%next
-    end do
-    if(iadd)then
-       c%cval=c%cval + value
-    else
-       allocate(p%next)                !Create a new element in the list
-       p%next%cval= value
-       p%next%col = column
-       row%size   = row%size+1
-       if(.not.associated(c))then !end of the list special case (current=>current%next)
-          p%next%next  => null()
-       else
-          p%next%next  => c      !the %next of the new node come to current
-       end if
-    endif
-  end subroutine insert_element_in_row_c
-
-
-
-
-
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: get the diagonal elements of the sparse matrix
-  !+------------------------------------------------------------------+
-  subroutine sp_get_diagonal_c(sparse,diag)
-    type(sparse_matrix),intent(inout) :: sparse
-    complex(8),dimension(:)           :: diag
-    integer                           :: Ndim,i
-    Ndim=size(diag);if(Ndim/=sparse%Nrow)stop "sp_get_diagonal: error in diag dimension." 
-    do i=1,Ndim
-       call get_element_from_row_c(sparse%row(i),diag(i),i)
-    enddo
-  end subroutine sp_get_diagonal_c
-
-
-
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: get an element from position (i,j) of the sparse matrix
-  !+------------------------------------------------------------------+
-  function sp_get_element_c(sparse,i,j) result(value)
-    type(sparse_matrix),intent(inout) :: sparse    
-    integer,intent(in)                :: i,j
-    complex(8)                        :: value
-    call get_element_from_row_c(sparse%row(i),value,j)
-  end function sp_get_element_c
-
-
-
-
-
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: get an element from a given row of the matrix (private)
-  !+------------------------------------------------------------------+
-  subroutine get_element_from_row_c(row,value,column)
-    type(sparse_row),intent(inout)    :: row
-    complex(8)                        :: value
-    integer, intent(in)               :: column
-    type(sparse_element),pointer      :: c
-    c => row%root%next
-    value=cmplx(0.d0,0.d0,8)
-    do                            !traverse the list
-       if(.not.associated(c))return !empty list or end of the list
-       if(c%col == column)exit
-       c => c%next
-    end do
+  subroutine sp_insert_element_csr(sparse,value,i,j)
+    type(sparse_matrix_csr),intent(inout) :: sparse
+    real(8),intent(in)                    :: value
+    integer,intent(in)                    :: i,j
     !
-    value = c%cval
-  end subroutine get_element_from_row_c
-
-
-
-
-
-
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: check if a given element exists
-  !+------------------------------------------------------------------+
-  function sp_inquire_element(sparse,i,j) result(exist)
-    type(sparse_matrix),intent(inout) :: sparse    
-    integer,intent(in)                :: i,j
-    logical                           :: exist
-    exist = inquire_element_from_row(sparse%row(i),j)
-  end function sp_inquire_element
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: check if an element in a given row of the matrix exist (private)
-  !+------------------------------------------------------------------+
-  function inquire_element_from_row(row,column) result(exist)
-    type(sparse_row),intent(inout)    :: row
-    logical                           :: exist
-    integer, intent(in)               :: column
-    type(sparse_element),pointer      :: c
-    c => row%root%next
-    exist=.false.
-    do                            !traverse the list
-       if(.not.associated(c))return !empty list or end of the list
-       if(c%col == column)exit
-       c => c%next
-    end do
-    exist=.true.
-  end function inquire_element_from_row
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    type(sparse_row_csr),pointer          :: row
+    integer                               :: column,pos
+    logical                               :: iadd
+    !
+    column = j
+    !
+    row => sparse%row(i)
+    !
+    iadd = .false.                          !check if column already exist
+    if(any(row%cols == column))then         !
+       pos = binary_search(row%cols,column) !find the position  column in %cols        
+       iadd=.true.                          !set Iadd to true
+    endif
+    !
+    if(iadd)then                            !this column exists so just sum it up       
+       row%vals(pos)=row%vals(pos) + value  !add up value to the current one in %vals
+    else                                    !this column is new. increase counter and store it 
+       ! row%vals = [row%vals,value]
+       ! row%cols = [row%cols,column]
+       call add_to(row%vals,value)
+       call add_to(row%cols,column)
+       row%Size = row%Size + 1
+    endif
+    !
+    if(row%Size > sparse%Ncol)stop "sp_insert_element_csr ERROR: row%Size > sparse%Ncol"
+    !
+  end subroutine sp_insert_element_csr
 
 
 
@@ -478,89 +181,46 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE: load a regular matrix (2dim array) into a sparse matrix
   !+------------------------------------------------------------------+
-  subroutine sp_load_matrix_c(matrix,sparse)
-    complex(8),dimension(:,:),intent(in)  :: matrix
-    type(sparse_matrix),intent(inout)     :: sparse    
-    integer                               :: i,j,Ndim1,Ndim2
+  subroutine sp_load_matrix_csr(matrix,sparse)
+    real(8),dimension(:,:),intent(in) :: matrix
+    type(sparse_matrix_csr),intent(inout) :: sparse    
+    integer                           :: i,j,Ndim1,Ndim2
+    !
     Ndim1=size(matrix,1)
-    Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    Ndim2=size(matrix,2)   
+    !
+    if(sparse%status)call sp_delete_matrix_csr(sparse)
+    call sp_init_matrix_csr(sparse,Ndim1,Ndim2)
+    !
     do i=1,Ndim1
        do j=1,Ndim2
-          if(matrix(i,j)/=cmplx(0.d0,0.d0,8))call sp_insert_element_c(sparse,matrix(i,j),i,j)
+          if(matrix(i,j)/=0.d0)call sp_insert_element_csr(sparse,matrix(i,j),i,j)
        enddo
     enddo
-  end subroutine sp_load_matrix_c
-
-
-
-
-
-
-
-  !+-----------------------------------------------------------------------------+!
-  !PURPOSE:  test if a sparse matrix is symmetric 
-  !+-----------------------------------------------------------------------------+
-  subroutine sp_test_symmetric(sparse)
-    type(sparse_matrix)                   :: sparse
-    logical                               :: is_symmetric
-    complex(8),dimension(:,:),allocatable :: cM
-    integer                               :: Nrow,Ncol
-    Nrow=sparse%Nrow
-    Ncol=Nrow
-    is_symmetric=.false.
-    allocate(cM(Nrow,Ncol))
-    call sp_dump_matrix(sparse,cM)
-    if( maxval(abs(cM-conjg(transpose(cM))) ) < 1.d-12)is_symmetric=.true.
-    if(is_symmetric)then
-       write(*,"(A)")"Matrix IS Hermitian"
-    else
-       write(*,"(A)")"Matrix IS NOT Hermitian"
-    endif
-  end subroutine sp_test_symmetric
-
-
-
+  end subroutine sp_load_matrix_csr
 
 
 
   !+------------------------------------------------------------------+
   !PURPOSE: dump a sparse matrix into a regular 2dim array
   !+------------------------------------------------------------------+
-  subroutine sp_dump_matrix_c(sparse,matrix)
-    type(sparse_matrix),intent(in)          :: sparse
-    complex(8),dimension(:,:),intent(inout) :: matrix
-    type(sparse_element),pointer            :: c
-    integer                                 :: i,Ndim1,Ndim2
+  subroutine sp_dump_matrix_csr(sparse,matrix)
+    type(sparse_matrix_csr),intent(in)   :: sparse
+    real(8),dimension(:,:),intent(inout) :: matrix
+    integer                              :: i,j,Ndim1,Ndim2
+    !
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
-    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    !
+    if(sparse%Nrow/=Ndim1 .OR. sparse%Ncol/=Ndim2)stop "Warning SPARSE/dump_matrix: dimensions error"
+    !
     matrix=0.d0
     do i=1,Ndim1
-       c => sparse%row(i)%root%next
-       do while(associated(c))
-          matrix(i,c%col) = c%cval
-          c => c%next  !traverse list
+       do j=1,sparse%row(i)%Size
+          matrix(i,sparse%row(i)%cols(j)) = matrix(i,sparse%row(i)%cols(j)) + sparse%row(i)%vals(j)
        enddo
     enddo
-  end subroutine sp_dump_matrix_c
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  end subroutine sp_dump_matrix_csr
 
 
 
@@ -570,34 +230,161 @@ contains
 
   !+------------------------------------------------------------------+
   !PURPOSE: pretty print a sparse matrix on a given unit using format fmt
-  !+------------------------------------------------------------------+
-  subroutine sp_print_matrix_ll(sparse,unit,fmt,full)
-    type(sparse_matrix)            :: sparse
-    integer,optional               :: unit
-    integer                        :: i,j,unit_,Ns
-    character(len=*),optional      :: fmt
-    character(len=64)              :: fmt_
-    logical,optional               :: full
-    logical                        :: full_
-    unit_=6;if(present(unit))unit_=unit
-    fmt_='F6.2';if(present(fmt))fmt_=fmt
-    full_=.false.;if(present(full))full_=full
-    Ns=sparse%Nrow
-    if(full_)then
-       write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
-       do i=1,Ns
-          write(unit_,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
-               real(sp_get_element_c(sparse,i,j)),",",imag(sp_get_element_c(sparse,i,j)),j=1,Ns)
+  !+------------------------------------------------------------------+  
+  subroutine sp_spy_matrix_csr(sparse,header)
+    type(sparse_matrix_csr)          :: sparse
+    character ( len = * )           :: header
+    integer                         :: N1,N2
+    character ( len = 255 )         :: command_filename
+    integer                         :: command_unit
+    character ( len = 255 )         :: data_filename
+    integer                         :: data_unit
+    integer                         :: i, j
+    character ( len = 6 )           :: n1_s,n2_s,n1_i,n2_i
+    integer                         :: nz_num
+    character ( len = 255 )         :: png_filename
+    !
+    !  Create data file.
+    !
+    !
+    N1 = sparse%Nrow
+    N2 = sparse%Ncol
+    data_filename = trim ( header ) // '_data.dat'
+    open (unit=free_unit(data_unit), file = data_filename, status = 'replace' )
+    nz_num = 0
+    do i=1,N1
+       do j=1,sparse%row(i)%size
+          write(data_unit,'(2x,i6,2x,i6)') sparse%row(i)%cols(j),i
+          nz_num = nz_num + 1
        enddo
+    enddo
+    close(data_unit)
+    !
+    !  Create command file.
+    !
+    command_filename = "plot_"//str(header)//'_commands.gp'
+    open(unit = free_unit(command_unit), file = command_filename, status = 'replace' )
+    write(command_unit,'(a)') '#unset key'
+    write(command_unit,'(a)') 'set terminal postscript eps enhanced color font "Times-Roman,16"'
+    write(command_unit,'(a)') 'set output "|ps2pdf -sEPSCrop - '//str(header)//".pdf"//'"'
+    write(command_unit,'(a)') 'set size ratio -1'
+    write(command_unit,'(a)') 'set xlabel "<--- J --->"'
+    write(command_unit,'(a)') 'set ylabel "<--- I --->"'
+    write(command_unit,'(a,i6,a)')'set title "',nz_num,' nonzeros for '//str(header)//'"'
+    write(command_unit,'(a)') 'set timestamp'
+    write(command_unit,'(a)' )'plot [x=1:'//str(N1)//'] [y='//str(N2)//':1] "'//&
+         str(data_filename)//'" w p pt 5 ps 0.4 lc rgb "red"'
+    close ( unit = command_unit )
+    return
+  end subroutine sp_spy_matrix_csr
+
+
+
+
+  !##################################################################
+  !##################################################################
+  !              AUXILIARY COMPUTATIONAL ROUTINES
+  !##################################################################
+  !##################################################################
+  recursive function binary_search(Ain,value) result(bsresult)
+    integer,intent(in)           :: Ain(:), value
+    integer                      :: bsresult, mid
+    integer,dimension(size(Ain)) :: A,Order
+    !
+    a = ain
+    call sort_array(a,Order)
+    !
+    mid = size(a)/2 + 1
+    if (size(a) == 0) then
+       bsresult = 0        ! not found
+       !stop "binary_search error: value not found"
+    else if (a(mid) > value) then
+       bsresult= binary_search(a(:mid-1), value)
+    else if (a(mid) < value) then
+       bsresult = binary_search(a(mid+1:), value)
+       if (bsresult /= 0) then
+          bsresult = mid + bsresult
+       end if
     else
-       write(*,*)"Print sparse matrix (compact mode) ->",unit_
-       do i=1,Ns
-          call print_row_c(sparse%row(i),unit_,fmt_)
-       enddo
-    endif
-    write(unit_,*)
-  end subroutine sp_print_matrix_ll
+       bsresult = mid      ! SUCCESS!!
+    end if
+    !
+    bsresult = Order(bsresult)
+    !
+  end function binary_search
 
+
+
+
+
+  subroutine add_to_I(vec,val)
+    integer,dimension(:),allocatable,intent(inout) :: vec
+    integer,intent(in)                             :: val  
+    integer,dimension(:),allocatable               :: tmp
+    integer                                        :: n
+    !
+    if (allocated(vec)) then
+       n = size(vec)
+       allocate(tmp(n+1))
+       tmp(:n) = vec
+       call move_alloc(tmp,vec)
+       n = n + 1
+    else
+       n = 1
+       allocate(vec(n))
+    end if
+    !
+    !Put val as last entry:
+    vec(n) = val
+    !
+    if(allocated(tmp))deallocate(tmp)
+  end subroutine add_to_I
+
+  subroutine add_to_D(vec,val)
+    real(8),dimension(:),allocatable,intent(inout) :: vec
+    real(8),intent(in)                             :: val  
+    real(8),dimension(:),allocatable               :: tmp
+    integer                                        :: n
+    !
+    if (allocated(vec)) then
+       n = size(vec)
+       allocate(tmp(n+1))
+       tmp(:n) = vec
+       call move_alloc(tmp,vec)
+       n = n + 1
+    else
+       n = 1
+       allocate(vec(n))
+    end if
+    !
+    !Put val as last entry:
+    vec(n) = val
+    !
+    if(allocated(tmp))deallocate(tmp)
+  end subroutine add_to_D
+
+  subroutine add_to_Z(vec,val)
+    complex(8),dimension(:),allocatable,intent(inout) :: vec
+    complex(8),intent(in)                             :: val  
+    complex(8),dimension(:),allocatable               :: tmp
+    integer                                           :: n
+    !
+    if (allocated(vec)) then
+       n = size(vec)
+       allocate(tmp(n+1))
+       tmp(:n) = vec
+       call move_alloc(tmp,vec)
+       n = n + 1
+    else
+       n = 1
+       allocate(vec(n))
+    end if
+    !
+    !Put val as last entry:
+    vec(n) = val
+    !
+    if(allocated(tmp))deallocate(tmp)
+  end subroutine add_to_Z
 
 
 
@@ -607,35 +394,69 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE: print an entire row of the sparse matrix (private)
+  !PURPOSE  : Sort an array, gives the new ordering of the label.
   !+------------------------------------------------------------------+
-  subroutine print_row_c(row,unit,fmt)
-    type(sparse_row),intent(in)   :: row
-    type(sparse_element),pointer  :: c
-    integer                       :: count=0
-    integer,optional :: unit
-    integer          :: unit_
-    character(len=*),optional :: fmt
-    character(len=64)         :: fmt_
-    unit_=6;if(present(unit))unit_=unit
-    fmt_='F15.9';if(present(fmt))fmt_=fmt
-    c => row%root%next   !assume is associated,ie list exists
-    do
-       if(.not.associated(c))exit
-       count=count+1
-       write(unit_,"(2"//trim(fmt_)//",A1,I3,3X)",advance='no')c%cval,',',c%col
-       c => c%next  !traverse list
-    end do
-    write(unit_,*)
-  end subroutine print_row_c
-
-
-
-
-
-
-
-
+  subroutine sort_array(array,order)
+    implicit none
+    integer,dimension(:)                    :: array
+    integer,dimension(size(array))          :: order
+    integer,dimension(size(array))          :: backup
+    integer                                 :: i
+    forall(i=1:size(array))order(i)=i
+    call qsort_sort(array, order,1, size(array))
+    do i=1,size(array)
+       backup(i)=array(order(i))
+    enddo
+    array=backup
+  contains
+    recursive subroutine qsort_sort( array, order, left, right )
+      integer, dimension(:) :: array
+      integer, dimension(:) :: order
+      integer               :: left
+      integer               :: right
+      integer               :: i
+      integer               :: last
+      if ( left .ge. right ) return
+      call qsort_swap( order, left, qsort_rand(left,right) )
+      last = left
+      do i = left+1, right
+         if ( compare(array(order(i)), array(order(left)) ) .lt. 0 ) then
+            last = last + 1
+            call qsort_swap( order, last, i )
+         endif
+      enddo
+      call qsort_swap( order, left, last )
+      call qsort_sort( array, order, left, last-1 )
+      call qsort_sort( array, order, last+1, right )
+    end subroutine qsort_sort
+    !---------------------------------------------!
+    subroutine qsort_swap( order, first, second )
+      integer, dimension(:) :: order
+      integer               :: first, second
+      integer               :: tmp
+      tmp           = order(first)
+      order(first)  = order(second)
+      order(second) = tmp
+    end subroutine qsort_swap
+    !---------------------------------------------!
+    integer function qsort_rand( lower, upper )
+      integer               :: lower, upper
+      real(8)               :: r
+      call random_number(r)
+      qsort_rand =  lower + nint(r * (upper-lower))
+    end function qsort_rand
+    !---------------------------------------------!
+    function compare(f,g)
+      implicit none
+      integer               :: f,g
+      integer               :: compare
+      if(f<g) then
+         compare=-1
+      else
+         compare=1
+      endif
+    end function compare
+  end subroutine sort_array
 
 
 

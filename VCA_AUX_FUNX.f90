@@ -1,6 +1,9 @@
 MODULE VCA_AUX_FUNX
+  USE VCA_INPUT_VARS
   USE VCA_VARS_GLOBAL
   USE VCA_BATH_SETUP
+  USE SF_TIMER
+  USE SF_LINALG
   USE SF_MISC, only: assert_shape
   USE SF_IOTOOLS, only:free_unit,reg
   implicit none

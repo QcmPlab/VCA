@@ -25,6 +25,7 @@ MODULE VCA_VARS_GLOBAL
   !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
   type sector_map
      integer,dimension(:),allocatable :: map
+     logical                          :: status=.false.
   end type sector_map
 
   interface map_allocate
@@ -57,15 +58,14 @@ MODULE VCA_VARS_GLOBAL
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
   !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
-  !cmplxMat*cmplxVec
+  !dbleMat*dbleVec
   abstract interface
-     subroutine cc_sparse_HxV(Nloc,v,Hv)
-       integer                    :: Nloc
-       complex(8),dimension(Nloc) :: v
-       complex(8),dimension(Nloc) :: Hv
-     end subroutine cc_sparse_HxV
+     subroutine dd_sparse_HxV(Nloc,v,Hv)
+       integer                 :: Nloc
+       real(8),dimension(Nloc) :: v
+       real(8),dimension(Nloc) :: Hv
+     end subroutine dd_sparse_HxV
   end interface
-
 
 
 
@@ -75,13 +75,14 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                    :: LOGfile=6
 
 
-  !Ns       =              Number of levels per spin
-  !Nlevels  = 2*Ns       = Total Number  of levels
-  !Nsectors =              Number of sectors
+ !-------------------------- ED  VARIABLES --------------------------!
+
+  !SIZE OF THE PROBLEM
   !=========================================================
-  integer                                         :: Ns
-  integer                                         :: Nlevels
-  integer                                         :: Nsectors
+  integer,save                                       :: Ns       !Number of levels per spin
+  integer,save                                       :: Nsectors !Number of sectors
+  integer,save                                       :: Ns_orb
+  integer,save                                       :: Ns_ud
 
 
   !non-interacting cluster Hamiltonian
@@ -90,15 +91,17 @@ MODULE VCA_VARS_GLOBAL
 
 
 
-  !Some maps between sectors and full Hilbert space (pointers)
+  !Some maps between sectors and full Hilbert space (pointers)  CHECK!!!!!!!!!!!!!!!!!!!!!
   !=========================================================
   integer,allocatable,dimension(:,:)              :: getsector
-  integer,allocatable,dimension(:,:)              :: getCsector
-  integer,allocatable,dimension(:,:)              :: getCDGsector
+  integer,allocatable,dimension(:,:,:)            :: getCsector
+  integer,allocatable,dimension(:,:,:)              :: getCDGsector
   integer,allocatable,dimension(:)                :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                :: getNup,getNdw
   integer,allocatable,dimension(:,:,:)            :: getBathStride
+  integer,allocatable,dimension(:,:)              :: impIndex
   logical,allocatable,dimension(:)                :: twin_mask
+  logical,allocatable,dimension(:)                :: sectors_mask
 
   !Effective Bath used in the VCA code (this is opaque to user)
   !=========================================================
@@ -112,16 +115,20 @@ MODULE VCA_VARS_GLOBAL
 
   !Sparse matrix for Lanczos diagonalization.
   !=========================================================  
-  type(sparse_matrix)                               :: spH0
-  type(sparse_matrix)                               :: spH0up,spH0dw
-  procedure(cc_sparse_HxV),pointer                  :: spHtimesV_cc=>null()
+  type(sparse_matrix_csr)                            :: spH0d !diagonal part
+  type(sparse_matrix_csr)                            :: spH0nd !non-diagonal part
+  type(sparse_matrix_csr),dimension(:),allocatable   :: spH0ups,spH0dws !reduced UP and DW parts
+  procedure(dd_sparse_HxV),pointer                   :: spHtimesV_p=>null()
 
 
 
   !Variables for DIAGONALIZATION
   !=========================================================  
   integer,allocatable,dimension(:)                  :: neigen_sector
-  logical                                           :: trim_state_list=.false.
+  !--------------- LATTICE WRAP VARIABLES -----------------!  
+  integer,allocatable,dimension(:,:)                 :: neigen_sectorii
+  integer,allocatable,dimension(:)                   :: neigen_totalii
+  logical                                            :: trim_state_list=.false.
 
 
   !Partition function, Omega potential, SFT potential
@@ -145,6 +152,11 @@ MODULE VCA_VARS_GLOBAL
   !
   type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: impGmatrix
 
+  !Spin Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:,:)                 :: spinChi_tau
+  complex(8),allocatable,dimension(:,:)              :: spinChi_w
+  complex(8),allocatable,dimension(:,:)              :: spinChi_iv
 
   !Cluster local observables:
   !=========================================================
@@ -158,6 +170,32 @@ MODULE VCA_VARS_GLOBAL
   !Suffix string attached to the output files.
   !=========================================================
   character(len=64)                                 :: file_suffix=""
+  logical                                           :: offdiag_gf_flag=.false.
+
+
+  !This is the internal Mpi Communicator and variables.
+  !=========================================================
+!#ifdef _MPI
+!  integer                                            :: MpiComm_Global=MPI_UNDEFINED
+!  integer                                            :: MpiComm=MPI_UNDEFINED
+!#endif
+  !integer                                            :: MpiGroup_Global=MPI_GROUP_NULL
+  !integer                                            :: MpiGroup=MPI_GROUP_NULL
+  logical                                            :: MpiStatus=.false.
+  logical                                            :: MpiMaster=.true.
+  integer                                            :: MpiRank=0
+  integer                                            :: MpiSize=1
+  integer,allocatable,dimension(:)                   :: MpiMembers
+  integer                                            :: mpiQup=0
+  integer                                            :: mpiRup=0
+  integer                                            :: mpiQdw=0
+  integer                                            :: mpiRdw=0
+  integer                                            :: mpiQ=0
+  integer                                            :: mpiR=0
+  integer                                            :: mpiIstart
+  integer                                            :: mpiIend
+  integer                                            :: mpiIshift
+  logical                                            :: mpiAllThreads=.true.
 
 
   !Frequency and time arrays:
@@ -176,13 +214,13 @@ contains
 
 
   !> Get stride position in the one-particle many-body space 
-  function index_stride_los(ilat,iorb,ispin) result(indx)
+  function index_stride_lso(ilat,iorb,ispin) result(indx)
     integer :: ilat
     integer :: iorb
     integer :: ispin
     integer :: indx
     indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
-  end function index_stride_los
+  end function index_stride_lso
 
 
 
@@ -215,33 +253,43 @@ contains
   !>Allocate and Deallocate Hilbert space maps (sector<-->Fock)
   subroutine map_allocate_scalar(H,N)
     type(sector_map) :: H
-    integer :: N
+    integer          :: N
+    if(H%status) call map_deallocate_scalar(H)
     allocate(H%map(N))
+    H%status=.true.
   end subroutine map_allocate_scalar
   !
   subroutine map_allocate_vector(H,N)
-    type(sector_map),dimension(:) :: H
-    integer,dimension(size(H))    :: N
-    integer :: i
+    type(sector_map),dimension(:)       :: H
+    integer,dimension(size(H))          :: N
+    integer                             :: i
     do i=1,size(H)
-       allocate(H(i)%map(N(i)))
+       call map_allocate_scalar(H(i),N(i))
     enddo
   end subroutine map_allocate_vector
 
+
+
   subroutine map_deallocate_scalar(H)
     type(sector_map) :: H
-    deallocate(H%map)
+    if(.not.H%status)then
+       write(*,*) "WARNING map_deallocate_scalar: H is not allocated"
+       return
+    endif
+    if(allocated(H%map))deallocate(H%map)
+    H%status=.false.
   end subroutine map_deallocate_scalar
   !
   subroutine map_deallocate_vector(H)
     type(sector_map),dimension(:) :: H
-    integer :: i
+    integer                       :: i
     do i=1,size(H)
-       deallocate(H(i)%map)
+       call map_deallocate_scalar(H(i))
     enddo
   end subroutine map_deallocate_vector
 
 
+  !=========================================================
 
   !Allocate the channels in GFmatrix structure
   subroutine allocate_gfmatrix_Nchan(self,N)
