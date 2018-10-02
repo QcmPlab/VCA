@@ -691,8 +691,8 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
      de = diag(j)-Ei
      peso = pesoBZ*Z(1,j)*Z(1,j)
      !
-     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(j) = peso
-     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(j)  = isign*de
+     !impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(j) = peso
+     !impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(j)  = isign*de
      !
      do i=1,Lmats
         iw=xi*wm(i)

@@ -86,13 +86,13 @@ contains
     ! if(present(Vq))Lk     = size(Vq,3)
     ! call assert_shape(Vq,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk],"vca_solve","Vq")
     !
-    if(present(Bath))then
-       if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
-       call vca_allocate_bath(vca_bath)
-       call vca_set_bath(bath,vca_bath)
-       call vca_write_bath(vca_bath,LOGfile)
-       call vca_save_bath(vca_bath,used=.true.)
-    endif
+    !if(present(Bath))then
+    !   if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
+    !   call vca_allocate_bath(vca_bath)
+    !   call vca_set_bath(bath,vca_bath)
+    !   call vca_write_bath(vca_bath,LOGfile)
+    !   call vca_save_bath(vca_bath,used=.true.)
+    !endif
     !
     ! select case(vca_sparse_H)
     ! case (.true.)

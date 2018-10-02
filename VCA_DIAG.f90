@@ -151,7 +151,7 @@ contains
   !#else
             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
                  tol=lanc_tolerance,&
-                 iverbose=(verbose>3))
+                 iverbose=(verbose>=3))
   !#endif
   !          if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
   !          call delete_Hv_sector()
@@ -183,7 +183,7 @@ contains
   !#endif
          endif
          !
-         if(verbose>=4)then
+         if(verbose>=3)then
             write(LOGfile,*)"EigValues: ",eig_values(:Neigen)
             write(LOGfile,*)""
             write(LOGfile,*)""

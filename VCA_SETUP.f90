@@ -92,13 +92,13 @@ contains
  !    real(8),dimension(Nspin,Nspin,Norb,Norb)          :: imHloc         !local hamiltonian, imag part
     integer                                           :: i,iud,iorb,jorb,ispin,jspin
     logical                                           :: MPI_MASTER=.true.
-	integer,dimension(:),allocatable :: DimUps,DimDws
+    integer,dimension(:),allocatable :: DimUps,DimDws
     !
-	call vca_checks_global
+    call vca_checks_global
     !
-	call vca_setup_dimensions
+    call vca_setup_dimensions
 	!
-	allocate(DimUps(Ns_Ud))
+    allocate(DimUps(Ns_Ud))
     allocate(DimDws(Ns_Ud))
     do iud=1,Ns_Ud
        DimUps(iud) = get_sector_dimension(Ns_Orb,Ns_Orb/2)
@@ -139,7 +139,7 @@ contains
     !
     allocate(getBathStride(Nlat,Norb,Nbath));getBathStride=0
     allocate(twin_mask(Nsectors))
-	allocate(sectors_mask(Nsectors))
+    allocate(sectors_mask(Nsectors))
     allocate(neigen_sector(Nsectors))
 	!
     !
@@ -180,7 +180,7 @@ contains
     !if(Nspin>2)stop "ED ERROR: Nspin > 2 is currently not supported"
     !if(Norb>2)stop "ED ERROR: Norb > 2 is currently not supported"
     !
-    offdiag_gf_flag=vca_solve_offdiag_gf				!!CONTROLLA
+    offdiag_gf_flag=vca_solve_offdiag_gf            !!CONTROLLA
     !if(bath_type/="normal")offdiag_gf_flag=.true.	!!CONTROLLA
 	!
     if(nread/=0.d0)then
