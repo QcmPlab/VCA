@@ -95,7 +95,7 @@ contains
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices
     integer,dimension(Ns_Ud)            :: iDimUps,iDimDws
     integer                             :: i,j,ii
-    integer                             :: izero,istate
+    integer                             :: istate
     integer                             :: isector,jsector
     integer                             :: idim,jdim,ilat
     integer                             :: isz,jsz
@@ -109,7 +109,7 @@ contains
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
     real(8),dimension(:),pointer        :: gscvec
-    type(sector_map),dimension(2*Ns_Ud) :: Hi
+    type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:
     allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
@@ -127,11 +127,12 @@ contains
     zimp    = 0.d0
     Egs     = state_list%emin
     !
-    do izero=1,state_list%size
+    do istate=1,state_list%size
        isector = es_return_sector(state_list,istate)
        Ei      = es_return_energy(state_list,istate)
        !
-       gscvec  => es_return_cvector(state_list,izero)
+       gscvec  => es_return_cvector(state_list,istate)
+       !
        idim    = getdim(isector)
        call get_DimUp(isector,iDimUps)
        call get_DimDw(isector,iDimDws)
@@ -141,16 +142,16 @@ contains
        !
        if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
+       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+       peso = peso/zeta_function
        !
        call build_sector(isector,Hi)
-       !
-       !pdens=0d0
        do i=1,idim
           call state2indices(i,[iDimUps,iDimDws],Indices)
           do ii=1,Ns_Ud
             mup = HI(ii)%map(Indices(ii))
             mdw = HI(ii+Ns_Ud)%map(Indices(ii+Ns_ud))
-            Nups(ii,:) = Bdecomp(mup,Ns_Orb) ![Norb,1+Nbath]
+            Nups(ii,:) = Bdecomp(mup,Ns_Orb)
             Ndws(ii,:) = Bdecomp(mdw,Ns_Orb)
          enddo
          IbUp = Breorder(Nups)
@@ -167,27 +168,26 @@ contains
               nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
            enddo
          enddo
-
           !
           !Evaluate averages of observables:
          do ilat=1,Nlat
            do iorb=1,Norb
-              dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*weight
-              dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*weight
-              dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*weight
-              docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*weight
-              magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*weight
-              sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*weight
+              dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
+              dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
+              dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
+              docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
+              magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
+              sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
               do jorb=iorb+1,Norb
-                 sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*weight
-                 sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*weight
+                 sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
+                 sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
               enddo
            enddo
            s2tot = s2tot  + (sum(sz))**2*gs_weight
          enddo
-         call delete_sector(isector,HI)
-         if(associated(gscvec))nullify(gscvec)
        enddo
+       call delete_sector(isector,HI)
+       if(associated(gscvec))nullify(gscvec)
     enddo
     !
   end subroutine vca_lanc_observables
