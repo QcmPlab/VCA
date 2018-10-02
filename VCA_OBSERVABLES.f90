@@ -1,9 +1,11 @@
 MODULE VCA_OBSERVABLES
+  USE VCA_INPUT_VARS
   USE VCA_VARS_GLOBAL
   USE VCA_SETUP
   USE VCA_DIAG
   USE VCA_AUX_FUNX
   USE VCA_EIGENSPACE
+  USE VCA_HAMILTONIAN
   !
   USE SF_CONSTANTS, only:zero,pi,xi
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
@@ -24,22 +26,49 @@ MODULE VCA_OBSERVABLES
   real(8),dimension(:,:,:),allocatable :: sz2
   real(8),dimension(:,:,:),allocatable :: zimp,simp
   real(8)                              :: Egs
+  real(8)                              :: s2tot
+  real(8)                              :: Ei
+  !
+  integer                            :: iorb,jorb,iorb1,jorb1
+  integer                            :: ispin,jspin
+  integer                            :: isite,jsite
+  integer                            :: ibath
+  integer                            :: r,m,k,k1,k2
+  integer                            :: iup,idw
+  integer                            :: jup,jdw
+  integer                            :: mup,mdw
+  real(8)                            :: sgn,sgn1,sgn2,sg1,sg2
+  real(8)                            :: gs_weight
+  !
+  real(8)                            :: peso
+  real(8)                            :: norm
+  !
+  integer                            :: i,j,ii
+  integer                            :: isector,jsector
+  integer                            :: idim,idimUP,idimDW
+  !
+  real(8),dimension(:),pointer       :: gscvec
+  logical                            :: Jcondition
 
 
 
 contains 
 
+!+-------------------------------------------------------------------+
+ !PURPOSE  : Evaluate and print out many interesting physical qties
+!+-------------------------------------------------------------------+
+
   subroutine observables_cluster()
     integer :: iorb
     write(LOGfile,"(A)")"Get local observables:"
-    select case(vca_method)
-    case ("full")
-       call vca_diag_observables
-    case ("lanc")
+    !select case(vca_method)
+    !case ("full")
+    !   call vca_diag_observables
+    !case ("lanc")
        call vca_lanc_observables
-    case default
-       stop "observables_cluster error: vca_method != ['full','lanc']"
-    end select
+    !case default
+    !   stop "observables_cluster error: vca_method != ['full','lanc']"
+    !end select
     call get_szr
     if(iolegend)call write_legend
     call write_observables()
@@ -57,133 +86,30 @@ contains
     deallocate(simp,zimp)
   end subroutine observables_cluster
 
-
-
-
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : Evaluate and print out many interesting physical qties
-  !+-------------------------------------------------------------------+
-  subroutine vca_diag_observables()
-    integer,dimension(Nlevels)      :: ib
-    integer                         :: i,j,ilat,jlat
-    integer                         :: izero,istate
-    integer                         :: isector,jsector
-    integer                         :: idim,jdim
-    integer                         :: isz,jsz
-    integer                         :: iorb,jorb,ispin,jspin,isite,jsite
-    integer                         :: numstates
-    integer                         :: r,m,k
-    real(8)                         :: sgn,sgn1,sgn2
-    real(8)                         :: boltzman_weight
-    real(8)                         :: state_weight
-    real(8)                         :: weight
-    real(8)                         :: Ei
-    real(8)                         :: norm
-    real(8),dimension(Nlat,Norb)    :: nup,ndw,Sz,nt
-    type(sector_map)                :: H,HJ
-    complex(8),dimension(:),pointer :: evec
-    !
-    !
-    !LOCAL OBSERVABLES:
-    allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
-    allocate(docc(Nlat,Norb))
-    allocate(magz(Nlat,Norb),sz2(Nlat,Norb,Norb))
-    allocate(simp(Nlat,Norb,Nspin),zimp(Nlat,Norb,Nspin))
-    !
-    dens    = 0.d0
-    dens_up = 0.d0
-    dens_dw = 0.d0
-    docc    = 0.d0
-    magz    = 0.d0
-    sz2     = 0.d0
-    simp    = 0.d0
-    zimp    = 0.d0
-    !
-    do isector=1,Nsectors
-       idim    = getdim(isector)
-       call build_sector(isector,H)
-       !
-       do istate=1,idim
-          Ei=espace(isector)%e(istate)
-          boltzman_weight=exp(-beta*Ei)/zeta_function
-          if(boltzman_weight < cutoff)cycle
-          !
-          evec => espace(isector)%M(:,istate)
-          !
-          do i=1,idim
-             m=H%map(i)
-             ib = bdecomp(m,2*Ns)
-             !
-             state_weight=evec(i)*evec(i)
-             weight = boltzman_weight*state_weight
-             !
-             !Get operators:
-             do ilat=1,Nlat
-                do iorb=1,Norb
-                   nup(ilat,iorb)= ib(imp_state_index(ilat,iorb,1))
-                   ndw(ilat,iorb)= ib(imp_state_index(ilat,iorb,2))
-                   sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-                   nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
-                enddo
-             enddo
-             !
-             !Evaluate averages of observables:
-             do ilat=1,Nlat
-                do iorb=1,Norb
-                   dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*weight
-                   dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*weight
-                   dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*weight
-                   docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*weight
-                   magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*weight
-                   sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*weight
-                   do jorb=iorb+1,Norb
-                      sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*weight
-                      sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*weight
-                   enddo
-                enddo
-             enddo
-             !
-          enddo
-       enddo
-       deallocate(H%map)
-    enddo
-    !
-  end subroutine vca_diag_observables
-
-
-
-
-
-
-
-
-
-
-
-
   !+-------------------------------------------------------------------+
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine vca_lanc_observables()
-    integer,dimension(Nlevels)      :: ib
-    integer                         :: i,j
-    integer                         :: izero
-    integer                         :: isector,jsector
-    integer                         :: idim,jdim,ilat
-    integer                         :: isz,jsz
-    integer                         :: iorb,jorb,ispin,jspin,isite,jsite,ibath
-    integer                         :: numstates
-    integer                         :: r,m,k
-    real(8)                         :: sgn,sgn1,sgn2
-    real(8)                         :: weight
-    real(8)                         :: Ei
-    real(8)                         :: peso
-    real(8)                         :: norm
-    real(8),dimension(Nlat,Norb)    :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer :: gscvec
-    type(sector_map)                :: H,HJ
+    integer,dimension(Ns)               :: IbUp,IbDw  ![Ns]
+    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]
+    integer,dimension(2*Ns_Ud)          :: Indices,Jndices
+    integer,dimension(Ns_Ud)            :: iDimUps,iDimDws
+    integer                             :: i,j,ii
+    integer                             :: izero,istate
+    integer                             :: isector,jsector
+    integer                             :: idim,jdim,ilat
+    integer                             :: isz,jsz
+    integer                             :: iorb,jorb,ispin,jspin,isite,jsite,ibath
+    integer                             :: numstates
+    integer                             :: r,m,k
+    real(8)                             :: sgn,sgn1,sgn2
+    real(8)                             :: weight
+    real(8)                             :: Ei
+    real(8)                             :: peso
+    real(8)                             :: norm
+    real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
+    real(8),dimension(:),pointer        :: gscvec
+    type(sector_map),dimension(2*Ns_Ud) :: Hi
     !
     !LOCAL OBSERVABLES:
     allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
@@ -201,59 +127,67 @@ contains
     zimp    = 0.d0
     Egs     = state_list%emin
     !
-    numstates=state_list%size
-    do izero=1,numstates
-       isector = es_return_sector(state_list,izero)
-       Ei      = es_return_energy(state_list,izero)
-       idim    = getdim(isector)
+    do izero=1,state_list%size
+       isector = es_return_sector(state_list,istate)
+       Ei      = es_return_energy(state_list,istate)
        !
        gscvec  => es_return_cvector(state_list,izero)
+       idim    = getdim(isector)
+       call get_DimUp(isector,iDimUps)
+       call get_DimDw(isector,iDimDws)
+       iDimUp = product(iDimUps)
+       iDimDw = product(iDimDws)
        norm=sqrt(dot_product(gscvec,gscvec))
+       !
        if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
-       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
-       peso = peso/zeta_function
        !
-       call build_sector(isector,H)
+       call build_sector(isector,Hi)
        !
        !pdens=0d0
        do i=1,idim
-          m=H%map(i)
-          ib = bdecomp(m,2*Ns)
-          !
-          weight=peso*abs(gscvec(i))**2
-          !
-          !Get operators:
-          !Get operators:
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                nup(ilat,iorb)= ib(imp_state_index(ilat,iorb,1))
-                ndw(ilat,iorb)= ib(imp_state_index(ilat,iorb,2))
-                sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-                nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
-             enddo
-          enddo
+          call state2indices(i,[iDimUps,iDimDws],Indices)
+          do ii=1,Ns_Ud
+            mup = HI(ii)%map(Indices(ii))
+            mdw = HI(ii+Ns_Ud)%map(Indices(ii+Ns_ud))
+            Nups(ii,:) = Bdecomp(mup,Ns_Orb) ![Norb,1+Nbath]
+            Ndws(ii,:) = Bdecomp(mdw,Ns_Orb)
+         enddo
+         IbUp = Breorder(Nups)
+         IbDw = Breorder(Ndws)
+         !
+         gs_weight=peso*abs(gscvec(i))**2
+         !
+         !Get operators:
+         do ilat=1,Nlat
+           do iorb=1,Norb
+              nup(ilat,iorb)= ibup(imp_state_index(ilat,iorb,1))
+              ndw(ilat,iorb)= ibdw(imp_state_index(ilat,iorb,1))
+              sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
+              nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
+           enddo
+         enddo
 
           !
           !Evaluate averages of observables:
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*weight
-                dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*weight
-                dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*weight
-                docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*weight
-                magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*weight
-                sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*weight
-                do jorb=iorb+1,Norb
-                   sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*weight
-                   sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*weight
-                enddo
-             enddo
-          enddo
-
+         do ilat=1,Nlat
+           do iorb=1,Norb
+              dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*weight
+              dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*weight
+              dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*weight
+              docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*weight
+              magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*weight
+              sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*weight
+              do jorb=iorb+1,Norb
+                 sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*weight
+                 sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*weight
+              enddo
+           enddo
+           s2tot = s2tot  + (sum(sz))**2*gs_weight
+         enddo
+         call delete_sector(isector,HI)
+         if(associated(gscvec))nullify(gscvec)
        enddo
-       if(associated(gscvec))nullify(gscvec)
-       deallocate(H%map)
     enddo
     !
   end subroutine vca_lanc_observables

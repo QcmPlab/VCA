@@ -3,7 +3,7 @@ module VCA_MAIN
   USE VCA_AUX_FUNX
   USE VCA_SETUP
   USE VCA_DIAG
-  !USE VCA_OBSERVABLES
+  USE VCA_OBSERVABLES
   USE VCA_GREENS_FUNCTIONS
   USE VCA_BATH_SETUP
   USE VCA_EIGENSPACE
@@ -109,7 +109,7 @@ contains
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
-    !call observables_cluster()    !obtain impurity observables as thermal averages.
+    call observables_cluster()    !obtain impurity observables as thermal averages.
     !
     !call delete_eigenspace()
     call es_delete_espace(state_list)

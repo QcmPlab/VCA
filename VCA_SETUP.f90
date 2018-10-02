@@ -29,6 +29,7 @@ MODULE VCA_SETUP
   public :: idw_index
   !
   public :: bdecomp
+  public :: breorder
   public :: bjoin
   !
   public :: c,cdg
@@ -741,6 +742,36 @@ contains
     enddo
   end function bdecomp
 
+  !+------------------------------------------------------------------+
+  ! Reorder a binary decomposition so to have a state of the form:
+  ! default: |(1:Norb),([1:Nbath]_1, [1:Nbath]_2, ... ,[1:Nbath]_Norb)>_spin
+  ! hybrid:  |(1:Norb),([1:Nbath])_spin
+  ! replica: |(1:Norb),([1:Norb]_1, [1:Norb]_2, ...  , [1:Norb]_Nbath)>_spin
+  !
+  !> case (ed_total_ud):
+  !   (T): Ns_Ud=1, Ns_Orb=Ns.
+  !        bdecomp is already of the form above [1:Ns]
+  !   (F): Ns_Ud=Norb, Ns_Orb=Ns/Norb==1+Nbath
+  !        bdecomp is
+  !        |( [1:1+Nbath]_1,...,[1:1+Nbath]_Norb)>_spin
+  !+------------------------------------------------------------------+
+  function breorder(Nins) result(Ivec)
+    integer,intent(in),dimension(Ns_Ud,Ns_Orb) :: Nins ![1,Ns] - [Norb,1+Nbath]
+    integer,dimension(Ns)                      :: Ivec ![Ns]
+    integer                                    :: iud,ibath,indx
+    !select case (ed_total_ud)
+    !case (.true.)
+       Ivec = Nins(1,:)
+    !case (.false.)
+    !   do iud=1,Ns_Ud           ![1:Norb]
+     !     Ivec(iud) = Nins(iud,1)
+     !     do ibath=1,Nbath
+     !        indx = getBathStride(iud,ibath) !take care of normal/
+     !        Ivec(indx) = Nins(iud,1+ibath)
+     !     enddo
+     !  enddo
+    !end select
+  end function breorder
 
 
   !+------------------------------------------------------------------+
