@@ -11,7 +11,7 @@
      do ilat=1,Nlat
         do iorb=1,Norb
            nup(ilat,iorb)=dble(ibup(imp_state_index(ilat,iorb,1)))
-           ndw(ilat,iorb)=dble(ibdw(imp_state_index(ilat,iorb,2)))
+           ndw(ilat,iorb)=dble(ibdw(imp_state_index(ilat,iorb,1)))
         enddo
      enddo
      !> HxV_imp: Diagonal Elements, i.e. local part

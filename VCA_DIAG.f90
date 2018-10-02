@@ -33,7 +33,7 @@ contains
   subroutine diagonalize_cluster
     call vca_pre_diag
     call vca_diag_d
-    call vca_post_diag
+    !call vca_post_diag(.true.)
   end subroutine diagonalize_cluster
 
 
@@ -65,7 +65,7 @@ contains
     state_list=es_init_espace()
     oldzero=1000.d0
     !if(MPIMASTER)then
-       write(LOGfile,"(A)")"Diagonalize cluster Hloc+Hint:"
+       write(LOGfile,"(A)")"Diagonalize cluster Hc+Hint:"
        call start_timer()
     !endif
     !
@@ -219,7 +219,7 @@ contains
          if(allocated(eig_basis))deallocate(eig_basis)
          !
       enddo sector
-      call vca_lanc_analysis(.true.)
+      call vca_post_diag(.true.)
       if(finiteT)then
          neigen_sector_error = sum(abs(neigen_sector - neigen_sector_prev))/sum(abs(neigen_sector))
          converged_spectrum=(neigen_sector_error < lanc_spectrum_threshold)
@@ -303,7 +303,7 @@ contains
   !PURPOSE  : analyse the spectrum and print some information after 
   !lanczos diagonalization. 
   !+------------------------------------------------------------------+
- subroutine vca_lanc_analysis(iprint)
+ subroutine vca_post_diag(iprint)
     logical             :: iprint
     integer             :: nup,ndw,sz,n,isector,dim
     integer             :: istate
@@ -444,7 +444,7 @@ contains
     endif
     write(LOGfile,*)""
     write(LOGfile,*)""
-  end subroutine vca_lanc_analysis
+  end subroutine vca_post_diag
 
 
   subroutine print_state_list(unit)

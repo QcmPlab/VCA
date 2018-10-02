@@ -60,7 +60,10 @@ MODULE VCA_IO
   public :: vca_get_sft_potential
 
 
-
+  !Frequency and time arrays:
+  !=========================================================
+  real(8),dimension(:),allocatable :: wm,tau,wr,vm
+  character(len=64)                :: suffix
 
 
 
@@ -114,7 +117,10 @@ contains
     character(len=64) :: suffix
     integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
-    call vca_allocate_time_freq_arrays()
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
     !Print the impurity Sigma:
     do ilat=1,Nlat
        do jlat=1,Nlat
@@ -127,7 +133,10 @@ contains
           enddo
        enddo
     enddo
-    call vca_deallocate_time_freq_arrays()
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    !
   end subroutine vca_print_impSigma
 
 
@@ -141,7 +150,12 @@ contains
     character(len=64) :: suffix
     integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
-    call vca_allocate_time_freq_arrays()
+    !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
@@ -153,7 +167,10 @@ contains
           enddo
        enddo
     enddo
-    call vca_deallocate_time_freq_arrays()
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    !
   end subroutine vca_print_impG
 
   !+------------------------------------------------------------------+
@@ -165,7 +182,11 @@ contains
     character(len=64) :: suffix
     integer           :: ilat,jlat,iorb,jorb,ispin,jspin
     !
-    call vca_allocate_time_freq_arrays()
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
@@ -177,7 +198,9 @@ contains
           enddo
        enddo
     enddo
-    call vca_deallocate_time_freq_arrays()
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
     !
   end subroutine vca_print_impG0
 

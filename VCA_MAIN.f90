@@ -3,11 +3,11 @@ module VCA_MAIN
   USE VCA_AUX_FUNX
   USE VCA_SETUP
   USE VCA_DIAG
-  USE VCA_OBSERVABLES
+  !USE VCA_OBSERVABLES
   USE VCA_GREENS_FUNCTIONS
   USE VCA_BATH_SETUP
   USE VCA_EIGENSPACE
-  USE VCA_HAMILTONIAN_MATVEC
+  USE VCA_HAMILTONIAN
   !
   USE SF_LINALG,  only: eigh,diag,kron,eye
   USE SF_IOTOOLS, only: str,free_unit
@@ -51,7 +51,7 @@ contains
        call vca_get_bath(vca_bath,bath)
     endif
     !
-    if(isetup)call setup_pointers_normal
+    if(isetup)call setup_global
     !
     if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     !
@@ -96,24 +96,24 @@ contains
     !
     ! select case(vca_sparse_H)
     ! case (.true.)
-    spHtimesV_cc => spMatVec_cc
+    spHtimesV_p => spMatVec_main
     ! case (.false.)
-    !    spHtimesV_cc => directMatVec_cc
+    !    spHtimesV_p => directMatVec_p
     ! case default
     !    stop "vca_solve_single ERROR: vca_sparse_H undefined"
     ! end select
     !
     call vca_set_Hcluster(Hloc)
     !
-    call setup_eigenspace()
+    !call setup_eigenspace()
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
-    call observables_cluster()    !obtain impurity observables as thermal averages.
+    !call observables_cluster()    !obtain impurity observables as thermal averages.
     !
-    call delete_eigenspace()
+    !call delete_eigenspace()
     call es_delete_espace(state_list)
-    nullify(spHtimesV_cc)
+    nullify(spHtimesV_p)
 
 
     sft_potential = omega_potential 

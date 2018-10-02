@@ -22,7 +22,7 @@ MODULE VCA_OBSERVABLES
   real(8),dimension(:,:),allocatable   :: docc
   real(8),dimension(:,:),allocatable   :: magz
   real(8),dimension(:,:,:),allocatable :: sz2
-  real(8),dimension(:,:,:),allocatable   :: zimp,simp
+  real(8),dimension(:,:,:),allocatable :: zimp,simp
   real(8)                              :: Egs
 
 
@@ -184,7 +184,6 @@ contains
     real(8),dimension(Nlat,Norb)    :: nup,ndw,Sz,nt
     complex(8),dimension(:),pointer :: gscvec
     type(sector_map)                :: H,HJ
-    complex(8),allocatable          :: vvinit(:)
     !
     !LOCAL OBSERVABLES:
     allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))

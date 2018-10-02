@@ -48,7 +48,7 @@ module VCA_EIGENSPACE
   !
   public :: es_return_sector          !get the sector of a state       !checked
   public :: es_return_energy          !get the energy of a state       !checked
-  public :: es_return_cvector_default !get the vector of a state       !checked
+  public :: es_return_cvector         !get the vector of a state       !checked
   public :: es_return_gs_degeneracy   !get the number of degenerate GS !checked
   !
   type(sparse_espace),public    :: state_list

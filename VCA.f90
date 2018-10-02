@@ -4,8 +4,8 @@ MODULE VCA
 
 
   USE VCA_AUX_FUNX, only:       &
-       vca_los2nnn_reshape,     &
-       vca_nnn2los_reshape,     &
+       vca_lso2nnn_reshape,     &
+       vca_nnn2lso_reshape,     &
        vca_set_Hcluster,        &
        search_chemical_potential
 

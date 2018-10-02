@@ -5,7 +5,7 @@ program vca_test
   USE VCA
   !
   implicit none
-  integer                                         :: Nlos,Nsys
+  integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
   integer                                         :: i,j
   integer                                         :: ix,iy
@@ -42,7 +42,7 @@ program vca_test
   Nlat = Nx*Ny
   Nsys = Lx*Ly
   !
-  Nlos = Nlat*Norb*Nspin
+  Nlso = Nlat*Norb*Nspin
 
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
@@ -80,7 +80,7 @@ program vca_test
 
   call vca_init_solver()
 
-  call vca_solve(one*vca_los2nnn_reshape(Htb,Nlat,Nspin,Norb))
+  call vca_solve(one*vca_lso2nnn_reshape(Htb,Nlat,Nspin,Norb))
 
 
   ! allocate(wm(Lmats),wr(Lreal))

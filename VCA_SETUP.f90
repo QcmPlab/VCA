@@ -96,7 +96,7 @@ contains
     !
 	call vca_checks_global
     !
-	call vca_setup_dimensione
+	call vca_setup_dimensions
 	!
 	allocate(DimUps(Ns_Ud))
     allocate(DimDws(Ns_Ud))
@@ -592,12 +592,12 @@ contains
     !indx = iorb + (ilat-1)*Norb + (ispin-1)*(Nbath+1)*Norb*Nlat
   !end function imp_state_index
 
-  function imp_state_index(ilat,iorb,ispin) result(indx)  !CONTROLLA
+  function imp_state_index(ilat,iorb,ibath) result(indx)  !CONTROLLA
     integer :: ilat
-    integer :: ispin
+    integer :: ibath
     integer :: iorb
     integer :: indx
-    indx = iorb + (ilat-1)*Norb + (Nbath+1)*Norb*Nlat     !UP AND DOWN ARE NOW DIVIDED
+    indx = iorb + (ilat-1)*Norb + (ibath-1)*(Nbath+1)*Norb*Nlat     !UP AND DOWN ARE NOW DIVIDED
   end function imp_state_index
 
 

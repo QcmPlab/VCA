@@ -38,7 +38,6 @@ MODULE VCA_VARS_GLOBAL
      module procedure :: map_deallocate_vector
   end interface map_deallocate
 
-
   !-------------- GMATRIX FOR FAST EVALUATION OF GF ------------------!
   !note that we use a single Qmatrix here which must be intended as
   !the product Q^+.Q, corresponding to the weights of the GF, and a
@@ -50,10 +49,10 @@ MODULE VCA_VARS_GLOBAL
   type GFmatrix
      type(GFspectrum),dimension(:),allocatable :: channel
   end type GFmatrix
-  interface GFmatrix_allocate
-     module procedure :: allocate_GFmatrix_Nchan
-     module procedure :: allocate_GFmatrix_Nexc
-  end interface GFmatrix_allocate
+  !interface GFmatrix_allocate
+    ! module procedure :: allocate_GFmatrix_Nchan
+    ! module procedure :: allocate_GFmatrix_Nexc
+  !end interface GFmatrix_allocate
 
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
@@ -200,7 +199,7 @@ MODULE VCA_VARS_GLOBAL
 
   !Frequency and time arrays:
   !=========================================================
-  real(8),dimension(:),allocatable                  :: wm,tau,wr,vm
+  !real(8),dimension(:),allocatable                  :: wm,tau,wr,vm
 
 
 
@@ -221,32 +220,6 @@ contains
     integer :: indx
     indx = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
   end function index_stride_lso
-
-
-
-  !>Allocate arrays and setup frequencies and times
-  subroutine vca_allocate_time_freq_arrays
-    integer :: i
-    call vca_deallocate_time_freq_arrays()
-    allocate(wm(Lmats))
-    allocate(vm(0:Lmats))          !bosonic frequencies
-    allocate(wr(Lreal))
-    allocate(tau(0:Ltau))
-    wm     = pi/beta*(2*arange(1,Lmats)-1)
-    do i=0,Lmats
-       vm(i) = pi/beta*2*dble(i)
-    enddo
-    wr     = linspace(wini,wfin,Lreal)
-    tau(0:)= linspace(0d0,beta,Ltau+1)
-  end subroutine vca_allocate_time_freq_arrays
-  !
-  subroutine vca_deallocate_time_freq_arrays
-    if(allocated(wm))deallocate(wm)
-    if(allocated(vm))deallocate(vm)
-    if(allocated(tau))deallocate(tau)
-    if(allocated(wr))deallocate(wr)
-  end subroutine vca_deallocate_time_freq_arrays
-
 
 
 
@@ -287,28 +260,6 @@ contains
        call map_deallocate_scalar(H(i))
     enddo
   end subroutine map_deallocate_vector
-
-
-  !=========================================================
-
-  !Allocate the channels in GFmatrix structure
-  subroutine allocate_gfmatrix_Nchan(self,N)
-    type(GFmatrix) :: self
-    integer        :: N
-    if(allocated(self%channel))deallocate(self%channel)
-    allocate(self%channel(N))
-  end subroutine allocate_gfmatrix_Nchan
-
-  !Allocate the Excitations spectrum at a given channel
-  subroutine allocate_gfmatrix_Nexc(self,i,Nexc)
-    type(GFmatrix) :: self
-    integer        :: i
-    integer        :: Nexc
-    if(allocated(self%channel(i)%weight))deallocate(self%channel(i)%weight)
-    if(allocated(self%channel(i)%poles))deallocate(self%channel(i)%poles)
-    allocate(self%channel(i)%weight(Nexc))
-    allocate(self%channel(i)%poles(Nexc))
-  end subroutine allocate_gfmatrix_Nexc
 
 
 END MODULE VCA_VARS_GLOBAL
