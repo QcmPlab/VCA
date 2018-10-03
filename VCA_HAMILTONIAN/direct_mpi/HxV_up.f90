@@ -15,7 +15,7 @@
                   js = imp_state_index(jlat,jorb,1)
                   Jcondition = (impHloc(ilat,jlat,1,1,iorb,jorb)/=0d0).AND.(ibup(js)==1).AND.(ibup(is)==0)
                   if (Jcondition) then
-                      call c(js,m,k1,sg1)
+                      call c(js,mup,k1,sg1)
                       call cdg(is,k1,k2,sg2)
                       jup = binary_search(Hs(1)%map,k2)
                       htmp = impHloc(ilat,jlat,1,1,iorb,jorb)*sg1*sg2
