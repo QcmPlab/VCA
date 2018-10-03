@@ -174,7 +174,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -189,6 +190,8 @@ contains
 !#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 !#endif
+          print*,"alfa_",alfa_
+          print*,"beta_",beta_
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,ispin,1)
           !
@@ -235,7 +238,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -383,7 +387,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !           
+          alfa_=0.d0
+          beta_=0.d0          
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -459,7 +464,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
