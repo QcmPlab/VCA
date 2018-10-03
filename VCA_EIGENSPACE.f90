@@ -288,16 +288,18 @@ contains        !some routine to perform simple operation on the lists
        endif
     endif
     if(space%size>0)then
-       !    space%root%next => null()
-       !    space%size=0
-       !    space%emax=-huge(1.d0)
-       !    space%emin=huge(1.d0)
-       ! else
-       if(pos==space%size)then     !pop last term carrying e=emax, update emax
-          space%emax = p%e
-       elseif(pos==1)then          !pop first term carrying e=emin, update emin
-          space%emin = p%e
-       endif
+       ! !    space%root%next => null()
+       ! !    space%size=0
+       ! !    space%emax=-huge(1.d0)
+       ! !    space%emin=huge(1.d0)
+       ! ! else
+       ! if(pos==space%size)then     !pop last term carrying e=emax, update emax
+       !    space%emax = p%e
+       ! elseif(pos==1)then          !pop first term carrying e=emin, update emin
+       !    space%emin = p%e
+       ! endif
+       space%emax = es_return_energy(space,space%size)
+       space%emin = es_return_energy(space,1)
     endif
     pp=>null()
     p =>null()
@@ -465,7 +467,7 @@ contains        !some routine to perform simple operation on the lists
           write(unit_,"(A10,I5)")   "Sector  : ",c%sector
           write(unit_,"(A10,3L3)")  "Twin    : ",c%itwin,associated(c%cvec)
           write(unit_,"(A10,I5)")   "Size    : ",getdim(c%sector)!size(c%vec)
-          write(unit_,"(A10,f18.9)")"Energy  : ",c%e
+          write(unit_,"(A10,3f18.9)")"Energy  : ",c%e,space%emax,space%emin
           if(wvec_)then
              write(unit_,"(A10)")"Vec     : "
              do i=1,size(c%cvec)

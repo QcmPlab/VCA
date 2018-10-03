@@ -109,6 +109,8 @@ contains
     !    !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
     !    !
     ! end select
+    vca_bath_%e=0d0
+    vca_bath_%v=0d0
     vca_bath_%status=.true.
   end subroutine vca_allocate_bath
 

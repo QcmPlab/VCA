@@ -55,7 +55,7 @@ contains
     integer                     :: sz,nt
     integer                     :: i,j,iter,unit,vecDim,PvecDim
     integer                     :: Nitermax,Neigen,Nblock
-    integer                     :: neigen_sector_prev(Nsectors)
+    integer                     :: iter_spectrum
     real(8)                     :: oldzero,enemin,Ei,neigen_sector_error
     real(8),allocatable         :: eig_values(:)
     real(8),allocatable         :: eig_basis(:,:),eig_basis_tmp(:,:)
@@ -65,178 +65,176 @@ contains
     state_list=es_init_espace()
     oldzero=1000.d0
     !if(MPIMASTER)then
-       write(LOGfile,"(A)")"Diagonalize cluster Hc+Hint:"
-       call start_timer()
+    write(LOGfile,"(A)")"Diagonalize cluster Hc+Hint:"
+    call start_timer()
     !endif
     !
     lanc_verbose=.false.
-    neigen_sector_prev=0
-    converged_spectrum=.false.
     if(verbose>2)lanc_verbose=.true.
-    !
-    iter=0
-    do while(.not.converged_spectrum.AND.iter<lanc_niter_spectrum)
-       iter=iter+1
+    converged_spectrum=.false.
+    iter_spectrum=0
+    anneal: do while(.not.converged_spectrum.AND.iter_spectrum<lanc_niter_spectrum)
+       iter_spectrum=iter_spectrum+1
        call es_free_espace(state_list)
-       print*,"Spectrum annealing iteration:",iter,"of ",lanc_niter_spectrum
+       print*,"Spectrum annealing iteration:",iter_spectrum,"of ",lanc_niter_spectrum
+       iter=0
        sector: do isector=1,Nsectors
-         if(.not.sectors_mask(isector))cycle sector
-         if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
-         iter=iter+1
-         call get_Nup(isector,nups)
-         call get_Ndw(isector,ndws)
-         Tflag    = twin_mask(isector).AND.vca_twin
-         bool=.true.
-         do i=1,Ns_ud
-            Bool=Bool.AND.(nups(i)/=ndws(i))
-         enddo
-         Tflag=Tflag.AND.Bool
-         !
-         Dim      = getdim(isector)
-         !
-         Neigen   = min(dim,neigen_sector(isector))
-         Nitermax = min(dim,lanc_niter)
-         Nblock   = min(dim,lanc_ncv_factor*max(Neigen,lanc_nstates_sector) + lanc_ncv_add)
-         !
-         lanc_solve  = .true.
-         if(Neigen==dim)lanc_solve=.false.
-         if(dim<=max(lanc_dim_threshold,MPISIZE))lanc_solve=.false.
-         !
-         !if(MPIMASTER)then
-            call get_DimUp(isector,DimUps) ; DimUp = product(DimUps)
-            call get_DimDw(isector,DimDws) ; DimDw = product(DimDws)
-            if(verbose==3)then
+          if(.not.sectors_mask(isector))cycle sector
+          if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
+          iter=iter+1
+          call get_Nup(isector,nups)
+          call get_Ndw(isector,ndws)
+          Tflag    = twin_mask(isector).AND.vca_twin
+          bool=.true.
+          do i=1,Ns_ud
+             Bool=Bool.AND.(nups(i)/=ndws(i))
+          enddo
+          Tflag=Tflag.AND.Bool
+          !
+          Dim      = getdim(isector)
+          !
+          Neigen   = min(dim,neigen_sector(isector))
+          Nitermax = min(dim,lanc_niter)
+          Nblock   = min(dim,lanc_ncv_factor*max(Neigen,lanc_nstates_sector) + lanc_ncv_add)
+          !
+          lanc_solve  = .true.
+          if(Neigen==dim)lanc_solve=.false.
+          if(dim<=max(lanc_dim_threshold,MPISIZE))lanc_solve=.false.
+          !
+          !if(MPIMASTER)then
+          call get_DimUp(isector,DimUps) ; DimUp = product(DimUps)
+          call get_DimDw(isector,DimDws) ; DimDw = product(DimDws)
+          if(verbose==3)then
              if(lanc_solve)then
-              write(LOGfile,"(1X,I4,A,I4,A6,"&
-                       //str(Ns_Ud)//"I3,A6,"&
-                       //str(Ns_Ud)//"I3,A7,"&
-                       //str(Ns_Ud)//"I6,"//str(Ns_Ud)//"I6,I15,A12,3I6)")&
-                       iter,"-Solving sector:",isector,", nup:",nups,", ndw:",ndws,", dims=",&
-                       DimUps,DimDws,getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-               else
-                  write(LOGfile,"(1X,I4,A,I4,A6,"&
-                       //str(Ns_Ud)//"I3,A6,"&
-                       //str(Ns_Ud)//"I3,A7,"&
-                       //str(Ns_Ud)//"I6,"//str(Ns_Ud)//"I6,I15)")&
-                       iter,"-Solving sector:",isector,", nup:",nups,", ndw:",ndws,", dims=",&
-                       DimUps,DimDws,getdim(isector)
-               endif
-            elseif(verbose==1.OR.verbose==2)then
-               call eta(iter,count(twin_mask),LOGfile)
+                write(LOGfile,"(1X,I4,A,I4,A6,"&
+                     //str(Ns_Ud)//"I3,A6,"&
+                     //str(Ns_Ud)//"I3,A7,"&
+                     //str(Ns_Ud)//"I6,"//str(Ns_Ud)//"I6,I15,A12,3I6)")&
+                     iter,"-Solving sector:",isector,", nup:",nups,", ndw:",ndws,", dims=",&
+                     DimUps,DimDws,getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+             else
+                write(LOGfile,"(1X,I4,A,I4,A6,"&
+                     //str(Ns_Ud)//"I3,A6,"&
+                     //str(Ns_Ud)//"I3,A7,"&
+                     //str(Ns_Ud)//"I6,"//str(Ns_Ud)//"I6,I15)")&
+                     iter,"-Solving sector:",isector,", nup:",nups,", ndw:",ndws,", dims=",&
+                     DimUps,DimDws,getdim(isector)
+             endif
+          elseif(verbose==1.OR.verbose==2)then
+             call eta(iter,count(twin_mask),LOGfile)
           endif
-         !endif
-         !
-         if(allocated(eig_values))deallocate(eig_values)
-         if(allocated(eig_basis))deallocate(eig_basis)
-         if(lanc_solve)then
-            allocate(eig_values(Neigen))
-            eig_values=0d0 
-            !
-            call build_Hv_sector(isector)
-            !
-            vecDim = vecDim_Hv_sector(isector)
-            allocate(eig_basis(vecDim,Neigen))
-            eig_basis=zero
-            !
-  !#ifdef _MPI
-  !          if(MpiStatus)then
-  !             call sp_eigh(MpiComm,spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
-  !                  tol=lanc_tolerance,&
-  !                  iverbose=(verbose>3))
-  !          else
-  !             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
-  !                  tol=lanc_tolerance,&
-  !                  iverbose=(verbose>3))
-  !          endif
-  !#else
-            call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
-                 tol=lanc_tolerance,&
-                 iverbose=(verbose>=3))
-  !#endif
-  !          if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
-  !          call delete_Hv_sector()
-         else
-            allocate(eig_values(Dim)) ; eig_values=0d0
-            !
-            allocate(eig_basis_tmp(Dim,Dim)) ; eig_basis_tmp=0d0
-            !
-            call build_Hv_sector(isector,eig_basis_tmp)
-            !
-            !if(MpiMaster)call eigh(eig_basis_tmp,eig_values,'V','U')
-            call eigh(eig_basis_tmp,eig_values,'V','U')
-            if(dim==1)eig_basis_tmp(dim,dim)=1d0
-            !
-            call delete_Hv_sector()
-  !#ifdef _MPI
-  !          if(MpiStatus)then
-  !             call Bcast_MPI(MpiComm,eig_values)
-  !             vecDim = vecDim_Hv_sector(isector)
-  !             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=0d0
-  !             call scatter_basis_MPI(MpiComm,eig_basis_tmp,eig_basis)
-  !          else
-  !             allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
-  !             eig_basis = eig_basis_tmp(:,1:Neigen)
-  !          endif
-  !#else
-            allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
-            eig_basis = eig_basis_tmp(:,1:Neigen)
-  !#endif
-         endif
-         !
-         if(verbose>=3)then
-            write(LOGfile,*)"EigValues: ",eig_values(:Neigen)
-            write(LOGfile,*)""
-            write(LOGfile,*)""
-         endif
-         !
-         if(finiteT)then
-            do i=1,Neigen
-               call es_add_state(state_list,eig_values(i),eig_basis(:,i),isector,twin=Tflag,size=lanc_nstates_total)
-            enddo
-         else
-            do i=1,Neigen
-               enemin = eig_values(i)
-               if (enemin < oldzero-10.d0*gs_threshold)then
-                  oldzero=enemin
-                  call es_free_espace(state_list)
-                  call es_add_state(state_list,enemin,eig_basis(:,i),isector,twin=Tflag)
-               elseif(abs(enemin-oldzero) <= gs_threshold)then
-                  oldzero=min(oldzero,enemin)
-                  call es_add_state(state_list,enemin,eig_basis(:,i),isector,twin=Tflag)
-               endif
-            enddo
-         endif
-         !
-  !       if(MPIMASTER)then
-            unit=free_unit()
-            open(unit,file="eigenvalues_list"//reg(file_suffix)//".ed",position='append',action='write')
-            call print_eigenvalues_list(isector,eig_values(1:Neigen),unit,lanc_solve,mpiAllThreads)
-            close(unit)
-  !       endif
-         !
-         if(allocated(eig_values))deallocate(eig_values)
-         if(allocated(eig_basis_tmp))deallocate(eig_basis_tmp)
-         if(allocated(eig_basis))deallocate(eig_basis)
-         !
-      enddo sector
-      call vca_post_diag(.true.)
-      if(finiteT)then
-         neigen_sector_error = sum(abs(neigen_sector - neigen_sector_prev))/sum(abs(neigen_sector))
-         converged_spectrum=(neigen_sector_error < lanc_spectrum_threshold)
-         neigen_sector_prev=neigen_sector
-      else
-         !> at T=0 you only need to solve one: there is no annealing of the spectrum
-         converged_spectrum=.true.
-      endif
+          !endif
+          !
+          if(allocated(eig_values))deallocate(eig_values)
+          if(allocated(eig_basis))deallocate(eig_basis)
+          if(lanc_solve)then
+             allocate(eig_values(Neigen))
+             eig_values=0d0 
+             !
+             call build_Hv_sector(isector)
+             !
+             vecDim = vecDim_Hv_sector(isector)
+             allocate(eig_basis(vecDim,Neigen))
+             eig_basis=zero
+             !
+             !#ifdef _MPI
+             !          if(MpiStatus)then
+             !             call sp_eigh(MpiComm,spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+             !                  tol=lanc_tolerance,&
+             !                  iverbose=(verbose>3))
+             !          else
+             !             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+             !                  tol=lanc_tolerance,&
+             !                  iverbose=(verbose>3))
+             !          endif
+             !#else
+             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                  tol=lanc_tolerance,&
+                  iverbose=(verbose>=3))
+             !#endif
+             !          if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
+             !          call delete_Hv_sector()
+          else
+             allocate(eig_values(Dim)) ; eig_values=0d0
+             !
+             allocate(eig_basis_tmp(Dim,Dim)) ; eig_basis_tmp=0d0
+             !
+             call build_Hv_sector(isector,eig_basis_tmp)
+             !
+             !if(MpiMaster)call eigh(eig_basis_tmp,eig_values,'V','U')
+             call eigh(eig_basis_tmp,eig_values,'V','U')
+             if(dim==1)eig_basis_tmp(dim,dim)=1d0
+             !
+             call delete_Hv_sector()
+             !#ifdef _MPI
+             !          if(MpiStatus)then
+             !             call Bcast_MPI(MpiComm,eig_values)
+             !             vecDim = vecDim_Hv_sector(isector)
+             !             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=0d0
+             !             call scatter_basis_MPI(MpiComm,eig_basis_tmp,eig_basis)
+             !          else
+             !             allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
+             !             eig_basis = eig_basis_tmp(:,1:Neigen)
+             !          endif
+             !#else
+             allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
+             eig_basis = eig_basis_tmp(:,1:Neigen)
+             !#endif
+          endif
+          !
+          if(verbose>=3)then
+             write(LOGfile,*)"EigValues: ",eig_values(:Neigen)
+             write(LOGfile,*)""
+             write(LOGfile,*)""
+          endif
+          !
+          if(finiteT)then
+             do i=1,Neigen
+                call es_add_state(state_list,eig_values(i),eig_basis(:,i),isector,twin=Tflag,size=lanc_nstates_total,verbose=(verbose>=3))
+             enddo
+          else
+             do i=1,Neigen
+                enemin = eig_values(i)
+                if (enemin < oldzero-10.d0*gs_threshold)then
+                   oldzero=enemin
+                   call es_free_espace(state_list)
+                   call es_add_state(state_list,enemin,eig_basis(:,i),isector,twin=Tflag)
+                elseif(abs(enemin-oldzero) <= gs_threshold)then
+                   oldzero=min(oldzero,enemin)
+                   call es_add_state(state_list,enemin,eig_basis(:,i),isector,twin=Tflag)
+                endif
+             enddo
+          endif
+          !
+          !       if(MPIMASTER)then
+          unit=free_unit()
+          open(unit,file="eigenvalues_list"//reg(file_suffix)//".ed",position='append',action='write')
+          call print_eigenvalues_list(isector,eig_values(1:Neigen),unit,lanc_solve,mpiAllThreads)
+          close(unit)
+          !       endif
+          !
+          if(allocated(eig_values))deallocate(eig_values)
+          if(allocated(eig_basis_tmp))deallocate(eig_basis_tmp)
+          if(allocated(eig_basis))deallocate(eig_basis)
+          !
+       enddo sector
        !
-    enddo
+       if(finiteT)then
+          converged_spectrum = (exp(-beta*(state_list%emax-state_list%emin)) < cutoff)
+       else
+          !> at T=0 you only need to solve one: there is no annealing of the spectrum
+          converged_spectrum=.true.
+       endif
+       !
+       call vca_post_diag(.true.)
+       !
+       !
+    enddo anneal
     ! 
     call stop_timer(LOGfile)
     !
-    !Get the ground state energy and rescale energies
     close(unit)
     !
-    !Get the partition function Z
   end subroutine vca_diag_d
 
  !###################################################################################################

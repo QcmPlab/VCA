@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 PROJECT(vca Fortran)
-SET(VERSION 5.1.1)
+SET(VERSION 0.0.1)
 
 SET(BUILD_TYPE "DEBUG" CACHE STRING "Build type")
 MESSAGE(STATUS "BUILD_TYPE=${BUILD_TYPE}")
@@ -13,16 +13,21 @@ IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
 # Set some options the user may choose
-OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
-OPTION(USE_MPI_FC "Use MPI fortran compiler" ON)
+OPTION(USE_MPI "Set MPI pre-compilation flag" OFF)
+#OPTION(USE_MPI_FC "Use MPI fortran compiler" ON)
 OPTION(VERBOSE "Build a verbose Makefile" OFF)
 
 # reSet compiler to MPI is required 
-IF(USE_MPI_FC)
+
+# reSet compiler to MPI is required
+IF(USE_MPI)
+  OPTION(USE_MPI_FC "Use MPI fortran compiler" ON)
   FIND_PACKAGE(MPI REQUIRED)
   SET(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
   MESSAGE(STATUS "Set Fortran compiler FC to ${CMAKE_Fortran_COMPILER}")
-ENDIF(USE_MPI_FC)
+ELSE(USE_MPI)
+  OPTION(USE_MPI_FC "Use MPI fortran compiler" OFF)  
+ENDIF(USE_MPI)
 
 # Set verbosity of the Makefile according to option
 IF(VERBOSE)
@@ -38,7 +43,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU) # this is gfortran
   SET(CMAKE_Fortran_MODDIR_FLAG   "-J")
   SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none")
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 ")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising  -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wall -Wsurprising  -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace")
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto")
   
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES Intel)

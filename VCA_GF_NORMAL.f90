@@ -41,34 +41,34 @@ contains
     ! 
     !Spin-Orbital diagonal:
     do ispin=1,Nspin
-     do iorb=1,Norb
-        write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
-        !
-        do isite=1,Nlat
-           !site-digonal:
-           call lanc_build_gf_normal_main(isite,iorb,ispin)
-           !site-off-diagonal:
-           do jsite=1,Nlat
-              if(isite==jsite)cycle   !this is not elegant but who cares?
-              call lanc_build_gf_normal_mix_main(isite,jsite,iorb,ispin)
-           enddo
-        enddo
-        !
-        do isite=1,Nlat
-           do jsite=1,Nlat
-              if(isite==jsite)cycle
-              !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
-              !     - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
-              !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
-              !     - (one-xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))
-              impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
-                   - impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
-              impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
-                   - impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))        
-            enddo
-        enddo
-        !
-     enddo
+       do iorb=1,Norb
+          write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
+          !
+          do isite=1,Nlat
+             !site-digonal:
+             call lanc_build_gf_normal_main(isite,iorb,ispin)
+             !site-off-diagonal:
+             do jsite=1,Nlat
+                if(isite==jsite)cycle   !this is not elegant but who cares?
+                call lanc_build_gf_normal_mix_main(isite,jsite,iorb,ispin)
+             enddo
+          enddo
+          !
+          do isite=1,Nlat
+             do jsite=1,Nlat
+                if(isite==jsite)cycle
+                !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                !     - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
+                !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                !     - (one-xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))
+                impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                     - impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
+                impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                     - impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))        
+             enddo
+          enddo
+          !
+       enddo
     enddo
     !
     call stop_timer
@@ -114,6 +114,7 @@ contains
     write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)
     !
     do istate=1,state_list%size
+       print*,istate
        isector    =  es_return_sector(state_list,istate)
        state_e    =  es_return_energy(state_list,istate)
 !#ifdef _MPI
@@ -122,7 +123,7 @@ contains
 !       else
 !          state_cvec => es_return_cvector(state_list,istate)
 !       endif
-!#else
+       !#else
        state_cvec => es_return_cvector(state_list,istate)
 !#endif
        !
@@ -321,6 +322,7 @@ contains
        state_cvec => es_return_cvector(state_list,istate)
 !#endif
        !
+       print*,size(state_cvec),associated(state_cvec)
        !
        idim  = getdim(isector)
        call get_DimUp(isector,iDimUps)
@@ -337,7 +339,7 @@ contains
           call get_DImDw(jsector,jDimDws)
           !
 !          if(MpiMaster)then
-             if(verbose==3)write(LOGfile,"(A,I15)")' add particle:',jsector
+             if(verbose==3)write(LOGfile,"(A,I15)")' add particle cdg_is+cdg_js:',jsector
              allocate(vvinit(jdim)) ; vvinit=zero
              !
              call build_sector(jsector,HJ)
@@ -413,7 +415,7 @@ contains
           call get_DImDw(jsector,jDimDws)
           !
 !          if(MpiMaster)then
-             if(verbose==3)write(LOGfile,"(A,I15)")' del particle:',jsector
+             if(verbose==3)write(LOGfile,"(A,I15)")' del particle c_is+c_js:',jsector
              allocate(vvinit(jdim)) ; vvinit=zero
              !
              call build_sector(jsector,HJ)
