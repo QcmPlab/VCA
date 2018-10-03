@@ -14,12 +14,19 @@ MODULE VCA_HAMILTONIAN
   !>Sparse Mat-Vec product using stored sparse matrix
   public  :: spMatVec_main
   !public  :: spMatVec_orbs
+#ifdef _MPI
+  public  :: spMatVec_MPI_main
+  !public  :: spMatVec_MPI_orbs
+#endif
 
 
   !>Sparse Mat-Vec direct on-the-fly product 
   public  :: directMatVec_main
   !public  :: directMatVec_orbs
-
+#ifdef _MPI
+  public  :: directMatVec_MPI_main
+  !public  :: directMatVec_MPI_orbs
+#endif
 
 
 contains
@@ -51,21 +58,21 @@ contains
     !
     mpiAllThreads=.true.
     !>PREAMBLE: check that split of the DW is performed with the minimum #cpu: no idle cpus allowed (with zero elements)
-!#ifdef _MPI
-!    if(DimDw < MpiSize)then
-!       if(MpiMaster.AND.vca_verbose>4)write(*,*)"Reducing N_cpu to DimDw:",DimDw,MpiSize-DimDw
-!       allocate(MpiMembers(0:DimDw-1))
-!       forall(irank=0:DimDw-1)MpiMembers(irank)=irank       
-!       call Mpi_Group_Incl(MpiGroup_Global,DimDw,MpiMembers,MpiGroup,ierr)
-!       call Mpi_Comm_create(MpiComm_Global,MpiGroup,MpiComm,ierr)
-!       deallocate(MpiMembers)
-!       mpiAllThreads=.false.
-!    endif
-!    if( MpiComm /= MPI_COMM_NULL )then
-!       MpiRank = Get_Rank_MPI(MpiComm)
-!       MpiSize = Get_Size_MPI(MpiComm)
-!    endif
-!#endif
+#ifdef _MPI
+    if(DimDw < MpiSize)then
+       if(MpiMaster.AND.verbose>4)write(*,*)"Reducing N_cpu to DimDw:",DimDw,MpiSize-DimDw
+       allocate(MpiMembers(0:DimDw-1))
+       forall(irank=0:DimDw-1)MpiMembers(irank)=irank       
+       call Mpi_Group_Incl(MpiGroup_Global,DimDw,MpiMembers,MpiGroup,ierr)
+       call Mpi_Comm_create(MpiComm_Global,MpiGroup,MpiComm,ierr)
+       deallocate(MpiMembers)
+       mpiAllThreads=.false.
+    endif
+    if( MpiComm /= MPI_COMM_NULL )then
+       MpiRank = Get_Rank_MPI(MpiComm)
+       MpiSize = Get_Size_MPI(MpiComm)
+    endif
+#endif
     !
     !Dw split:
     mpiQdw = DimDw/MpiSize
@@ -83,17 +90,17 @@ contains
     mpiIshift = MpiRank*mpiQ+mpiR
     !
     !
-!#ifdef _MPI    
-!    if(MpiStatus.AND.vca_verbose>4.AND.(MpiComm/=Mpi_Comm_Null))then
-!       if(MpiMaster)write(LOGfile,*)&
-!            "         mpiRank,   mpi_Q,   mpi_R,      mpi_Qdw,      mpiR_dw,  mpi_Istart,  mpi_Iend,  mpi_Iend-mpi_Istart"
-!       do irank=0,MpiSize-1
-!          call Barrier_MPI(MpiComm)
-!          if(MpiRank==irank)write(*,*)MpiRank,MpiQ,MpiR,mpiQdw,MpiRdw,MpiIstart,MpiIend,MpiIend-MpiIstart+1
-!       enddo
-!       call Barrier_MPI(MpiComm)
-!    endif
-!#endif
+#ifdef _MPI    
+    if(MpiStatus.AND.verbose>4.AND.(MpiComm/=Mpi_Comm_Null))then
+       if(MpiMaster)write(LOGfile,*)&
+            "         mpiRank,   mpi_Q,   mpi_R,      mpi_Qdw,      mpiR_dw,  mpi_Istart,  mpi_Iend,  mpi_Iend-mpi_Istart"
+       do irank=0,MpiSize-1
+          call Barrier_MPI(MpiComm)
+          if(MpiRank==irank)write(*,*)MpiRank,MpiQ,MpiR,mpiQdw,MpiRdw,MpiIstart,MpiIend,MpiIend-MpiIstart+1
+       enddo
+       call Barrier_MPI(MpiComm)
+    endif
+#endif
     !
     !
     if(present(Hmat))then
@@ -111,9 +118,9 @@ contains
     case (.true.)
        !if(vca_total_ud)then
           spHtimesV_p => spMatVec_main
-!#ifdef _MPI
-!          if(MpiStatus)spHtimesV_p => spMatVec_MPI_main
-!#endif
+#ifdef _MPI
+          if(MpiStatus)spHtimesV_p => spMatVec_MPI_main
+#endif
           call vca_buildh_main(isector)
        !else
           !spHtimesV_p => spMatVec_orbs
@@ -125,9 +132,9 @@ contains
     case (.false.)
        !if(vca_total_ud)then
           spHtimesV_p => directMatVec_main
-!#ifdef _MPI
-!          if(MpiStatus)spHtimesV_p => directMatVec_MPI_main
-!#endif
+#ifdef _MPI
+          if(MpiStatus)spHtimesV_p => directMatVec_MPI_main
+#endif
        !else
           !spHtimesV_p => directMatVec_orbs
 !#ifdef _MPI
@@ -149,15 +156,15 @@ contains
     Hstatus=.false.
     !
     !There is no difference here between Mpi and serial version, as Local part was removed.
-!#ifdef _MPI
-!    if(MpiStatus)then
-!       call sp_delete_matrix(MpiComm,spH0d)
-!    else
-!       call sp_delete_matrix(spH0d)
-!    endif
-!#else
+#ifdef _MPI
+    if(MpiStatus)then
+       call sp_delete_matrix(MpiComm,spH0d)
+    else
+       call sp_delete_matrix(spH0d)
+    endif
+#else
     call sp_delete_matrix(spH0d)
-!#endif
+#endif
     do iud=1,Ns_Ud
        call sp_delete_matrix(spH0ups(iud))
        call sp_delete_matrix(spH0dws(iud))
@@ -165,16 +172,16 @@ contains
     !
     spHtimesV_p => null()
     !
-!#ifdef _MPI
-!    if(MpiStatus)then
-!       if(MpiGroup/=Mpi_Group_Null)call Mpi_Group_free(MpiGroup,ierr)
-!       if(MpiComm/=Mpi_Comm_Null.AND.MpiComm/=Mpi_Comm_World)&
-!            call Mpi_Comm_Free(MpiComm,ierr)
-!       MpiComm = MpiComm_Global
-!       MpiSize = get_Size_MPI(MpiComm_Global)
-!       MpiRank = get_Rank_MPI(MpiComm_Global)
-!    endif
-!#endif
+#ifdef _MPI
+    if(MpiStatus)then
+       if(MpiGroup/=Mpi_Group_Null)call Mpi_Group_free(MpiGroup,ierr)
+       if(MpiComm/=Mpi_Comm_Null.AND.MpiComm/=Mpi_Comm_World)&
+            call Mpi_Comm_Free(MpiComm,ierr)
+       MpiComm = MpiComm_Global
+       MpiSize = get_Size_MPI(MpiComm_Global)
+       MpiRank = get_Rank_MPI(MpiComm_Global)
+    endif
+#endif
     !
   end subroutine delete_Hv_sector
 
@@ -193,17 +200,17 @@ contains
     call get_DimUp(isector,DimUps) ; DimUp = product(DimUps)
     call get_DimDw(isector,DimDws) ; DimDw = product(DimDws)
     !
-!#ifdef _MPI
-!    if(MpiStatus)then
-!       !Dw split:
-!       mpiQdw = DimDw/MpiSize
-!       if(MpiRank < mod(DimDw,MpiSize) ) MpiQdw = MpiQdw+1
-!    else
-!       mpiQdw = DimDw
-!    endif
-!#else
+#ifdef _MPI
+    if(MpiStatus)then
+       !Dw split:
+       mpiQdw = DimDw/MpiSize
+       if(MpiRank < mod(DimDw,MpiSize) ) MpiQdw = MpiQdw+1
+    else
+       mpiQdw = DimDw
+    endif
+#else
     mpiQdw = DimDw
-!#endif
+#endif
     !
     vecDim=DimUp*mpiQdw
     !

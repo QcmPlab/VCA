@@ -70,6 +70,12 @@ MODULE VCA_INPUT_VARS
   integer              :: Ltau
 
 
+  !LOG AND Hamiltonian UNITS
+  !=========================================================
+  character(len=100)   :: Hfile,HLOCfile
+  integer,save         :: LOGfile
+
+
 
 
 
@@ -81,8 +87,21 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  subroutine vca_read_input(INPUTunit)
+  subroutine vca_read_input(INPUTunit,comm)
+#ifdef _MPI
+    USE MPI
+    USE SF_MPI
+#endif
     character(len=*) :: INPUTunit
+    integer,optional :: comm
+    logical          :: master=.true.
+    integer          :: i,rank=0
+#ifdef _MPI
+    if(present(comm))then
+       master=get_Master_MPI(comm)
+       rank  =get_Rank_MPI(comm)
+    endif
+#endif
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of orbitals per cluster site.")
@@ -142,6 +161,17 @@ contains
     call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
     call parse_input_variable(verbose,"VERBOSE",INPUTunit,default=3,comment="Verbosity level: 0=almost nothing --> 3:all.")
     !
+#ifdef _MPI
+    if(present(comm))then
+       if(.not.master)then
+          LOGfile=1000-rank
+          open(LOGfile,file="stdOUT.rank"//str(rank)//".ed")
+          do i=1,get_Size_MPI(comm)
+             if(i==rank)write(*,"(A,I0,A,I0)")"Rank ",rank," writing to unit: ",LOGfile
+          enddo
+       endif
+    endif
+#endif
     !
     Ltau=max(int(beta),Ltau)
     call save_input_file(INPUTunit)

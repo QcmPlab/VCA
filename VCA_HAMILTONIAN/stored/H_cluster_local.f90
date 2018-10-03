@@ -86,12 +86,12 @@
         !enddo
      !enddo
      !
-     !select case(MpiStatus)
-     !case (.true.)
-        !call sp_insert_element(MpiComm,spH0d,htmp,i,i)
-     !case (.false.)
+     select case(MpiStatus)
+     case (.true.)
+        call sp_insert_element(MpiComm,spH0d,htmp,i,i)
+     case (.false.)
         call sp_insert_element(spH0d,htmp,i,i)
-     !end select
+     end select
      !
   enddo
 

@@ -1,7 +1,7 @@
 program vca_test
   USE SCIFOR
   USE DMFT_TOOLS
-  !
+  USE MPI
   USE VCA
   !
   implicit none
@@ -21,7 +21,15 @@ program vca_test
   real(8)                                         :: ts
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
   integer                                         :: unit
+  integer                                         :: comm,rank
+  logical                                         :: master
 
+
+  call init_MPI()
+  comm = MPI_COMM_WORLD
+  call StartMsg_MPI(comm)
+  rank = get_Rank_MPI(comm)
+  master = get_Master_MPI(comm)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
@@ -78,9 +86,9 @@ program vca_test
   call print_2DLattice_Structure(Tref,[Lx,Ly],1,1,file="Tref")
   call print_2DLattice_Structure(Vmat,[Lx,Ly],1,1,file="Vmat")  
 
-  call vca_init_solver()
+  call vca_init_solver(comm)
 
-  call vca_solve(one*vca_lso2nnn_reshape(Htb,Nlat,Nspin,Norb))
+  call vca_solve(comm,one*vca_lso2nnn_reshape(Htb,Nlat,Nspin,Norb))
 
 
   ! allocate(wm(Lmats),wr(Lreal))
@@ -105,7 +113,7 @@ program vca_test
 
 
 
-
+  call finalize_MPI()
 
 
 

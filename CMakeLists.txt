@@ -13,7 +13,7 @@ IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
 # Set some options the user may choose
-OPTION(USE_MPI "Set MPI pre-compilation flag" OFF)
+OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
 #OPTION(USE_MPI_FC "Use MPI fortran compiler" ON)
 OPTION(VERBOSE "Build a verbose Makefile" OFF)
 

@@ -4,6 +4,10 @@ MODULE VCA_SETUP
   USE VCA_AUX_FUNX
   USE SF_TIMER
   USE SF_IOTOOLS, only:free_unit,reg,file_length
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
   implicit none
   private
 
@@ -39,6 +43,13 @@ MODULE VCA_SETUP
   public :: flip_state
   !
   public :: binary_search
+  !
+#ifdef _MPI
+  public :: scatter_vector_MPI
+  public :: scatter_basis_MPI
+  public :: gather_vector_MPI
+  public :: allgather_vector_MPI
+#endif
 
 contains
 
@@ -85,16 +96,18 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : Init ED structure and calculation
+  !PURPOSE  : Init structure and calculation
   !+------------------------------------------------------------------+
-  subroutine init_cluster_structure()
+  subroutine init_cluster_structure(MpiComm)
+    integer,optional                                  :: MpiComm
     logical                                           :: control
- !   real(8),dimension(Nspin,Nspin,Norb,Norb)          :: reHloc         !local hamiltonian, real part 
- !    real(8),dimension(Nspin,Nspin,Norb,Norb)          :: imHloc         !local hamiltonian, imag part
     integer                                           :: i,iud,iorb,jorb,ispin,jspin
     logical                                           :: MPI_MASTER=.true.
     integer,dimension(:),allocatable :: DimUps,DimDws
     !
+#ifdef _MPI
+    if(present(MpiComm))MPI_MASTER=get_Master_MPI(MpiComm)
+#endif
     call vca_checks_global
     !
     call vca_setup_dimensions
@@ -518,6 +531,139 @@ contains
     integer :: idw
     idw = (i-1)/DimUp+1
   end function idw_index
+
+#ifdef _MPI
+  !! Scatter V into the arrays Vloc on each thread: sum_threads(size(Vloc)) must be equal to size(v)
+  subroutine scatter_vector_MPI(MpiComm,v,vloc)
+    integer                          :: MpiComm
+    real(8),dimension(:)             :: v    !size[N]
+    real(8),dimension(:)             :: vloc !size[Nloc]
+    integer                          :: i,irank,Nloc,N
+    integer,dimension(:),allocatable :: Counts,Offset
+    integer                          :: MpiSize,MpiIerr
+    logical                          :: MpiMaster
+    !
+    if( MpiComm == MPI_UNDEFINED )return ! stop "scatter_vector_MPI error: MpiComm == MPI_UNDEFINED"
+    !
+    MpiSize   = get_size_MPI(MpiComm)
+    MpiMaster = get_master_MPI(MpiComm)
+    !
+    Nloc = size(Vloc)
+    N = 0
+    call AllReduce_MPI(MpiComm,Nloc,N)
+    if(MpiMaster.AND.N /= size(V)) stop "scatter_vector_MPI error: size(V) != Mpi_Allreduce(Nloc)"
+    !
+    allocate(Counts(0:MpiSize-1)) ; Counts=0
+    allocate(Offset(0:MpiSize-1)) ; Offset=0
+    !
+    !Get Counts;
+    call MPI_AllGather(Nloc,1,MPI_INTEGER,Counts,1,MPI_INTEGER,MpiComm,MpiIerr)
+    !
+    !Get Offset:
+    Offset(0)=0
+    do i=1,MpiSize-1
+       Offset(i) = Offset(i-1) + Counts(i-1)
+    enddo
+    !
+    Vloc=0
+    call MPI_Scatterv(V,Counts,Offset,MPI_DOUBLE_PRECISION,Vloc,Nloc,MPI_DOUBLE_PRECISION,0,MpiComm,MpiIerr)
+    !
+    return
+  end subroutine scatter_vector_MPI
+
+
+  subroutine scatter_basis_MPI(MpiComm,v,vloc)
+    integer                :: MpiComm
+    real(8),dimension(:,:) :: v    !size[N,N]
+    real(8),dimension(:,:) :: vloc !size[Nloc,Neigen]
+    integer                :: N,Nloc,Neigen,i
+    N      = size(v,1)
+    Nloc   = size(vloc,1)
+    Neigen = size(vloc,2)
+    if( size(v,2) < Neigen ) stop "error scatter_basis_MPI: size(v,2) < Neigen"
+    !
+    do i=1,Neigen
+       call scatter_vector_MPI(MpiComm,v(:,i),vloc(:,i))
+    end do
+    !
+    return
+  end subroutine scatter_basis_MPI
+
+  !! AllGather Vloc on each thread into the array V: sum_threads(size(Vloc)) must be equal to size(v)
+  subroutine gather_vector_MPI(MpiComm,vloc,v)
+    integer                          :: MpiComm
+    real(8),dimension(:)             :: vloc !size[Nloc]
+    real(8),dimension(:)             :: v    !size[N]
+    integer                          :: i,irank,Nloc,N
+    integer,dimension(:),allocatable :: Counts,Offset
+    integer                          :: MpiSize,MpiIerr
+    logical                          :: MpiMaster
+    !
+    if( MpiComm == MPI_UNDEFINED ) stop "gather_vector_MPI error: MpiComm == MPI_UNDEFINED"
+    !
+    MpiSize   = get_size_MPI(MpiComm)
+    MpiMaster = get_master_MPI(MpiComm)
+    !
+    Nloc = size(Vloc)
+    N = 0
+    call AllReduce_MPI(MpiComm,Nloc,N)
+    if(MpiMaster.AND.N /= size(V)) stop "gather_vector_MPI error: size(V) != Mpi_Allreduce(Nloc)"
+    !
+    allocate(Counts(0:MpiSize-1)) ; Counts=0
+    allocate(Offset(0:MpiSize-1)) ; Offset=0
+    !
+    !Get Counts;
+    call MPI_AllGather(Nloc,1,MPI_INTEGER,Counts,1,MPI_INTEGER,MpiComm,MpiIerr)
+    !
+    !Get Offset:
+    Offset(0)=0
+    do i=1,MpiSize-1
+       Offset(i) = Offset(i-1) + Counts(i-1)
+    enddo
+    !
+    call MPI_Gatherv(Vloc,Nloc,MPI_DOUBLE_PRECISION,V,Counts,Offset,MPI_DOUBLE_PRECISION,0,MpiComm,MpiIerr)
+    !
+    return
+  end subroutine gather_vector_MPI
+
+
+  !! AllGather Vloc on each thread into the array V: sum_threads(size(Vloc)) must be equal to size(v)
+  subroutine allgather_vector_MPI(MpiComm,vloc,v)
+    integer                          :: MpiComm
+    real(8),dimension(:)             :: vloc !size[Nloc]
+    real(8),dimension(:)             :: v    !size[N]
+    integer                          :: i,irank,Nloc,N
+    integer,dimension(:),allocatable :: Counts,Offset
+    integer                          :: MpiSize,MpiIerr
+    logical                          :: MpiMaster
+    !
+    if( MpiComm == MPI_UNDEFINED ) stop "gather_vector_MPI error: MpiComm == MPI_UNDEFINED"
+    !
+    MpiSize   = get_size_MPI(MpiComm)
+    MpiMaster = get_master_MPI(MpiComm)
+    !
+    Nloc = size(Vloc)
+    N = 0
+    call AllReduce_MPI(MpiComm,Nloc,N)
+    if(MpiMaster.AND.N /= size(V)) stop "gather_vector_MPI error: size(V) != Mpi_Allreduce(Nloc)"
+    !
+    allocate(Counts(0:MpiSize-1)) ; Counts=0
+    allocate(Offset(0:MpiSize-1)) ; Offset=0
+    !
+    !Get Counts;
+    call MPI_AllGather(Nloc,1,MPI_INTEGER,Counts,1,MPI_INTEGER,MpiComm,MpiIerr)
+    !
+    !Get Offset:
+    Offset(0)=0
+    do i=1,MpiSize-1
+       Offset(i) = Offset(i-1) + Counts(i-1)
+    enddo
+    !
+    call MPI_AllGatherv(Vloc,Nloc,MPI_DOUBLE_PRECISION,V,Counts,Offset,MPI_DOUBLE_PRECISION,MpiComm,MpiIerr)
+    !
+    return
+  end subroutine Allgather_vector_MPI
+#endif
 
 
   !##################################################################

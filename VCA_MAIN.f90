@@ -18,10 +18,23 @@ module VCA_MAIN
 
 
   !>INIT VCA SOLVER
+  interface vca_init_solver
+     module procedure :: vca_init_solver_serial
+#ifdef _MPI
+     module procedure :: vca_init_solver_mpi
+#endif
+  end interface vca_init_solver
+  !>
   public :: vca_init_solver
 
-
   !>VCA SOLVER
+  interface vca_solve
+     module procedure :: vca_solve_serial
+#ifdef _MPI
+     module procedure :: vca_solve_mpi
+#endif
+  end interface vca_solve
+  !>
   public :: vca_solve
 
 
@@ -34,7 +47,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_init_solver(bath)
+  subroutine vca_init_solver_serial(bath)
     real(8),intent(inout),optional :: bath(:)
     logical,save                   :: isetup=.true.
     !
@@ -57,7 +70,52 @@ contains
     !
     isetup=.false.
     !
-  end subroutine vca_init_solver
+  end subroutine vca_init_solver_serial
+
+#ifdef _MPI
+  subroutine vca_init_solver_mpi(MpiComm,bath)
+    integer                                     :: MpiComm
+    real(8),dimension(:),intent(inout),optional :: bath
+    !complex(8),intent(in)                      :: Hloc(Nspin,Nspin,Norb,Norb)
+    logical                                     :: check 
+    logical,save                                :: isetup=.true.
+    integer                                     :: i
+    logical                                     :: MPI_MASTER=.true.
+    integer                                     :: MPI_RANK
+    integer                                     :: MPI_ERR
+    !
+    MPI_RANK   = get_Rank_MPI(MpiComm)
+    MPI_MASTER = get_Master_MPI(MpiComm)
+    !
+    write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
+    !
+    !Init Structure & memory
+    if(isetup)call init_cluster_structure()
+    !
+    !Init bath:
+    !call set_hloc(Hloc)
+    !
+    if(present(bath))then
+       if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
+    !
+    bath = 0d0
+    !
+       bath=0d0
+       call vca_allocate_bath(vca_bath)
+       call vca_init_bath(vca_bath)
+       call vca_get_bath(vca_bath,bath)
+    endif
+    !
+    if(isetup)call setup_global
+    !
+    if(vca_bath%status)call vca_deallocate_bath(vca_bath)
+    !
+    isetup=.false.
+    !
+    call MPI_Barrier(MpiComm,MPI_ERR)
+    !
+  end subroutine vca_init_solver_mpi
+#endif
 
 
 
@@ -65,7 +123,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve(Hloc,Vq,bath)
+  subroutine vca_solve_serial(Hloc,Vq,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:) :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     real(8),intent(in),dimension(:,:,:),optional :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
     real(8),intent(inout),dimension(:),optional  :: bath
@@ -123,7 +181,79 @@ contains
     !
     if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     !
-  end subroutine vca_solve
+  end subroutine vca_solve_serial
+
+
+#ifdef _MPI
+
+  subroutine vca_solve_mpi(MpiComm,Hloc,Vq,bath)
+    complex(8),intent(in),dimension(:,:,:,:,:,:) :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
+    real(8),intent(in),dimension(:,:,:),optional :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
+    real(8),intent(inout),dimension(:),optional  :: bath
+    !
+    integer                                      :: Lk,Nsites
+    integer                                      :: ilat,jlat
+    integer                                      :: iorb,jorb
+    integer                                      :: ispin
+
+    integer                                      :: i,j
+    real(8)                                      :: Tr
+    integer                                      :: unit
+    integer                                      :: MpiComm
+    logical                                      :: check
+    logical                                      :: MPI_MASTER=.true.
+    !
+    MPI_MASTER = get_Master_MPI(MpiComm)
+    !
+    if(MPI_MASTER)write(LOGfile,"(A)")"SOLVING VCA"
+    !
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
+    !
+    if(present(Bath))then
+       if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
+       call vca_allocate_bath(vca_bath)
+       call vca_set_bath(bath,vca_bath)
+       call vca_write_bath(vca_bath,LOGfile)
+       call vca_save_bath(vca_bath,used=.true.)
+    endif
+    !SET THE LOCAL MPI COMMUNICATOR :
+    call vca_set_MpiComm(MpiComm)
+    !
+    ! select case(vca_sparse_H)
+    ! case (.true.)
+    spHtimesV_p => spMatVec_main
+    ! case (.false.)
+    !    spHtimesV_p => directMatVec_p
+    ! case default
+    !    stop "vca_solve_single ERROR: vca_sparse_H undefined"
+    ! end select
+    !
+    call vca_set_Hcluster(Hloc)
+    !
+    !call setup_eigenspace()
+    !
+    call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
+    call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
+    call observables_cluster()    !obtain impurity observables as thermal averages.
+    !
+    !call delete_eigenspace()
+    call es_delete_espace(state_list)
+    nullify(spHtimesV_p)
+
+
+    sft_potential = omega_potential 
+    if(MPI_MASTER) then
+        open(free_unit(unit),file="SFT_potential.vca",position='append')
+        write(unit,*)sft_potential
+        close(unit)
+    endif
+    !
+    if(vca_bath%status)call vca_deallocate_bath(vca_bath)
+    call vca_del_MpiComm()
+    !
+  end subroutine vca_solve_mpi
+#endif
+
 
 end module VCA_MAIN
 

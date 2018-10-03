@@ -13,6 +13,10 @@ MODULE VCA_HAMILTONIAN_SPARSE_HxV
   !>Sparse Mat-Vec product using stored sparse matrix 
   public  :: spMatVec_main
   !public :: spMatVec_orbs
+#ifdef _MPI
+  public  :: spMatVec_MPI_main
+  !public  :: spMatVec_MPI_orbs
+#endif
   !
   !
   !> Related auxiliary routines:
@@ -47,7 +51,10 @@ contains
     integer,dimension(2*Ns_Ud)           :: Indices    ![2-2*Norb]  CONTROLLA
     integer,dimension(Ns_Ud,Ns_Orb)      :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]  CONTROLLA
     integer,dimension(Nlat,Norb)         :: Nup,Ndw    !CONTROLLA
-
+    !
+#ifdef _MPI
+    if(Mpistatus .AND. MpiComm == MPI_COMM_NULL)return
+#endif
     !
     if(.not.Hstatus)stop "buildH_c ERROR: Hsector NOT set"
     isector=Hsector
@@ -61,7 +68,16 @@ contains
     !Get diagonal hybridization, bath energy
     !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 CONTROLLA
     !    
+#ifdef _MPI
+    if(MpiStatus)then
+       call sp_set_mpi_matrix(MpiComm,spH0d,mpiIstart,mpiIend,mpiIshift)
+       call sp_init_matrix(MpiComm,spH0d,Dim)
+    else
+       call sp_init_matrix(spH0d,Dim)
+    endif
+#else
     call sp_init_matrix(spH0d,Dim)
+#endif
     call sp_init_matrix(spH0dws(1),DimDw)
     call sp_init_matrix(spH0ups(1),DimUp)
     !
@@ -89,15 +105,15 @@ contains
        allocate(Htmp_up(DimUp,DimUp));Htmp_up=0d0
        allocate(Htmp_dw(DimDw,DimDw));Htmp_dw=0d0
        !
-!#ifdef _MPI
- !      if(MpiStatus)then
- !         call sp_dump_matrix(MpiComm,spH0d,Hmat)
- !      else
+#ifdef _MPI
+       if(MpiStatus)then
+          call sp_dump_matrix(MpiComm,spH0d,Hmat)
+       else
           call sp_dump_matrix(spH0d,Hmat)
- !      endif
-!#else
+       endif
+#else
        call sp_dump_matrix(spH0d,Hmat)
-!#endif
+#endif
        call sp_dump_matrix(spH0ups(1),Htmp_up)
        call sp_dump_matrix(spH0dws(1),Htmp_dw)
        Hmat = Hmat + kronecker_product(eye(DimUp),Htmp_dw) ! kron(eye(DimDw),Htmp_up)
@@ -187,5 +203,85 @@ contains
   !        TODO: ORBS
   !####################################################################
 
+
+
+
+  !####################################################################
+  !       MPI MATVEC
+  !####################################################################
+
+#ifdef _MPI
+  subroutine spMatVec_mpi_main(Nloc,v,Hv)
+    integer                          :: Nloc
+    real(8),dimension(Nloc)          :: v
+    real(8),dimension(Nloc)          :: Hv
+    !
+    integer                          :: N
+    real(8),dimension(:),allocatable :: vt,Hvt
+    real(8)                          :: val
+    integer                          :: i,iup,idw,j,jup,jdw,jj
+    !local MPI
+    integer                          :: irank
+    !
+    if(MpiComm==MPI_UNDEFINED)stop "spMatVec_mpi_cc ERROR: MpiComm = MPI_UNDEFINED"
+    if(.not.MpiStatus)stop "spMatVec_mpi_cc ERROR: MpiStatus = F"
+    !
+    !Evaluate the local contribution: Hv_loc = Hloc*v
+    Hv=0d0
+    do i=1,Nloc                 !==spH0%Nrow
+       do j=1,spH0d%row(i)%Size
+          Hv(i) = Hv(i) + spH0d%row(i)%vals(j)*v(i)
+       end do
+    end do
+    !
+    !
+    !Non-local terms.
+    !UP part: contiguous in memory.
+    do idw=1,MpiQdw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          hxv_up: do jj=1,spH0ups(1)%row(iup)%Size
+             jup = spH0ups(1)%row(iup)%cols(jj)
+             jdw = idw
+             val = spH0ups(1)%row(iup)%vals(jj)
+             j   = jup + (idw-1)*DimUp
+             Hv(i) = Hv(i) + val*v(j)
+          end do hxv_up
+       enddo
+    end do
+    !
+    !DW part: non-contiguous in memory -> MPI transposition
+    !Transpose the input vector as a whole:
+    !
+    mpiQup=DimUp/MpiSize
+    if(MpiRank<mod(DimUp,MpiSize))MpiQup=MpiQup+1
+    !
+    allocate(vt(mpiQup*DimDw)) ;vt=0d0
+    allocate(Hvt(mpiQup*DimDw));Hvt=0d0
+    call vector_transpose_MPI(DimUp,MpiQdw,v,DimDw,MpiQup,vt)
+    Hvt=0d0    
+    do idw=1,MpiQup             !<= Transposed order:  column-wise DW <--> UP  
+       do iup=1,DimDw           !<= Transposed order:  column-wise DW <--> UP
+          i = iup + (idw-1)*DimDw
+          hxv_dw: do jj=1,spH0dws(1)%row(iup)%Size
+             jup = spH0dws(1)%row(iup)%cols(jj)
+             jdw = idw             
+             j   = jup + (jdw-1)*DimDw
+             val = spH0dws(1)%row(iup)%vals(jj)
+             Hvt(i) = Hvt(i) + val*vt(j)
+          end do hxv_dw
+       enddo
+    end do
+    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ; vt=0d0
+    call vector_transpose_MPI(DimDw,mpiQup,Hvt,DimUp,mpiQdw,vt)
+    Hv = Hv + Vt
+  end subroutine spMatVec_mpi_main
+
+
+  !####################################################################
+  !        TODO: ORBS
+  !####################################################################
+
+#endif
 
 END MODULE VCA_HAMILTONIAN_SPARSE_HxV

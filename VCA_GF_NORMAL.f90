@@ -37,7 +37,7 @@ contains
     integer :: isite,jsite
     logical :: MaskBool
     !
-    call start_timer
+    if(MPIMASTER)call start_timer
     ! 
     !Spin-Orbital diagonal:
     do ispin=1,Nspin
@@ -71,7 +71,7 @@ contains
        enddo
     enddo
     !
-    call stop_timer
+    if(MPIMASTER)call stop_timer(LOGfile)
   end subroutine build_gf_normal
 
 
@@ -117,15 +117,15 @@ contains
        !print*,istate
        isector    =  es_return_sector(state_list,istate)
        state_e    =  es_return_energy(state_list,istate)
-!#ifdef _MPI
-!       if(MpiStatus)then
-!          state_cvec => es_return_cvector(MpiComm,state_list,istate) 
-!       else
-!          state_cvec => es_return_cvector(state_list,istate)
-!       endif
-       !#else
+#ifdef _MPI
+       if(MpiStatus)then
+          state_cvec => es_return_cvector(MpiComm,state_list,istate) 
+       else
+          state_cvec => es_return_cvector(state_list,istate)
+       endif
+#else
        state_cvec => es_return_cvector(state_list,istate)
-!#endif
+#endif
        !
        idim  = getdim(isector)
        call get_DimUp(isector,iDimUps)
@@ -145,7 +145,7 @@ contains
           jDimUp = product(jDimUps)
           jDimDw = product(jDimDws)
           !The Op|gs> is worked out by the master only:
-!          if(MpiMaster)then
+          if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I6)")' add particle:',jsector
              !
              allocate(vvinit(jdim)) ; vvinit=zero
@@ -170,26 +170,26 @@ contains
              !
              norm2=dot_product(vvinit,vvinit)
              vvinit=vvinit/sqrt(norm2)
-!          endif
+          endif
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
           alfa_=0.d0
           beta_=0.d0
           call build_Hv_sector(jsector)
-!#ifdef _MPI
-!          if(MpiStatus)then
-!             call Bcast_MPI(MpiComm,norm2)
-!             vecDim = vecDim_Hv_sector(jsector)
-!             allocate(vvloc(vecDim))
-!             call scatter_vector_MPI(MpiComm,vvinit,vvloc)
-!             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
-!          else
-!             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!          endif
-!#else
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+             vecDim = vecDim_Hv_sector(jsector)
+             allocate(vvloc(vecDim))
+             if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
+             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
+          else
+             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
+          endif
+#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!#endif
+#endif
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,ispin,1)
           !
@@ -208,7 +208,7 @@ contains
           jDimUp = product(jDimUps)
           jDimDw = product(jDimDws)
           !
-!          if(MpiMaster)then
+          if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I6)")' del particle:',jsector
              allocate(vvinit(jdim)) ; vvinit=zero
              !
@@ -232,26 +232,26 @@ contains
              !
              norm2=dot_product(vvinit,vvinit)
              vvinit=vvinit/sqrt(norm2)
-!          endif
+          endif
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
           alfa_=0.d0
           beta_=0.d0
           call build_Hv_sector(jsector)
-!#ifdef _MPI
-!          if(MpiStatus)then
-!             call Bcast_MPI(MpiComm,norm2)
-!             vecDim = vecDim_Hv_sector(jsector)
-!             allocate(vvloc(vecDim))
-!             call scatter_vector_MPI(MpiComm,vvinit,vvloc)
-!             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
-!          else
-!             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!          endif
-!#else
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+             vecDim = vecDim_Hv_sector(jsector)
+             allocate(vvloc(vecDim))
+             if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
+             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
+          else
+             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
+          endif
+#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!#endif
+#endif
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,isite,iorb,ispin,2)
           !
@@ -314,15 +314,15 @@ contains
     do istate=1,state_list%size
        isector    =  es_return_sector(state_list,istate)
        state_e    =  es_return_energy(state_list,istate)
-!#ifdef _MPI
-!       if(MpiStatus)then
-!          state_cvec => es_return_cvector(MpiComm,state_list,istate)
-!       else
-!          state_cvec => es_return_cvector(state_list,istate)
-!       endif
-!#else
+#ifdef _MPI
+       if(MpiStatus)then
+          state_cvec => es_return_cvector(MpiComm,state_list,istate)
+       else
+          state_cvec => es_return_cvector(state_list,istate)
+       endif
+#else
        state_cvec => es_return_cvector(state_list,istate)
-!#endif
+#endif
        !
        !
        idim  = getdim(isector)
@@ -339,7 +339,7 @@ contains
           call get_DimUp(jsector,jDimUps)
           call get_DImDw(jsector,jDimDws)
           !
-!          if(MpiMaster)then
+          if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I15)")' add particle cdg_is+cdg_js:',jsector
              allocate(vvinit(jdim)) ; vvinit=zero
              !
@@ -380,26 +380,26 @@ contains
              !
              norm2=dot_product(vvinit,vvinit)
              vvinit=vvinit/sqrt(norm2)
-!          endif
+          endif
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
           alfa_=0.d0
           beta_=0.d0          
           call build_Hv_sector(jsector)
-!#ifdef _MPI
-!          if(MpiStatus)then
-!             call Bcast_MPI(MpiComm,norm2)
-!             vecDim = vecDim_Hv_sector(jsector)
-!             allocate(vvloc(vecDim))
-!             call scatter_vector_MPI(MpiComm,vvinit,vvloc)
-!             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
-!          else
-!             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!          endif
-!#else
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)    
+             vecDim = vecDim_Hv_sector(jsector)
+             allocate(vvloc(vecDim))
+             if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
+             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
+          else
+             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
+          endif
+#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!#endif
+#endif
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,ispin,1)
           !
@@ -416,7 +416,7 @@ contains
           call get_DimUp(jsector,jDimUps)
           call get_DImDw(jsector,jDimDws)
           !
-!          if(MpiMaster)then
+          if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I15)")' del particle c_is+c_js:',jsector
              allocate(vvinit(jdim)) ; vvinit=zero
              !
@@ -457,26 +457,26 @@ contains
              !
              norm2=dot_product(vvinit,vvinit)
              vvinit=vvinit/sqrt(norm2)
-!          endif
+          endif
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
           alfa_=0.d0
           beta_=0.d0
           call build_Hv_sector(jsector)
-!#ifdef _MPI
-!          if(MpiStatus)then
-!             call Bcast_MPI(MpiComm,norm2)
-!             vecDim = vecDim_Hv_sector(jsector)
-!             allocate(vvloc(vecDim))
-!             call scatter_vector_MPI(MpiComm,vvinit,vvloc)
-!             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
-!          else
-!             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!          endif
-!#else
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+             vecDim = vecDim_Hv_sector(jsector)
+             allocate(vvloc(vecDim))
+             if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
+             call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
+          else
+             call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
+          endif
+#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
-!#endif
+#endif
           call delete_Hv_sector()    
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,ispin,2)
           !
@@ -543,10 +543,10 @@ contains
           !call build_Hv_sector(jsector)
 !#ifdef _MPI
           !if(MpiStatus)then
-             !call Bcast_MPI(MpiComm,norm2)
+             !if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              !vecDim = vecDim_Hv_sector(jsector)
              !allocate(vvloc(vecDim))
-             !call scatter_vector_MPI(MpiComm,cvinit,vvloc)
+             !if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,cvinit,vvloc)
              !call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
           !else
              !call sp_lanc_tridiag(spHtimesV_p,cvinit,alfa_,beta_)
@@ -620,10 +620,10 @@ contains
           !call build_Hv_sector(jsector)
 !#ifdef _MPI
           !if(MpiStatus)then
-             !call Bcast_MPI(MpiComm,norm2)
+             !if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              !vecDim = vecDim_Hv_sector(jsector)
              !allocate(vvloc(vecDim))
-             !call scatter_vector_MPI(MpiComm,cvinit,vvloc)
+             !if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,cvinit,vvloc)
              !call sp_lanc_tridiag(MpiComm,spHtimesV_p,vvloc,alfa_,beta_)
           !else
              !call sp_lanc_tridiag(spHtimesV_p,cvinit,alfa_,beta_)
@@ -675,17 +675,23 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
   !
   Nlanc = size(alanc)
   !
-  ! if((finiteT).and.(beta*(Ei-Egs).lt.200))then
-  !    pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
-  ! elseif(.not.finiteT)then
-  !    pesoBZ = vnorm2/zeta_function
-  ! else
-  !    pesoBZ=0.d0
-  ! endif
+  if((finiteT).and.(beta*(Ei-Egs).lt.200))then
+     pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  elseif(.not.finiteT)then
+     pesoBZ = vnorm2/zeta_function
+  else
+     pesoBZ=0.d0
+  endif
   !
-  pesoBZ = vnorm2/zeta_function
-  if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  !pesoBZ = vnorm2/zeta_function
+  !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
+#ifdef _MPI
+  if(MpiStatus)then
+     if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,alanc)
+     if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,blanc)
+  endif
+#endif
   diag             = 0.d0
   subdiag          = 0.d0
   Z                = eye(Nlanc)

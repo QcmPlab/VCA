@@ -5,6 +5,10 @@ MODULE VCA_VARS_GLOBAL
   USE SF_CONSTANTS
   USE SF_ARRAYS,  only: arange,linspace
   USE SF_IOTOOLS, only: str
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
   implicit none
 
 
@@ -67,11 +71,6 @@ MODULE VCA_VARS_GLOBAL
   end interface
 
 
-
-
-  !LOG UNITS
-  !=========================================================
-  integer,save                                    :: LOGfile=6
 
 
  !-------------------------- ED  VARIABLES --------------------------!
@@ -174,12 +173,12 @@ MODULE VCA_VARS_GLOBAL
 
   !This is the internal Mpi Communicator and variables.
   !=========================================================
-!#ifdef _MPI
-!  integer                                            :: MpiComm_Global=MPI_UNDEFINED
-!  integer                                            :: MpiComm=MPI_UNDEFINED
-!#endif
-  !integer                                            :: MpiGroup_Global=MPI_GROUP_NULL
-  !integer                                            :: MpiGroup=MPI_GROUP_NULL
+#ifdef _MPI
+  integer                                            :: MpiComm_Global=MPI_UNDEFINED
+  integer                                            :: MpiComm=MPI_UNDEFINED
+#endif
+  integer                                            :: MpiGroup_Global=MPI_GROUP_NULL
+  integer                                            :: MpiGroup=MPI_GROUP_NULL
   logical                                            :: MpiStatus=.false.
   logical                                            :: MpiMaster=.true.
   integer                                            :: MpiRank=0
@@ -260,6 +259,34 @@ contains
        call map_deallocate_scalar(H(i))
     enddo
   end subroutine map_deallocate_vector
+ 
+  !=========================================================
+
+ subroutine vca_set_MpiComm(comm)
+#ifdef _MPI
+    integer :: comm,ierr
+    MpiComm_Global = comm
+    MpiComm        = MpiComm_Global
+    MpiStatus      = .true.
+    MpiSize        = get_Size_MPI(MpiComm_Global)
+    MpiRank        = get_Rank_MPI(MpiComm_Global)
+    MpiMaster      = get_Master_MPI(MpiComm_Global)
+    call Mpi_Comm_group(MpiComm_Global,MpiGroup_Global,ierr)
+#else
+    integer,optional :: comm
+#endif
+  end subroutine vca_set_MpiComm
+
+  subroutine vca_del_MpiComm()
+#ifdef _MPI
+    MpiComm_Global = MPI_UNDEFINED
+    MpiComm        = MPI_UNDEFINED
+    MpiStatus      = .false.
+    MpiSize        = 1
+    MpiRank        = 0
+    MpiMaster      = .true.
+#endif
+  end subroutine vca_del_MpiComm
 
 
 END MODULE VCA_VARS_GLOBAL

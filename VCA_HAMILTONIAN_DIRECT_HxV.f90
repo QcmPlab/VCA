@@ -30,6 +30,12 @@ MODULE VCA_HAMILTONIAN_DIRECT_HxV
   public  :: directMatVec_main
   !public  :: directMatVec_orbs
 
+#ifdef _MPI
+  public  :: directMatVec_MPI_main
+  !public  :: directMatVec_MPI_orbs
+#endif
+
+
 contains
 
 
@@ -49,7 +55,7 @@ contains
     if(Nloc/=getdim(isector))stop "directMatVec_cc ERROR: Nloc != dim(isector)"
     !
     !Get diagonal hybridization, bath energy
-    !include "ED_HAMILTONIAN/diag_hybr_bath.f90"
+    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
     !
     !
     Hv=0d0
@@ -69,6 +75,58 @@ contains
     return
   end subroutine directMatVec_main
 
+#ifdef _MPI
+  subroutine directMatVec_MPI_main(Nloc,vin,Hv)
+    integer                             :: Nloc
+    real(8),dimension(Nloc)             :: Vin
+    real(8),dimension(Nloc)             :: Hv
+    real(8),dimension(:),allocatable    :: vt,Hvt
+    integer,dimension(Ns)               :: ibup,ibdw
+    integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
+    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath]
+    integer,dimension(Nlat,Norb)        :: Nup,Ndw !CONTROLLA
+    !
+    integer,allocatable,dimension(:)    :: Counts,Displs
+    !
+    if(.not.Hstatus)stop "directMatVec_cc ERROR: Hsector NOT set"
+    isector=Hsector
+    !
+    !Get diagonal hybridization, bath energy
+    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    !
+    !    
+    if(MpiComm==MPI_UNDEFINED.OR.MpiComm==Mpi_Comm_Null)&
+         stop "directMatVec_MPI_cc ERRROR: MpiComm = MPI_UNDEFINED"
+    ! if(.not.MpiStatus)stop "directMatVec_MPI_cc ERROR: MpiStatus = F"
+    !
+    !
+    Hv=0d0
+    !
+    !-----------------------------------------------!
+    !LOCAL HAMILTONIAN PART: H_loc*vin = vout
+    include "VCA_HAMILTONIAN/direct_mpi/HxV_local.f90"
+    !
+    !NON-LOCAL TERMS:
+    ! 
+    !UP HAMILTONIAN TERMS: MEMORY CONTIGUOUS
+    include "VCA_HAMILTONIAN/direct_mpi/HxV_up.f90"    
+    !
+    !DW HAMILTONIAN TERMS: MEMORY NON-CONTIGUOUS
+    mpiQup=DimUp/MpiSize
+    if(MpiRank<mod(DimUp,MpiSize))MpiQup=MpiQup+1
+    allocate(vt(mpiQup*DimDw)) ;vt=0d0
+    allocate(Hvt(mpiQup*DimDw));Hvt=0d0
+    call vector_transpose_MPI(DimUp,MpiQdw,Vin,DimDw,MpiQup,vt) !Vin^T --> Vt
+    include "VCA_HAMILTONIAN/direct_mpi/HxV_dw.f90"
+    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ;vt=0d0         !reallocate Vt
+    call vector_transpose_MPI(DimDw,mpiQup,Hvt,DimUp,mpiQdw,vt) !Hvt^T --> Vt
+    Hv = Hv + Vt
+    !-----------------------------------------------!
+    !
+    !deallocate(diag_hybr,bath_diag)
+    return
+  end subroutine directMatVec_MPI_main
 
+#endif
 
 END MODULE VCA_HAMILTONIAN_DIRECT_HxV

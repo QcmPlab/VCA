@@ -64,15 +64,17 @@ contains
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
-    !if(MPIMASTER)then
-    write(LOGfile,"(A)")"Diagonalize cluster Hc+Hint:"
-    call start_timer()
-    !endif
+    if(MPIMASTER)then
+        write(LOGfile,"(A)")"Diagonalize cluster Hc+Hint:"
+        call start_timer()
+    endif
     !
     lanc_verbose=.false.
     if(verbose>2)lanc_verbose=.true.
+    !
     converged_spectrum=.false.
     iter_spectrum=0
+    !
     anneal: do while(.not.converged_spectrum.AND.iter_spectrum<lanc_niter_spectrum)
        iter_spectrum=iter_spectrum+1
        call es_free_espace(state_list)
@@ -101,7 +103,7 @@ contains
           if(Neigen==dim)lanc_solve=.false.
           if(dim<=max(lanc_dim_threshold,MPISIZE))lanc_solve=.false.
           !
-          !if(MPIMASTER)then
+          if(MPIMASTER)then
           call get_DimUp(isector,DimUps) ; DimUp = product(DimUps)
           call get_DimDw(isector,DimDws) ; DimDw = product(DimDws)
           if(verbose==3)then
@@ -123,7 +125,7 @@ contains
           elseif(verbose==1.OR.verbose==2)then
              call eta(iter,count(twin_mask),LOGfile)
           endif
-          !endif
+          endif
           !
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
@@ -137,23 +139,23 @@ contains
              allocate(eig_basis(vecDim,Neigen))
              eig_basis=zero
              !
-             !#ifdef _MPI
-             !          if(MpiStatus)then
-             !             call sp_eigh(MpiComm,spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
-             !                  tol=lanc_tolerance,&
-             !                  iverbose=(verbose>3))
-             !          else
-             !             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
-             !                  tol=lanc_tolerance,&
-             !                  iverbose=(verbose>3))
-             !          endif
-             !#else
+#ifdef _MPI
+             if(MpiStatus)then
+                call sp_eigh(MpiComm,spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                     tol=lanc_tolerance,&
+                     iverbose=(verbose>3))
+             else
+                call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                     tol=lanc_tolerance,&
+                     iverbose=(verbose>3))
+             endif
+#else
              call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
                   tol=lanc_tolerance,&
                   iverbose=(verbose>=3))
-             !#endif
-             !          if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
-             !          call delete_Hv_sector()
+#endif
+             if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
+             call delete_Hv_sector()
           else
              allocate(eig_values(Dim)) ; eig_values=0d0
              !
@@ -161,25 +163,24 @@ contains
              !
              call build_Hv_sector(isector,eig_basis_tmp)
              !
-             !if(MpiMaster)call eigh(eig_basis_tmp,eig_values,'V','U')
-             call eigh(eig_basis_tmp,eig_values,'V','U')
+             if(MpiMaster)call eigh(eig_basis_tmp,eig_values,'V','U')
              if(dim==1)eig_basis_tmp(dim,dim)=1d0
              !
              call delete_Hv_sector()
-             !#ifdef _MPI
-             !          if(MpiStatus)then
-             !             call Bcast_MPI(MpiComm,eig_values)
-             !             vecDim = vecDim_Hv_sector(isector)
-             !             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=0d0
-             !             call scatter_basis_MPI(MpiComm,eig_basis_tmp,eig_basis)
-             !          else
-             !             allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
-             !             eig_basis = eig_basis_tmp(:,1:Neigen)
-             !          endif
-             !#else
+#ifdef _MPI
+          if(MpiStatus)then
+             call Bcast_MPI(MpiComm,eig_values)
+             vecDim = vecDim_Hv_sector(isector)
+             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=0d0
+             call scatter_basis_MPI(MpiComm,eig_basis_tmp,eig_basis)
+          else
              allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
              eig_basis = eig_basis_tmp(:,1:Neigen)
-             !#endif
+          endif
+#else
+          allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
+          eig_basis = eig_basis_tmp(:,1:Neigen)
+#endif
           endif
           !
           if(verbose>=3)then
@@ -206,12 +207,12 @@ contains
              enddo
           endif
           !
-          !       if(MPIMASTER)then
+          if(MPIMASTER)then
           unit=free_unit()
           open(unit,file="eigenvalues_list"//reg(file_suffix)//".ed",position='append',action='write')
           call print_eigenvalues_list(isector,eig_values(1:Neigen),unit,lanc_solve,mpiAllThreads)
           close(unit)
-          !       endif
+          endif
           !
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis_tmp))deallocate(eig_basis_tmp)
@@ -316,11 +317,11 @@ contains
     integer,allocatable :: list_sector(:),count_sector(:)
     !
     !POST PROCESSING:
-    !if(MPIMASTER)then
+    if(MPIMASTER)then
        open(free_unit(unit),file="state_list"//reg(file_suffix)//".ed")
        call save_state_list(unit)
        close(unit)
-    !endif
+    endif
     if(verbose>=2)call print_state_list(LOGfile)
     !
     zeta_function=0d0
@@ -337,7 +338,7 @@ contains
     !
     numgs=es_return_gs_degeneracy(state_list,gs_threshold)
     if(numgs>Nsectors)stop "diag: too many gs"
-    if(verbose>=2)then
+    if(MPIMASTER.AND.verbose>=2)then
        do istate=1,numgs
           isector = es_return_sector(state_list,istate)
           Egs     = es_return_energy(state_list,istate)
