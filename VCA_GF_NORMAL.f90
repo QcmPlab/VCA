@@ -190,6 +190,8 @@ contains
 !#else
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 !#endif
+          print*,"alfa_",alfa_
+          print*,"beta_",beta_
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,ispin,1)
           !
