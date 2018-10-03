@@ -114,7 +114,7 @@ contains
     write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)
     !
     do istate=1,state_list%size
-       print*,istate
+       !print*,istate
        isector    =  es_return_sector(state_list,istate)
        state_e    =  es_return_energy(state_list,istate)
 !#ifdef _MPI
@@ -174,7 +174,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -235,7 +236,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -322,7 +324,6 @@ contains
        state_cvec => es_return_cvector(state_list,istate)
 !#endif
        !
-       print*,size(state_cvec),associated(state_cvec)
        !
        idim  = getdim(isector)
        call get_DimUp(isector,iDimUps)
@@ -383,7 +384,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !           
+          alfa_=0.d0
+          beta_=0.d0          
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
@@ -459,7 +461,8 @@ contains
           !
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
-          !
+          alfa_=0.d0
+          beta_=0.d0
           call build_Hv_sector(jsector)
 !#ifdef _MPI
 !          if(MpiStatus)then
