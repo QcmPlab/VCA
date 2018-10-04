@@ -48,15 +48,15 @@ contains
              !site-digonal:
              call lanc_build_gf_normal_main(isite,iorb,ispin)
              !site-off-diagonal:
-             do jsite=1,Nlat
-                if(isite==jsite)cycle   !this is not elegant but who cares?
+             do jsite=isite+1,Nlat
+                !if(isite==jsite)cycle   !this is not elegant but who cares?
                 call lanc_build_gf_normal_mix_main(isite,jsite,iorb,ispin)
              enddo
           enddo
           !
           do isite=1,Nlat
-             do jsite=1,Nlat
-                if(isite==jsite)cycle
+             do jsite=isite+1,Nlat
+                !if(isite==jsite)cycle
                 !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
                 !     - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
                 !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
@@ -68,9 +68,15 @@ contains
              enddo
           enddo
           !
+          do isite=2,Nlat
+            do jsite=1,isite-1
+                write(LOGfile,*)"Symmetry provides G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
+                impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = impGmats(jsite,isite,ispin,ispin,iorb,iorb,:)
+                impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = impGreal(jsite,isite,ispin,ispin,iorb,iorb,:)       
+            enddo
+          enddo
        enddo
     enddo
-    !
     if(MPIMASTER)call stop_timer(LOGfile)
   end subroutine build_gf_normal
 

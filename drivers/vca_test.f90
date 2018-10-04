@@ -36,7 +36,7 @@ program vca_test
   call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
   call parse_input_variable(Ry,"Ry",finput,default=1,comment="Ratio L/Lc=Ry along Y-directions, aka # of copies along Y")
   !
-  call vca_read_input(trim(finput))
+  call vca_read_input(trim(finput),comm)
 
 
   if(Norb/=1)stop "Norb != 1"

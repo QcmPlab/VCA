@@ -128,9 +128,6 @@ contains
   subroutine print_Hcluster_lso(hloc,file)
     complex(8),dimension(:,:) :: hloc
     character(len=*),optional :: file
-    integer                   :: ilat,jlat
-    integer                   :: iorb,jorb
-    integer                   :: ispin,jspin
     integer                   :: unit,is,js
     character(len=32)         :: fmt
     !

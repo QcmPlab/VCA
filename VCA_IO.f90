@@ -62,8 +62,7 @@ MODULE VCA_IO
 
   !Frequency and time arrays:
   !=========================================================
-  real(8),dimension(:),allocatable :: wm,tau,wr,vm
-  character(len=64)                :: suffix
+  real(8),dimension(:),allocatable :: wm,wr
 
 
 
@@ -113,9 +112,8 @@ contains
 
 
   subroutine vca_print_impSigma
-    integer           :: i
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: ilat,jlat,iorb,ispin
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
     if(.not.allocated(wr))allocate(wr(Lreal))
@@ -146,9 +144,8 @@ contains
 
 
   subroutine vca_print_impG
-    integer           :: i
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: ilat,jlat,iorb,ispin
     !
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
@@ -178,9 +175,8 @@ contains
   !+------------------------------------------------------------------+  
 
   subroutine vca_print_impG0
-    integer           :: i
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,jorb,ispin,jspin
+    integer           :: ilat,jlat,iorb,ispin
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
     if(.not.allocated(wr))allocate(wr(Lreal))

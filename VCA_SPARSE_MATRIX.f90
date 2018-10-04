@@ -155,7 +155,7 @@ contains
     type(sparse_matrix_csr),intent(inout) :: sparse
     integer                              :: N
     integer,optional                     :: N1
-    integer                              :: i,Ncol,Nloc
+    integer                              :: Ncol,Nloc
     !
     if(MpiComm==Mpi_Comm_Null)return
     !
@@ -180,7 +180,6 @@ contains
   subroutine sp_delete_matrix_csr(sparse)    
     type(sparse_matrix_csr),intent(inout) :: sparse
     integer                               :: i
-    type(sparse_row_csr),pointer          :: row
     !
     if(.not.sparse%status)return !stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
     !
@@ -207,7 +206,6 @@ contains
     integer                              :: MpiComm
     type(sparse_matrix_csr),intent(inout) :: sparse
     integer                              :: i
-    type(sparse_row_csr),pointer          :: row
     !
     if(MpiComm==Mpi_Comm_Null)return
     !
@@ -432,9 +430,7 @@ contains
     character ( len = 255 )         :: data_filename
     integer                         :: data_unit
     integer                         :: i, j
-    character ( len = 6 )           :: n1_s,n2_s,n1_i,n2_i
     integer                         :: nz_num
-    character ( len = 255 )         :: png_filename
     !
     !  Create data file.
     !
@@ -482,9 +478,7 @@ contains
     character ( len = 255 )         :: data_filename(1)
     integer                         :: data_unit
     integer                         :: i, j
-    character ( len = 6 )           :: n1_s,n2_s,n1_i,n2_i
     integer                         :: nz_num,mpirank
-    character ( len = 255 )         :: png_filename
     !
     if(MpiComm==Mpi_Comm_Null)return
     !

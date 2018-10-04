@@ -159,13 +159,14 @@ contains
     !
     call parse_input_variable(cutoff,"CUTOFF",INPUTunit,default=1.d-9,comment="Spectrum cut-off, used to determine the number states to be retained.")
     call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
+    call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(verbose,"VERBOSE",INPUTunit,default=3,comment="Verbosity level: 0=almost nothing --> 3:all.")
     !
 #ifdef _MPI
     if(present(comm))then
        if(.not.master)then
           LOGfile=1000-rank
-          open(LOGfile,file="stdOUT.rank"//str(rank)//".ed")
+          open(LOGfile,file="stdOUT.rank"//str(rank)//".vca")
           do i=1,get_Size_MPI(comm)
              if(i==rank)write(*,"(A,I0,A,I0)")"Rank ",rank," writing to unit: ",LOGfile
           enddo

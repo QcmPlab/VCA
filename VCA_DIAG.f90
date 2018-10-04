@@ -78,7 +78,7 @@ contains
     anneal: do while(.not.converged_spectrum.AND.iter_spectrum<lanc_niter_spectrum)
        iter_spectrum=iter_spectrum+1
        call es_free_espace(state_list)
-       print*,"Spectrum annealing iteration:",iter_spectrum,"of ",lanc_niter_spectrum
+       !print*,"Spectrum annealing iteration:",iter_spectrum,"of ",lanc_niter_spectrum
        iter=0
        sector: do isector=1,Nsectors
           if(.not.sectors_mask(isector))cycle sector
