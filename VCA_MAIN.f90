@@ -8,6 +8,7 @@ module VCA_MAIN
   USE VCA_BATH_SETUP
   USE VCA_EIGENSPACE
   USE VCA_HAMILTONIAN
+  USE VCA_OMEGA
   !
   USE SF_LINALG,  only: eigh,diag,kron,eye
   USE SF_IOTOOLS, only: str,free_unit
@@ -197,7 +198,7 @@ contains
     integer                                      :: ispin
 
     integer                                      :: i,j
-    real(8)                                      :: Tr
+    real(8)                                      :: Tr,TEST
     integer                                      :: unit
     integer                                      :: MpiComm
     logical                                      :: check
@@ -236,6 +237,8 @@ contains
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
     !
+    TEST=sum_kmesh(1.d0)
+    print*,"TEST OF SUM_KMASH DONE IN VCA_MAIN",TEST
     !call delete_eigenspace()
     call es_delete_espace(state_list)
     nullify(spHtimesV_p)
