@@ -346,9 +346,9 @@ contains
           call get_Ndw(isector,Ndws)
           write(LOGfile,"(A,F20.12,"//str(Ns_Ud)//"I4,"//str(Ns_Ud)//"I4)")'Egs =',Egs,nups,ndws
        enddo
-       omega_potential = -1d0/beta*log(zeta_function)
+       !omega_potential = -1d0/beta*log(zeta_function)
        write(LOGfile,"(A,F20.12)")'Z     =',zeta_function
-       write(LOGfile,"(A,F20.12)")'Omega =',omega_potential
+       !write(LOGfile,"(A,F20.12)")'Omega =',omega_potential
     endif
     !
     !    

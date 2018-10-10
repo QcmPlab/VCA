@@ -138,7 +138,9 @@ contains
     !if(Norb>1)stop "VCA ERROR: Norb > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
     !    
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts))
     impHloc=zero
+    impHk=zero
     !
     allocate(spH0ups(Ns_Ud))
     allocate(spH0dws(Ns_Ud))

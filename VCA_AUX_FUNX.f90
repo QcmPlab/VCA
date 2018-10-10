@@ -28,6 +28,10 @@ MODULE VCA_AUX_FUNX
      module procedure :: set_Hcluster_lso
   end interface vca_set_Hcluster
 
+  interface vca_set_Hk
+     module procedure :: set_Hk_nnn
+     module procedure :: set_Hk_lso
+  end interface vca_set_Hk
 
   interface vca_print_Hcluster
      module procedure :: print_Hcluster_nnn
@@ -38,6 +42,7 @@ MODULE VCA_AUX_FUNX
   public :: vca_get_cluster_dimension
   !
   public :: vca_set_Hcluster
+  public :: vca_set_Hk
   public :: vca_print_Hcluster
   !
   public :: vca_lso2nnn_reshape
@@ -172,11 +177,28 @@ contains
   end subroutine set_Hcluster_lso
 
 
+  subroutine set_Hk_nnn(hloc)
+    complex(8),dimension(:,:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**2],"set_Hk_nnn","Hloc")
+    !
+    impHk = Hloc
+    !
+    write(LOGfile,"(A)")"Set Hk: done"
+    !if(verbose>2)call vca_print_Hcluster(impHk)
+  end subroutine set_Hk_nnn
 
-
-
-
-
+  subroutine set_Hk_lso(hloc)
+    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts]
+    integer                     :: i
+    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nkpts**2],"set_Hk_lso","Hloc")
+    !
+    do i=1,Nkpts**2
+        impHk(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(Hloc(:,:,i),Nlat,Nspin,Norb)
+    enddo
+    !
+    write(LOGfile,"(A)")"Set Hk: done"
+    !if(verbose>2)call vca_print_Hcluster(impHk)
+  end subroutine set_Hk_lso
 
 
 

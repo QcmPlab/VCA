@@ -37,6 +37,9 @@ contains
     integer :: isite,jsite
     logical :: MaskBool
     !
+    if(allocated(impGmatrix))deallocate(impGmatrix)
+    allocate(impGmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !
     if(MPIMASTER)call start_timer
     ! 
     !Spin-Orbital diagonal:
@@ -46,17 +49,19 @@ contains
           !
           do isite=1,Nlat
              !site-digonal:
+             call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
              call lanc_build_gf_normal_main(isite,iorb,ispin)
              !site-off-diagonal:
-             do jsite=isite+1,Nlat
-                !if(isite==jsite)cycle   !this is not elegant but who cares?
+             do jsite=1,Nlat
+                if(isite==jsite)cycle   !this is not elegant but who cares?
+                call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,iorb),N=2)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
                 call lanc_build_gf_normal_mix_main(isite,jsite,iorb,ispin)
              enddo
           enddo
           !
           do isite=1,Nlat
-             do jsite=isite+1,Nlat
-                !if(isite==jsite)cycle
+             do jsite=1,Nlat
+                if(isite==jsite)cycle
                 !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
                 !     - (one-xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
                 !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
@@ -68,13 +73,13 @@ contains
              enddo
           enddo
           !
-          do isite=2,Nlat
-            do jsite=1,isite-1
-                write(LOGfile,*)"Symmetry provides G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
-                impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = impGmats(jsite,isite,ispin,ispin,iorb,iorb,:)
-                impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = impGreal(jsite,isite,ispin,ispin,iorb,iorb,:)       
-            enddo
-          enddo
+          !do isite=2,Nlat
+          !  do jsite=1,isite-1
+          !      write(LOGfile,*)"Symmetry provides G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
+          !      impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = impGmats(jsite,isite,ispin,ispin,iorb,iorb,:)
+          !      impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = impGreal(jsite,isite,ispin,ispin,iorb,iorb,:)       
+          !  enddo
+          !enddo
        enddo
     enddo
     if(MPIMASTER)call stop_timer(LOGfile)
@@ -692,6 +697,7 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
   !pesoBZ = vnorm2/zeta_function
   !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
+  !
 #ifdef _MPI
   if(MpiStatus)then
      if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,alanc)
@@ -705,13 +711,14 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
+  call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb),i=ichan,Nexc=Nlanc)
   !
   do j=1,nlanc
      de = diag(j)-Ei
      peso = pesoBZ*Z(1,j)*Z(1,j)
      !
-     !impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(j) = peso
-     !impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(j)  = isign*de
+     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%weight(j) = peso
+     impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%channel(ichan)%poles(j)  = isign*de
      !
      do i=1,Lmats
         iw=xi*wm(i)

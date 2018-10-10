@@ -53,10 +53,10 @@ MODULE VCA_VARS_GLOBAL
   type GFmatrix
      type(GFspectrum),dimension(:),allocatable :: channel
   end type GFmatrix
-  !interface GFmatrix_allocate
-    ! module procedure :: allocate_GFmatrix_Nchan
-    ! module procedure :: allocate_GFmatrix_Nexc
-  !end interface GFmatrix_allocate
+  interface GFmatrix_allocate
+     module procedure :: allocate_GFmatrix_Nchan
+     module procedure :: allocate_GFmatrix_Nexc
+  end interface GFmatrix_allocate
 
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
@@ -83,9 +83,10 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                       :: Ns_ud
 
 
-  !non-interacting cluster Hamiltonian
+  !non-interacting cluster Hamiltonian and full system hopping matrix
   !=========================================================
   complex(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: impHk   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
 
@@ -287,6 +288,27 @@ contains
     MpiMaster      = .true.
 #endif
   end subroutine vca_del_MpiComm
+
+  !Allocate the channels in GFmatrix structure
+  subroutine allocate_gfmatrix_Nchan(self,N)
+    type(GFmatrix) :: self
+    integer        :: N
+    if(allocated(self%channel))deallocate(self%channel)
+    allocate(self%channel(N))
+  end subroutine allocate_gfmatrix_Nchan
+
+  !Allocate the Excitations spectrum at a given channel
+  subroutine allocate_gfmatrix_Nexc(self,i,Nexc)
+    type(GFmatrix) :: self
+    integer        :: i
+    integer        :: Nexc
+    if(allocated(self%channel(i)%weight))deallocate(self%channel(i)%weight)
+    if(allocated(self%channel(i)%poles))deallocate(self%channel(i)%poles)
+    allocate(self%channel(i)%weight(Nexc))
+    allocate(self%channel(i)%poles(Nexc))
+  end subroutine allocate_gfmatrix_Nexc
+ 
+
 
 
 END MODULE VCA_VARS_GLOBAL

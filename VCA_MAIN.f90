@@ -124,24 +124,26 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve_serial(Hloc,Vq,bath)
-    complex(8),intent(in),dimension(:,:,:,:,:,:) :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
-    real(8),intent(in),dimension(:,:,:),optional :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
-    real(8),intent(inout),dimension(:),optional  :: bath
+  subroutine vca_solve_serial(Hloc,Hk,Vq,bath)
+    complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
+    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts]
+    real(8),intent(in),dimension(:,:,:),optional   :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
+    real(8),intent(inout),dimension(:),optional    :: bath
     !
-    integer                                      :: Lk,Nsites
-    integer                                      :: ilat,jlat
-    integer                                      :: iorb,jorb
-    integer                                      :: ispin
+    integer                                        :: Lk,Nsites
+    integer                                        :: ilat,jlat
+    integer                                        :: iorb,jorb
+    integer                                        :: ispin
 
-    integer                                      :: i,j
-    real(8)                                      :: Tr
-    integer                                      :: unit
+    integer                                        :: i,j
+    real(8)                                        :: Tr,TEST,TEST1
+    integer                                        :: unit
 
     !
     write(LOGfile,"(A)")"SOLVING VCA"
     !
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
+    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**2],"vca_solve","Hk")
     ! if(present(Vq))Lk     = size(Vq,3)
     ! call assert_shape(Vq,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk],"vca_solve","Vq")
     !
@@ -163,6 +165,7 @@ contains
     ! end select
     !
     call vca_set_Hcluster(Hloc)
+    call vca_set_Hk(Hk)
     !
     !call setup_eigenspace()
     !
@@ -170,12 +173,21 @@ contains
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
     !
-    !call delete_eigenspace()
+    TEST=sum_kmesh(0.d0)
+    print*,"TEST OF SUM_KMASH DONE IN VCA_MAIN",TEST
+    TEST=frequency_integration()
+    TEST1=frequency_integration_sample()
+    print*,"TEST OF FREQUENCY_INTEGRATION DONE IN VCA_MAIN",TEST
+    print*,"TEST OF FREQUENCY_INTEGRATION_SAMPLE DONE IN VCA_MAIN",TEST1
+    print*,"EGS",state_list%emin
+    print*,"OMEGA POTENTIAL=",state_list%emin-TEST
+    sft_potential = state_list%emin-TEST 
+    !
     call es_delete_espace(state_list)
     nullify(spHtimesV_p)
 
 
-    sft_potential = omega_potential 
+    !sft_potential = omega_potential 
     open(free_unit(unit),file="SFT_potential.vca",position='append')
     write(unit,*)sft_potential
     close(unit)
@@ -187,8 +199,9 @@ contains
 
 #ifdef _MPI
 
-  subroutine vca_solve_mpi(MpiComm,Hloc,Vq,bath)
+  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,Vq,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:) :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
+    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts]
     real(8),intent(in),dimension(:,:,:),optional :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
     real(8),intent(inout),dimension(:),optional  :: bath
     !
@@ -198,7 +211,7 @@ contains
     integer                                      :: ispin
 
     integer                                      :: i,j
-    real(8)                                      :: Tr,TEST
+    real(8)                                      :: Tr,TEST,TEST1
     integer                                      :: unit
     integer                                      :: MpiComm
     logical                                      :: check
@@ -209,6 +222,7 @@ contains
     if(MPI_MASTER)write(LOGfile,"(A)")"SOLVING VCA"
     !
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**2],"vca_solve","Hk")
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -230,21 +244,27 @@ contains
     ! end select
     !
     call vca_set_Hcluster(Hloc)
+    call vca_set_Hk(Hk)
     !
-    !call setup_eigenspace()
+    !
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
     !
-    TEST=sum_kmesh(1.d0)
+    TEST=sum_kmesh(0.d0)
     print*,"TEST OF SUM_KMASH DONE IN VCA_MAIN",TEST
-    !call delete_eigenspace()
+    TEST=frequency_integration()
+    TEST1=frequency_integration_sample()
+    print*,"TEST OF FREQUENCY_INTEGRATION DONE IN VCA_MAIN",TEST
+    print*,"TEST OF FREQUENCY_INTEGRATION_SAMPLE DONE IN VCA_MAIN",TEST1
+    print*,"EGS",state_list%emin
+    print*,"OMEGA POTENTIAL=",state_list%emin-TEST
+    sft_potential = state_list%emin-TEST 
+    !
     call es_delete_espace(state_list)
     nullify(spHtimesV_p)
 
-
-    sft_potential = omega_potential 
     if(MPI_MASTER) then
         open(free_unit(unit),file="SFT_potential.vca",position='append')
         write(unit,*)sft_potential

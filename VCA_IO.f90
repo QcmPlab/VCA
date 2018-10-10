@@ -69,7 +69,7 @@ MODULE VCA_IO
 contains
 
   !+-----------------------------------------------------------------------------+!
-  ! PURPOSE: Retrieve measured values of the impurity green's functions 
+  ! PURPOSE: Retrieve measured values of the cluster green's functions 
   !+-----------------------------------------------------------------------------+!
   include "VCA_IO/gf_cluster.f90"
 
