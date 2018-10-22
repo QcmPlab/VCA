@@ -449,7 +449,7 @@ contains        !some routine to perform simple operation on the lists
     real(8),dimension(:),pointer     :: vtmp
     real(8),dimension(:),pointer     :: vector
     type(sparse_estate),pointer      :: c
-    integer                          :: i,pos,Nloc,Ndim
+    integer                          :: i,pos,Nloc,Ndims
     integer                          :: dim,ierr
     logical                          :: MpiMaster
     integer,dimension(:),allocatable :: order
@@ -475,15 +475,15 @@ contains        !some routine to perform simple operation on the lists
     !
     !Ensure that the sum of the dimension of all vector chunks equals the sector dimension.
     Dim  = getdim(c%sector)
-    Ndim = 0
-    call Allreduce_MPI(MpiComm,Nloc,Ndim)
-    if(Dim/=Ndim)stop "es_return_cvector ERROR: Dim != Ndim from v chunks"
+    Ndims = 0
+    call Allreduce_MPI(MpiComm,Nloc,Ndims)
+    if(Dim/=Ndims)stop "es_return_cvector ERROR: Dim != Ndims from v chunks"
     !
     MpiMaster = get_master_MPI(MpiComm)
     !
     if(.not.c%itwin)then
        if(MpiMaster)then
-          allocate(Vector(Ndim))
+          allocate(Vector(Ndims))
        else
           allocate(Vector(1))
        endif
@@ -492,7 +492,7 @@ contains        !some routine to perform simple operation on the lists
     else
        !
        if(MpiMaster)then
-          allocate(Vtmp(Ndim))
+          allocate(Vtmp(Ndims))
           allocate(Order(Dim))
           call twin_sector_order(c%twin%sector,Order)
        else
@@ -501,7 +501,7 @@ contains        !some routine to perform simple operation on the lists
        Vtmp = 0d0
        call gather_vector_MPI(MpiComm,c%twin%cvec,Vtmp)
        if(MpiMaster)then
-          allocate(Vector(Ndim))
+          allocate(Vector(Ndims))
           forall(i=1:Dim)Vector(i) = Vtmp(Order(i))
           deallocate(Order)
        else

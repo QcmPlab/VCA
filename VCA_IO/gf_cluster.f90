@@ -34,6 +34,17 @@
           enddo
        enddo
     enddo
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          do ilat=1,Nlat
+             do jlat=1,Nlat
+                if(ilat==jlat)cycle
+                gf(ilat,jlat,ispin,ispin,iorb,iorb) = 0.5d0*(gf(ilat,jlat,ispin,ispin,iorb,iorb) &
+                     - gf(ilat,ilat,ispin,ispin,iorb,iorb) - gf(jlat,jlat,ispin,ispin,iorb,iorb))    
+             enddo
+          enddo
+       enddo
+    enddo
     !
   end subroutine vca_gf_cluster_scalar
 

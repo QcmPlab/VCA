@@ -42,8 +42,8 @@ program vca_test
   if(Norb/=1)stop "Norb != 1"
   if(Nspin/=1)stop "Nspin != 1"
   !
-  Nx=2
-  Ny=2
+  Nx=4
+  Ny=4
   Lx   = Rx*Nx
   Ly   = Ry*Ny
   !

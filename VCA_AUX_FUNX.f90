@@ -179,7 +179,7 @@ contains
 
   subroutine set_Hk_nnn(hloc)
     complex(8),dimension(:,:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**2],"set_Hk_nnn","Hloc")
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim],"set_Hk_nnn","Hloc") ! FIXME: DIMENSION-DEPENDENT
     !
     impHk = Hloc
     !
@@ -188,11 +188,11 @@ contains
   end subroutine set_Hk_nnn
 
   subroutine set_Hk_lso(hloc)
-    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts]
+    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts**Ndim]
     integer                     :: i
-    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nkpts**2],"set_Hk_lso","Hloc")
+    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nkpts**ndim],"set_Hk_lso","Hloc") ! FIXME: DIMENSION-DEPENDENT
     !
-    do i=1,Nkpts**2
+    do i=1,Nkpts**Ndim ! FIXME: DIMENSION-DEPENDENT
         impHk(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(Hloc(:,:,i),Nlat,Nspin,Norb)
     enddo
     !

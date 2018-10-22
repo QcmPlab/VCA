@@ -18,7 +18,7 @@ contains
   !PURPOSE  : Build the GF of the cluster 
   !+------------------------------------------------------------------+
   subroutine build_gf_cluster()
-
+    !
     call allocate_grids
     !    
     impGmats=zero

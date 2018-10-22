@@ -52,6 +52,7 @@ program vca_test
   !
   Nx=2
   Ny=2
+  Ndim=2
   Lx   = Rx*Nx
   Ly   = Ry*Ny
   !
@@ -98,7 +99,6 @@ program vca_test
     ts_array = linspace(1.d-2,5.d0,Nloop)
     !
     do iloop=1,Nloop
-        !print*,"AAAAAAAAAAAAAAAAAAA",iloop,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
     enddo
     !
@@ -125,7 +125,6 @@ contains
   function solve_vca_square(tij) result(Omega)
     real(8)                      :: tij
     real(8)                      :: Omega
-    real(8),dimension(Nlat,Nlat) :: Hcluster
     !
     !
     t_var=tij
@@ -137,6 +136,7 @@ contains
     call vca_get_sft_potential(omega)
     print*,""
     print*,"------ DONE ------"
+    print*,""
     !
   end function solve_vca_square
 
@@ -190,10 +190,10 @@ contains
     !
     file_ = "Hk_matrix.dat"
     call TB_build_kgrid([Nkpts,Nkpts],kgrid)
-    !    
+    ! 
     kgrid=kgrid/2.d0 !!!!!DIVIDI PER NUMERO SITI, RBZ
     if(allocated(t_k))deallocate(t_k)
-    allocate(t_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(kgrid,1)))  
+    allocate(t_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(kgrid,1)))
     t_k=zero
     !
     do ik=1,size(kgrid,1)
