@@ -16,8 +16,8 @@ MODULE VCA_OMEGA
   public                                            :: reconstruct_g
   public                                            :: frequency_integration
   public                                            :: frequency_integration_sample
-  complex(8),allocatable,dimension(:,:)             :: tmp_mat,asd,lol
-  complex(8),allocatable,dimension(:,:,:,:,:,:)     :: gfprime,wut ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  complex(8),allocatable,dimension(:,:)             :: tmp_mat
+  complex(8),allocatable,dimension(:,:,:,:,:,:)     :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: gftest ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
@@ -37,15 +37,9 @@ contains
     !
     !
     if(allocated(tmp_mat))deallocate(tmp_mat)
-    if(allocated(asd))deallocate(asd)
-    if(allocated(lol))deallocate(lol)
-    if(allocated(wut))deallocate(wut)
     if(allocated(gfprime))deallocate(gfprime)
     !
     allocate(tmp_mat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    allocate(asd(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    allocate(lol(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    allocate(wut(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
     tmp_mat=zero
@@ -55,19 +49,13 @@ contains
     call vca_gf_cluster(xi*omega,gfprime)
     !
     do ii=1,size(impHk,7)
-       asd=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
-       wut=impHloc-impHk(:,:,:,:,:,:,ii)
-       lol=vca_nnn2lso_reshape(wut,Nlat,Nspin,Norb) 
-       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(lol,asd) !!FIXME: OCIO!
+       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
        out_1=out_1+log(abs(det(tmp_mat)))
     enddo
-    out_1=out_1/size(impHk,7) !*(pi**Ndim)
+    out_1=out_1/size(impHk,7)
     !
     deallocate(tmp_mat)
     deallocate(gfprime)
-    deallocate(asd)
-    deallocate(lol)
-    deallocate(wut)
     return
     !
   end function sum_kmesh
@@ -78,11 +66,13 @@ contains
 
   function frequency_integration() result(out_2)
     integer                         :: inf
-    real(8)                         :: out_2
+    real(8)                         :: out_2,spin_degeneracy
     !
     out_2=0.d0
-    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=.true.,result=out_2)!!FIXME
-    out_2=2*out_2/pi  ! FIXME: PERCHÈ DIAVOLO?
+    spin_degeneracy=3d0-Nspin 
+    !
+    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    out_2=spin_degeneracy*out_2/pi 
     return
   end function frequency_integration
 
@@ -101,7 +91,7 @@ contains
          func(i) = sum_kmesh(x(i))
       enddo
       call quad(func,a,b,Ninterp=3,key=6,epsabs=0d0,epsrel=1d-4,verbose=.true.,result=out_2)
-      out_2=out_2/pi
+      out_2=2*out_2/pi
       deallocate(x,func)
       return
   end function frequency_integration_sample

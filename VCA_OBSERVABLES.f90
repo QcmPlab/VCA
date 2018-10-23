@@ -110,6 +110,8 @@ contains
     sz2     = 0.d0
     simp    = 0.d0
     zimp    = 0.d0
+    nup     = 0.d0
+    ndw     = 0.d0
     Egs     = state_list%emin
     !
     do istate=1,state_list%size
@@ -197,6 +199,7 @@ contains
         imp_dens_dw = dens_dw
         imp_dens    = dens
         imp_docc    = docc
+
     endif
 #ifdef _MPI
     if(MpiStatus)then

@@ -64,7 +64,6 @@ program vca_chain1d
   ! FIXME: 
   t_var=1.531105953d0
   t=1.0d0
-  xmu=Uloc(1)/2.0
   mu=0.d0
   mu_var=0.d0
 
@@ -78,7 +77,7 @@ program vca_chain1d
   if(wloop)then
      allocate(ts_array(Nloop))
      allocate(omega_array(Nloop))
-     ts_array = linspace(1.d0,2.d0,Nloop)
+     ts_array = linspace(0.5d0,2.d0,Nloop)
      do iloop=1,Nloop
         omega_array(iloop)=solve_vca1d(ts_array(iloop))
      enddo
@@ -93,7 +92,7 @@ program vca_chain1d
 
   if(wmin)then
      print*,"Guess:",ts
-     call  brent(solve_vca1d,ts,[0d0,1d0])
+     call  brent(solve_vca1d,ts,[0.5d0,2d0])
      print*,"Result ts : ",ts
      stop
   endif

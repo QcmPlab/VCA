@@ -67,7 +67,7 @@
             do ilat=1,Nlat
                do iorb=1,Norb
                   do jorb=iorb+1,Norb
-                     htmp=htmp-0.5d0*Ust*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*Ust
+                     htmp=htmp-0.5d0*Ust*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb)) +0.25d0*Ust
                      htmp=htmp-0.5d0*(Ust-Jh)*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*(Ust-Jh)
                   enddo
                enddo

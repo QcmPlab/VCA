@@ -255,8 +255,6 @@ contains
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
     omega_integral=frequency_integration()
-    print*,"EGS PER SITE",state_list%emin/NLAT
-    print*,"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
     sft_potential = state_list%emin-omega_integral
     !
     !CLEAN UP
@@ -265,6 +263,8 @@ contains
     nullify(spHtimesV_p)
 
     if(MPI_MASTER) then
+        write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
+        write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
         open(free_unit(unit),file="SFT_potential.vca",position='append')
         write(unit,*)sft_potential
         close(unit)

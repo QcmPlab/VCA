@@ -52,6 +52,8 @@ contains
     integer,dimension(Ns_Ud,Ns_Orb)      :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]  CONTROLLA
     integer,dimension(Nlat,Norb)         :: Nup,Ndw    !CONTROLLA
     !
+    nup=0.d0
+    ndw=0.d0
 #ifdef _MPI
     if(Mpistatus .AND. MpiComm == MPI_COMM_NULL)return
 #endif

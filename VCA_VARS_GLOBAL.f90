@@ -44,7 +44,6 @@ MODULE VCA_VARS_GLOBAL
 
   !-------------- GMATRIX FOR FAST EVALUATION OF GF ------------------!
   !note that we use a single Qmatrix here which must be intended as
-  !the product Q^+.Q, corresponding to the weights of the GF, and a
   !component corresponding to the poles. 
   type GFspectrum
      real(8),dimension(:),allocatable :: weight
