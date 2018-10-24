@@ -47,8 +47,8 @@ program vca_test
   call vca_read_input(trim(finput),comm)
 
 
-  if(Norb/=1)stop "Norb != 1"
-  if(Nspin/=1)stop "Nspin != 1"
+  !if(Norb/=1)stop "Norb != 1"
+  !if(Nspin/=1)stop "Nspin != 1"
   !
   Nx=2
   Ny=2

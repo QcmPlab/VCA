@@ -45,9 +45,9 @@ contains
     real(8),dimension(Nloc)             :: Hv
     real(8),dimension(:),allocatable    :: vt,Hvt
     integer,dimension(Ns)               :: ibup,ibdw
-    integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb] CONTROLLA
-    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath] CONTROLLA
-    integer,dimension(Nlat,Norb)        :: Nup,Ndw !CONTROLLA
+    integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
+    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath] 
+    integer,dimension(Nlat,Norb)        :: Nup,Ndw 
     !
     if(.not.Hstatus)stop "directMatVec_cc ERROR: Hsector NOT set"
     isector=Hsector
@@ -84,7 +84,7 @@ contains
     integer,dimension(Ns)               :: ibup,ibdw
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
     integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath]
-    integer,dimension(Nlat,Norb)        :: Nup,Ndw !CONTROLLA
+    integer,dimension(Nlat,Norb)        :: Nup,Ndw 
     !
     integer,allocatable,dimension(:)    :: Counts,Displs
     !

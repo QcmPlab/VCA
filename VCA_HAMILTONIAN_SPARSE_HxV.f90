@@ -48,9 +48,9 @@ contains
     real(8),dimension(:,:),optional      :: Hmat
     real(8),dimension(:,:),allocatable   :: Htmp_up,Htmp_dw,Hrdx
     integer,dimension(Ns)                :: ibup,ibdw
-    integer,dimension(2*Ns_Ud)           :: Indices    ![2-2*Norb]  CONTROLLA
-    integer,dimension(Ns_Ud,Ns_Orb)      :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]  CONTROLLA
-    integer,dimension(Nlat,Norb)         :: Nup,Ndw    !CONTROLLA
+    integer,dimension(2*Ns_Ud)           :: Indices    ![2-2*Norb] 
+    integer,dimension(Ns_Ud,Ns_Orb)      :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath] 
+    integer,dimension(Nlat,Norb)         :: Nup,Ndw    !
     !
     nup=0.d0
     ndw=0.d0
@@ -68,7 +68,7 @@ contains
     if(spH0d%status)call sp_delete_matrix(spH0d)
     !
     !Get diagonal hybridization, bath energy
-    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 CONTROLLA
+    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 TODO
     !    
 #ifdef _MPI
     if(MpiStatus)then

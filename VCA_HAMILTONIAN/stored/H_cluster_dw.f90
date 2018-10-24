@@ -10,7 +10,7 @@
          do jlat=1,Nlat
              do iorb=1,Norb
                 do jorb=1,Norb
-                   is = imp_state_index(ilat,iorb,1) !CONTROLLA 
+                   is = imp_state_index(ilat,iorb,1) 
                    js = imp_state_index(jlat,jorb,1)
                    Jcondition = (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=0d0).AND.(ibdw(js)==1).AND.(ibdw(is)==0)
                    if (Jcondition) then

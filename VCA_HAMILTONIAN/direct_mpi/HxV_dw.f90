@@ -12,7 +12,7 @@
              do jlat=1,Nlat
               do iorb=1,Norb
                  do jorb=1,Norb
-                       is = imp_state_index(ilat,iorb,1) !CONTROLLA 1 is actually not used
+                       is = imp_state_index(ilat,iorb,1) ! 1 is actually not used
                        js = imp_state_index(jlat,jorb,1)
                     Jcondition = &
                          (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=zero) .AND. &

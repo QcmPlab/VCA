@@ -30,7 +30,7 @@ MODULE VCA_GF_SHARED
 
   !AUX GF
   !=========================================================
-  complex(8),allocatable,dimension(:,:)       :: auxGmats,auxGreal !CONTROLLA
+  complex(8),allocatable,dimension(:,:)       :: auxGmats,auxGreal 
 
 
 

@@ -143,7 +143,7 @@ contains
     write(LOGfile,"(A)")"SOLVING VCA"
     !
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc") 
-    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk") ! FIXME: DIMENSION-DEPENDENT
+    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk") 
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -220,7 +220,7 @@ contains
     if(MPI_MASTER)write(LOGfile,"(A)")"SOLVING VCA"
     !
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
-    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk") ! FIXME: DIMENSION-DEPENDENT
+    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk")
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"

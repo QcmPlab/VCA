@@ -1,4 +1,4 @@
-  do i=MpiIstart,MpiIend !ASSIGNED IN VCA_HAMILTONIAN.F90 CONTROLLA!!
+  do i=MpiIstart,MpiIend !ASSIGNED IN VCA_HAMILTONIAN.F90
      iup = iup_index(i,DimUp)
      idw = idw_index(i,DimUp)
      !
@@ -76,7 +76,7 @@
       endif
      !
      !
-     !> H_Bath: local bath energy contribution.  CONTROLLA!
+     !> H_Bath: local bath energy contribution.  !TODO
      !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
      !do iorb=1,size(bath_diag,2)
         !do kp=1,Nbath

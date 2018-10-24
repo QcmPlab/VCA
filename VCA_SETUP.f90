@@ -82,7 +82,7 @@ contains
   subroutine vca_setup_dimensions()
     Ns = (Nbath+1)*Nlat*Norb
     !
-    select case(vca_total_ud)  !!CONTROLLA
+    select case(vca_total_ud) 
       case (.true.)
          Ns_Orb = Ns
          Ns_Ud  = 1
@@ -196,8 +196,8 @@ contains
     !if(Nspin>2)stop "ED ERROR: Nspin > 2 is currently not supported"
     !if(Norb>2)stop "ED ERROR: Norb > 2 is currently not supported"
     !
-    offdiag_gf_flag=vca_solve_offdiag_gf            !!CONTROLLA
-    !if(bath_type/="normal")offdiag_gf_flag=.true.	!!CONTROLLA
+    offdiag_gf_flag=vca_solve_offdiag_gf            !!
+    !if(bath_type/="normal")offdiag_gf_flag=.true.	!!TODO
 	!
     if(nread/=0.d0)then
        i=abs(floor(log10(abs(nerr)))) !modulus of the order of magnitude of nerror
@@ -276,7 +276,7 @@ contains
     integer                          :: Indices(2*Ns_Ud),Jndices(2*Ns_Ud)
     integer                          :: Nups(Ns_ud),Ndws(Ns_ud)
     integer                          :: Jups(Ns_ud),Jdws(Ns_ud)
-    integer                          :: i,iud,iorb,ilat,stride !CONTROLLA
+    integer                          :: i,iud,iorb,ilat,stride
     integer                          :: isector,jsector
     integer                          :: unit,status,istate,ishift,isign
     logical                          :: IOfile
@@ -348,14 +348,14 @@ contains
     ! ([1..Nb]_1...[1..Nb]_Na)_1
     !  ...
     ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
-    stride=Nlat*Norb !!CONTROLLA
+    stride=Nlat*Norb 
     ! select case(bath_type)
     ! case default
     do ilat=1,Nlat
        do iorb=1,Norb
           do i=1,Nbath
              getBathStride(ilat,iorb,i) = i + &
-                  (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride !!CONTROLLA
+                  (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride 
           enddo
        enddo
     enddo
@@ -733,7 +733,7 @@ contains
   ! ([1..Nb]_1...[1..Nb]_Na)_1
   !  ...
   ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
-  !function imp_state_index(ilat,iorb,ispin) result(indx)  !CONTROLLA
+  !function imp_state_index(ilat,iorb,ispin) result(indx)  
     !integer :: ilat
     !integer :: ispin
     !integer :: iorb
@@ -741,7 +741,7 @@ contains
     !indx = iorb + (ilat-1)*Norb + (ispin-1)*(Nbath+1)*Norb*Nlat
   !end function imp_state_index
 
-  function imp_state_index(ilat,iorb,ibath) result(indx)  !CONTROLLA
+  function imp_state_index(ilat,iorb,ibath) result(indx)  
     integer :: ilat
     integer :: ibath
     integer :: iorb

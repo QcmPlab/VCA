@@ -96,10 +96,6 @@ contains
   include "VCA_IO/get_mag.f90"
   include "VCA_IO/get_docc.f90"
   include "VCA_IO/get_sft_potential.f90"
-  !include "ED_IO/get_eimp.f90"      CONTROLLA
-  !include "ED_IO/get_doubles.f90"   CONTROLLA
-  !
-  !include "ED_IO/get_imp_dm.f90"    CONTROLLA
 
 
 
@@ -204,6 +200,6 @@ contains
 END MODULE VCA_IO
 
 
-!!  CONTROLLA: add read_impSigma
+!!  TODO: add read_impSigma
 
 
