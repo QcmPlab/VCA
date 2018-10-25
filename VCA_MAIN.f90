@@ -251,6 +251,9 @@ contains
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
+    call save_gfprime("gfprime")
+    call read_gfprime("gfprime")
+    call reconstruct_g()
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
