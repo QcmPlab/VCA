@@ -12,12 +12,15 @@ MODULE VCA_OMEGA
   private 
 
   public                                            :: sum_kmesh
-  public                                            :: test_ksum
-  public                                            :: reconstruct_g
   public                                            :: frequency_integration
   public                                            :: frequency_integration_sample
+
+  public                                            :: test_ksum
+  public                                            :: reconstruct_g
+
   complex(8),allocatable,dimension(:,:)             :: tmp_mat
   complex(8),allocatable,dimension(:,:,:,:,:,:)     :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: gftest ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
 
 
@@ -96,9 +99,6 @@ contains
       deallocate(x,func)
       return
   end function frequency_integration_sample
-
-
-
 
 
 
