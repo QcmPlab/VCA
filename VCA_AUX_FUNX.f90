@@ -38,6 +38,14 @@ MODULE VCA_AUX_FUNX
      module procedure :: print_Hcluster_lso
   end interface vca_print_Hcluster
 
+  interface read(unformatted)
+    procedure read_unformatted
+  end interface read(unformatted)
+  
+  interface write(unformatted)
+    procedure write_unformatted
+  end interface write(unformatted)
+
 
   public :: vca_get_cluster_dimension
   !
@@ -48,6 +56,8 @@ MODULE VCA_AUX_FUNX
   public :: vca_lso2nnn_reshape
   public :: vca_nnn2lso_reshape
   !
+  public :: save_gfprime
+  public :: read_gfprime
   !
   public :: search_chemical_potential
 
@@ -204,9 +214,6 @@ contains
 
 
 
-
-
-
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: 
   ! reshape a matrix from/to the
@@ -323,18 +330,120 @@ contains
 
 
 
+  !##################################################################
+  !##################################################################
+  ! ROUTINES TO READ AND WRITE CLUSTER GREEN FUNCTION
+  ! unformatted I/O
+  !##################################################################
+  !##################################################################
 
+!+-------------------------------------------------------------------+
+!PURPOSE  : write overload for GFmatrix type (unformatted)
+!+-------------------------------------------------------------------+
 
+subroutine write_unformatted(dtv, unit, iostat, iomsg)
+    class(GFmatrix), intent(in)         :: dtv
+    integer, intent(in)                 :: unit
+    integer, intent(out)                :: iostat
+    integer                             :: Nexc,iexc,Ichan,ilat,jlat,iorb,ispin
+    integer                             :: Nchan
+    character(*), intent(inout)         :: iomsg
+    !
+    !
+    Nchan = size(dtv%channel)
+    write (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
+    do ichan=1,Nchan
+      write (unit, IOSTAT=iostat, IOMSG=iomsg) size(dtv%channel(ichan)%poles), dtv%channel(ichan)%poles, dtv%channel(ichan)%weight
+    enddo
+    !
+end subroutine write_unformatted
 
+!+-------------------------------------------------------------------+
+!PURPOSE  : read overload for GFmatrix type (unformatted)
+!+-------------------------------------------------------------------+
 
+subroutine read_unformatted(dtv, unit, iostat, iomsg)
+    class(GFmatrix), intent(inout)                :: dtv
+    integer, intent(in)                           :: unit
+    integer, intent(out)                          :: iostat
+    character(*), intent(inout)                   :: iomsg
+    logical                                       :: alloc
+    integer                                       :: ichan,Nchan,Nlanc
+    !
+    read (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
+    call GFmatrix_allocate(dtv,N=Nchan)
+    do ichan=1,Nchan
+      read (unit, IOSTAT=iostat, IOMSG=iomsg) Nlanc
+      call GFmatrix_allocate(dtv,i=ichan,Nexc=Nlanc)
+      read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%poles
+      read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%weight
+    enddo
+    !
+end subroutine read_unformatted
 
+!+-------------------------------------------------------------------+
+!PURPOSE  : Save cluster GF to file
+!+-------------------------------------------------------------------+
 
+subroutine save_gfprime(file,used)
+  character(len=*),optional :: file
+  character(len=256)        :: file_
+  logical,optional          :: used
+  logical                   :: used_
+  character(len=16)         :: extension
+  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
+  !
+  if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
+  used_=.false.;if(present(used))used_=used
+  extension=".restart";if(used_)extension=".used"
+  file_=str(str(file)//str(file_suffix)//str(extension))
+  unit_=free_unit()
+  !
+  open(unit_,file=str(file_),form='unformatted',access='sequential')
+  do ilat=1,Nlat
+    do jlat=1,Nlat
+      do ispin=1,Nspin
+        do iorb=1,Norb
+          write(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
+        enddo
+      enddo
+    enddo
+  enddo
+  close(unit_)
+end subroutine save_gfprime
 
+!+-------------------------------------------------------------------+
+!PURPOSE  : Read cluster GF from file
+!+-------------------------------------------------------------------+
 
-
-
-
-
+subroutine read_gfprime(file,used)
+  character(len=*),optional :: file
+  character(len=256)        :: file_
+  logical,optional          :: used
+  logical                   :: used_
+  character(len=16)         :: extension
+  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
+  !
+  if(allocated(impGmatrix))deallocate(impGmatrix)
+  allocate(impGmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  used_=.false.;if(present(used))used_=used
+  extension=".restart";if(used_)extension=".used"
+  file_=str(str(file)//str(file_suffix)//str(extension))
+  unit_=free_unit()
+  open(unit_,file=str(file_),form='unformatted',access='sequential')
+  rewind(unit_)
+  !
+  do ilat=1,Nlat
+    do jlat=1,Nlat
+      do ispin=1,Nspin
+        do iorb=1,Norb
+          read(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
+        enddo
+      enddo
+    enddo
+  enddo
+  close(unit_)
+end subroutine read_gfprime
 
 
 

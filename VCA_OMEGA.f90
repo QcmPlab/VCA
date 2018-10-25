@@ -13,9 +13,9 @@ MODULE VCA_OMEGA
 
   public                                            :: sum_kmesh
   public                                            :: test_ksum
-  public                                            :: reconstruct_g
   public                                            :: frequency_integration
   public                                            :: frequency_integration_sample
+  public                                            :: reconstruct_g
   complex(8),allocatable,dimension(:,:)             :: tmp_mat
   complex(8),allocatable,dimension(:,:,:,:,:,:)     :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: gftest ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
@@ -101,14 +101,12 @@ contains
 
 
 
-
-
-
  !+------------------------------------------------------------------+
   !PURPOSE  : DEBUG
   !+------------------------------------------------------------------+
 
   subroutine reconstruct_g
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: gftest ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
     character(len=64) :: suffix
     integer           :: ilat,jlat,iorb,ispin,ifreq
     allocate(gftest(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
