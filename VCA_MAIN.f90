@@ -177,9 +177,12 @@ contains
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
     omega_integral=frequency_integration()
-    print*,"EGS PER SITE",state_list%emin/NLAT
-    print*,"OMEGA POTENTIAL=",state_list%emin-omega_integral
-    sft_potential =state_list%emin-omega_integral
+    !
+    write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
+    write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
+    open(free_unit(unit),file="SFT_potential.vca",position='append')
+    write(unit,*)sft_potential
+    close(unit)
     !
     !CLEAN UP
     !
@@ -251,8 +254,8 @@ contains
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
-    call save_gfprime("gfprime")
-    call read_gfprime("gfprime")
+    call save_gfprime("gfprime",use_formatted=.false.)
+    call read_gfprime("gfprime",use_formatted=.false.)
     call reconstruct_g()
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
@@ -260,11 +263,8 @@ contains
     omega_integral=frequency_integration()
     sft_potential = state_list%emin-omega_integral
     !
-    !CLEAN UP
+    !PRINT
     !
-    call es_delete_espace(state_list)
-    nullify(spHtimesV_p)
-
     if(MPI_MASTER) then
         write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
         write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
@@ -272,6 +272,11 @@ contains
         write(unit,*)sft_potential
         close(unit)
     endif
+    !
+    !CLEAN UP
+    !
+    call es_delete_espace(state_list)
+    nullify(spHtimesV_p)
     !
     if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     call vca_del_MpiComm()

@@ -62,7 +62,7 @@ program vca_chain1d
   if(Nspin/=1)stop "Nspin != 1"
   !
   ! FIXME: 
-  t_var=1.531105953d0
+  t_var=1.d0
   t=1.0d0
   mu=0.d0
   mu_var=0.d0
