@@ -5,7 +5,7 @@ MODULE VCA_GF_NORMAL
 
 
   public :: build_gf_normal
-  !public :: build_sigma_normal
+  public :: build_sigma_normal
 
 
   integer                   :: istate
@@ -743,55 +743,64 @@ end subroutine add_to_lanczos_gf_normal
   !############################################################################################
 
 
-
-
-
-
-  !subroutine build_sigma_normal
-    !integer                                                     :: i,ispin,iorb
-    !complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
-    !complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
-    !complex(8),dimension(Nlat,Nlat)                             :: invGimp
-    !!
-    !! if(.not.allocated(wm))allocate(wm(Lmats))
-    !! if(.not.allocated(wr))allocate(wr(Lreal))
-    !! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    !! wr     = linspace(wini,wfin,Lreal)
-    !!
-    !invG0mats = zero
-    !invGmats  = zero
-    !invG0real = zero
-    !invGreal  = zero
-    !!
-    !!Get G0^-1
+  subroutine build_sigma_normal
+    integer                                                     :: ii,ilat,jlat,ispin,iorb
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
+    complex(8),dimension(Nlat,Nlat)                             :: invGimp
+    !
+    ! if(.not.allocated(wm))allocate(wm(Lmats))
+    ! if(.not.allocated(wr))allocate(wr(Lreal))
+    ! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    ! wr     = linspace(wini,wfin,Lreal)
+    !
+    invG0mats = zero
+    invGmats  = zero
+    invG0real = zero
+    invGreal  = zero
+    !
+    !Get G0^-1
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
     !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
-    !!
-    !!
-    !!Get Gimp^-1
-    !do ispin=1,Nspin
-      !do iorb=1,Norb
-         !invGmats(ispin,ispin,iorb,iorb,:) = one/impGmats(ispin,ispin,iorb,iorb,:)
-         !invGreal(ispin,ispin,iorb,iorb,:) = one/impGreal(ispin,ispin,iorb,iorb,:)
-      !enddo
-    !enddo
-    !!Get Sigma functions: Sigma= G0^-1 - G^-1
-    !impSmats=zero
-    !impSreal=zero
-    !do ispin=1,Nspin
-      !do iorb=1,Norb
-         !impSmats(ispin,ispin,iorb,iorb,:) = invG0mats(ispin,ispin,iorb,iorb,:) - invGmats(ispin,ispin,iorb,iorb,:)
-         !impSreal(ispin,ispin,iorb,iorb,:) = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
-      !enddo
-    !enddo
-       !!
-    !!
-    !!Get G0and:
+    do ii=1,Lmats
+      invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+    enddo
+    do ii=1,Lreal
+      invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+    enddo
+    !
+    !Get Gimp^-1
+    do ilat=1,Nlat
+      do jlat=1,Nlat
+        do ispin=1,Nspin
+          do iorb=1,Norb
+             invGmats(ilat,jlat,ispin,ispin,iorb,iorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,iorb,:)
+             invGreal(ilat,jlat,ispin,ispin,iorb,iorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,iorb,:)
+          enddo
+        enddo
+      enddo
+    enddo
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
+    impSmats=zero
+    impSreal=zero
+    do ilat=1,Nlat
+      do jlat=1,Nlat
+        do ispin=1,Nspin
+          do iorb=1,Norb
+             impSmats(ilat,jlat,ispin,ispin,iorb,iorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,iorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,iorb,:)
+             impSreal(ilat,jlat,ispin,ispin,iorb,iorb,:) = invG0real(ilat,jlat,ispin,ispin,iorb,iorb,:) - invGreal(ilat,jlat,ispin,ispin,iorb,iorb,:)
+          enddo
+        enddo
+      enddo
+    enddo
+       !
+    !
+    !Get G0and:
     !impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     !impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
-    !!!
     !!
-  !end subroutine build_sigma_normal
+    !
+  end subroutine build_sigma_normal
 
 
 END MODULE VCA_GF_NORMAL

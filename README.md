@@ -14,6 +14,7 @@ The code is based on:
 - [ ] make it possible to pass t as a (Nlso,Nlso,Nk) object (useful for
 superconducting case, that is not realizable in this branch)
 - [ ] calculate the Self-Energy
+- [ ] implement G-scheme periodization
 - [ ] fix flags for the integration routines (actually in Scifor)
 - [ ] extend to orbital-resolved case
 - [ ] add bath

@@ -18,7 +18,7 @@ program vca_chain1d
   complex(8)                                      :: iw
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: t_k
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
   character(len=16)                               :: finput
   real(8)                                         :: ts
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
@@ -29,6 +29,11 @@ program vca_chain1d
   real(8)                                         :: mu,t,t_var,mu_var
   real(8),dimension(:),allocatable                :: ts_array,omega_array
   integer,dimension(1)                            :: min_loc
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_periodized ![Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: impSmats_periodized         ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: impSreal_periodized         ![Nspin][Nspin][Norb][Norb][Lreal]
+
 
   call init_MPI()
   comm = MPI_COMM_WORLD
@@ -84,8 +89,8 @@ program vca_chain1d
      call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
   else
     call generate_tcluster()
-    call generate_tk()
-    call vca_solve(comm,t_prime,t_k)
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
   endif
 
   !MINIMIZATION:
@@ -117,8 +122,8 @@ contains
     !
     print*,"T_VAR = ",t_var
     call generate_tcluster()
-    call generate_tk()
-    call vca_solve(comm,t_prime,t_k)
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
     call vca_get_sft_potential(omega)
     !
     print*,"------ DONE ------"
@@ -159,45 +164,149 @@ contains
 
 
 
-  subroutine generate_tk()
+  subroutine generate_hk()
     integer                             :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(Ndim)             :: kpoint
-    character(len=64)                   :: file_
     real(8),dimension(Nkpts,1)          :: kgrid
-    complex(8),dimension(Nlat,Nlat)     :: H0
-    !
-    file_ = "tk_matrix_at_some_k.dat"
     !
     call TB_build_kgrid([Nkpts],kgrid)
     kgrid=kgrid/Nlat !!!!!DIVIDI OGNI K PER NUMERO SITI, RBZ
     !
-    if(allocated(t_k))deallocate(t_k)
-    allocate(t_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(kgrid,1)))  
-    t_k=zero
+    if(allocated(h_k))deallocate(h_k)
+    allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(kgrid,1)))  
+    h_k=zero
     !
     do ik=1,size(kgrid,1)
         !
-        kpoint=kgrid(ik,1)
-        !
-        do ii=1,Nlat
-            t_k(ii,ii,1,1,1,1,ik)= -mu
-            !
-            if(ii>1)t_k(ii,ii-1,1,1,1,1,ik)= -t
-            if(ii<Nlat)t_k(ii,ii+1,1,1,1,1,ik)= -t
-        enddo
-        !
-        t_k(1,Nlat,1,1,1,1,ik)=t_k(1,Nlat,1,1,1,1,ik)-t*exp(xi*kpoint(1)*Nlat)
-        t_k(Nlat,1,1,1,1,1,ik)=t_k(Nlat,1,1,1,1,1,ik)-t*exp(-xi*kpoint(1)*Nlat)
+        h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,1))
         !
     enddo
-    H0=vca_nnn2lso_reshape(t_k(:,:,:,:,:,:,10),Nlat,Nspin,Norb)
+    !    
+  end subroutine generate_hk
+
+
+  function tk(kpoint) result(hopping_matrix)
+    integer                                                               :: ilat,ispin,iorb,unit,jj
+    real(8),dimension(Ndim),intent(in)                                    :: kpoint
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                 :: hopping_matrix
     !
-    open(free_unit(unit),file=trim(file_))
-    do ii=1,Nlat
-       write(unit,"(5000(F5.2,1x))")(H0(ii,jj),jj=1,Nlat)
+    do ilat=1,Nlat
+        hopping_matrix(ilat,ilat,1,1,1,1)= -mu
+        !
+        if(ilat>1)hopping_matrix(ilat,ilat-1,1,1,1,1)= -t
+        if(ilat<Nlat)hopping_matrix(ilat,ilat+1,1,1,1,1)= -t
     enddo
-    close(unit)       
-  end subroutine generate_tk
+    !
+    hopping_matrix(1,Nlat,1,1,1,1)=hopping_matrix(1,Nlat,1,1,1,1)-t*exp(xi*kpoint(1)*Nlat)
+    hopping_matrix(Nlat,1,1,1,1,1)=hopping_matrix(Nlat,1,1,1,1,1)-t*exp(-xi*kpoint(1)*Nlat)
+    ! 
+  end function tk
+
+
+  subroutine periodize_g_scheme(kpoint)
+    integer                                                     :: ilat,jlat,ispin,iorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint
+    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    !
+    !
+    allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    gfmats_unperiodized=zero
+    gfreal_unperiodized=zero
+    gfprime=zero
+    gfmats_periodized=zero
+    gfreal_periodized=zero
+    !
+    !
+    do ii=1,Lmats    
+        call vca_gf_cluster(xi*wm(ii),gfprime)
+        gfmats_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+        do ilat=1,Nlat
+          do jlat=1,Nlat
+             gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)
+          enddo
+        enddo
+   enddo
+    do ii=1,Lreal    
+        call vca_gf_cluster(wr(ii),gfprime)
+        gfreal_unperiodized(:,:,:,:,:,:,Lmats)=gfprime+t_prime-tk(kpoint)
+        do ilat=1,Nlat
+          do jlat=1,Nlat
+             gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)
+          enddo
+        enddo
+   enddo
+   !   
+  end subroutine periodize_g_scheme
+
+
+
+  subroutine build_sigma_g_scheme(kpoint)
+    integer                                                     :: i,ispin,iorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: invG0mats,invGmats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)           :: invG0real,invGreal
+    !
+    ! if(.not.allocated(wm))allocate(wm(Lmats))
+    ! if(.not.allocated(wr))allocate(wr(Lreal))
+    ! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    ! wr     = linspace(wini,wfin,Lreal)
+    !
+    allocate(impSmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(impSreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    invG0mats = zero
+    invGmats  = zero
+    invG0real = zero
+    invGreal  = zero
+    impSmats_periodized  = zero
+    impSreal_periodized  = zero
+    !
+    !Get G0^-1
+    !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
+    !
+    !Get G0^-1
+    do ispin=1,Nspin
+      do iorb=1,Norb
+        do ii=1,Lmats
+            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
+        enddo
+        do ii=1,Lreal
+            invG0real(ispin,ispin,iorb,iorb,ii) = (xi*wr(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
+        enddo
+      enddo
+    enddo
+    !
+    !Get Gimp^-1
+    call periodize_g_scheme(kpoint)
+    do ispin=1,Nspin
+      do iorb=1,Norb
+         invGmats(ispin,ispin,iorb,iorb,:) = one/gfmats_periodized(ispin,ispin,iorb,iorb,:)
+         invGreal(ispin,ispin,iorb,iorb,:) = one/gfreal_periodized(ispin,ispin,iorb,iorb,:)
+      enddo
+    enddo
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
+    impSmats_periodized=zero
+    impSreal_periodized=zero
+    do ispin=1,Nspin
+      do iorb=1,Norb
+         impSmats_periodized(ispin,ispin,iorb,iorb,:) = invG0mats(ispin,ispin,iorb,iorb,:) - invGmats(ispin,ispin,iorb,iorb,:)
+         impSreal_periodized(ispin,ispin,iorb,iorb,:) = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
+      enddo
+    enddo
+       !
+    !
+    !Get G0and:
+    !impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
+    !impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    !!
+    !
+  end subroutine build_sigma_g_scheme
 
 
  

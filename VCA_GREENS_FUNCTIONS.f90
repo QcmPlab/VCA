@@ -33,7 +33,7 @@ contains
     !
     write(LOGfile,"(A)")"Get cluster Greens functions:"
     call build_gf_normal()
-    !call build_sigma_normal()
+    call build_sigma_normal()
     !
     if(print_Sigma)call vca_print_impSigma()
     if(print_impG)call vca_print_impG()
