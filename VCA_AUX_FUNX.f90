@@ -22,6 +22,15 @@ MODULE VCA_AUX_FUNX
      module procedure :: c_nnn2nlso_scalar
   end interface vca_nnn2lso_reshape
 
+  interface vca_so2nn_reshape
+     module procedure d_nso2nn
+     module procedure c_nso2nn
+  end interface vca_so2nn_reshape
+
+  interface vca_nn2so_reshape
+     module procedure d_nn2nso
+     module procedure c_nn2nso
+  end interface vca_nn2so_reshape
 
   interface vca_set_Hcluster
      module procedure :: set_Hcluster_nnn
@@ -62,6 +71,8 @@ MODULE VCA_AUX_FUNX
   !
   public :: vca_lso2nnn_reshape
   public :: vca_nnn2lso_reshape
+  public :: vca_so2nn_reshape
+  public :: vca_nn2so_reshape
   !
   public :: save_gfprime
   public :: read_gfprime
@@ -333,7 +344,84 @@ contains
     enddo
   end function c_nnn2nlso_scalar
 
+  function d_nso2nn(Hso,Nspin,Norb) result(Hnn)
+    real(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+    integer                                  :: Nspin,Norb
+    real(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+    integer                                  :: iorb,ispin,is
+    integer                                  :: jorb,jspin,js
+    Hnn=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                Hnn(ispin,jspin,iorb,jorb) = Hso(is,js)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function d_nso2nn
+  function c_nso2nn(Hso,Nspin,Norb) result(Hnn)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+    integer                                     :: iorb,ispin,is
+    integer                                     :: jorb,jspin,js
+    Hnn=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                Hnn(ispin,jspin,iorb,jorb) = Hso(is,js)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function c_nso2nn
 
+ function d_nn2nso(Hnn,Nspin,Norb) result(Hso)
+    real(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+    integer                                  :: Nspin,Norb
+    real(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+    integer                                  :: iorb,ispin,is
+    integer                                  :: jorb,jspin,js
+    Hso=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                Hso(is,js) = Hnn(ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function d_nn2nso
+
+  function c_nn2nso(Hnn,Nspin,Norb) result(Hso)
+    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+    integer                                     :: iorb,ispin,is
+    integer                                     :: jorb,jspin,js
+    Hso=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                Hso(is,js) = Hnn(ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function c_nn2nso
 
   !##################################################################
   !##################################################################

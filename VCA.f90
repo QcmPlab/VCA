@@ -18,7 +18,8 @@ MODULE VCA
        vca_get_dens,            &
        vca_get_mag,             &
        vca_get_docc,            &
-       vca_get_sft_potential
+       vca_get_sft_potential,   &
+       vca_gf_cluster
 
 
   USE VCA_BATH_SETUP, only:     &

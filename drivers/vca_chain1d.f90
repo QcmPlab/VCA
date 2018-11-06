@@ -8,7 +8,7 @@ program vca_chain1d
   integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
   integer                                         :: iloop
-  integer                                         :: ix,iy
+  integer                                         :: ix,iy,ik
   logical                                         :: converged
   real(8)                                         :: wband
 
@@ -33,6 +33,7 @@ program vca_chain1d
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_periodized ![Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: impSmats_periodized         ![Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: impSreal_periodized         ![Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable,dimension(:,:,:,:,:)           :: gtest_mats,gtest_Real,sigmatest_mats,sigmatest_real
 
 
   call init_MPI()
@@ -67,7 +68,7 @@ program vca_chain1d
   if(Nspin/=1)stop "Nspin != 1"
   !
   ! FIXME: 
-  t_var=1.d0
+  t_var=1.531105953d0
   t=1.0d0
   mu=0.d0
   mu_var=0.d0
@@ -101,8 +102,34 @@ program vca_chain1d
      print*,"Result ts : ",ts
      stop
   endif
-
-
+  !
+  allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  gtest_mats=zero
+  sigmatest_mats=zero
+  gtest_real=zero
+  sigmatest_real=zero
+  !
+  do ik=1,Nkpts
+      print*,ik
+      call periodize_g_scheme([(2*pi/Nkpts)*ik])
+      call build_sigma_g_scheme([(2*pi/Nkpts)*ik])
+      do ix=1,Lmats
+          gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/Nkpts
+          sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/Nkpts
+      enddo
+      do ix=1,Lreal
+          gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/Nkpts
+          sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/Nkpts
+      enddo
+  enddo
+  gfmats_periodized=gtest_mats
+  impSmats_periodized=sigmatest_mats
+  gfreal_periodized=gtest_real
+  impSreal_periodized=sigmatest_real
+  call print_periodized()
 
 !+------------------------------------------------------------------+
 !FUNCTIONS
@@ -209,12 +236,16 @@ contains
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
     !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
     !
     allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     !
     gfmats_unperiodized=zero
     gfreal_unperiodized=zero
@@ -226,22 +257,32 @@ contains
     do ii=1,Lmats    
         call vca_gf_cluster(xi*wm(ii),gfprime)
         gfmats_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
-        do ilat=1,Nlat
-          do jlat=1,Nlat
-             gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)
-          enddo
-        enddo
-   enddo
+    enddo
+    !
     do ii=1,Lreal    
-        call vca_gf_cluster(wr(ii),gfprime)
-        gfreal_unperiodized(:,:,:,:,:,:,Lmats)=gfprime+t_prime-tk(kpoint)
-        do ilat=1,Nlat
+        call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
+        gfreal_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+    enddo
+    !
+    do ii=1,Lmats
+      do ilat=1,Nlat
           do jlat=1,Nlat
-             gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)
+           gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
           enddo
+      enddo
+    enddo
+    !
+    do ii=1,Lreal   
+     do ilat=1,Nlat
+        do jlat=1,Nlat
+          gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*kpoint(1)*(ilat-jlat))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
         enddo
-   enddo
-   !   
+      enddo
+    enddo
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr) 
+    !   
   end subroutine periodize_g_scheme
 
 
@@ -252,13 +293,13 @@ contains
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: invG0mats,invGmats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)           :: invG0real,invGreal
     !
-    ! if(.not.allocated(wm))allocate(wm(Lmats))
-    ! if(.not.allocated(wr))allocate(wr(Lreal))
-    ! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    ! wr     = linspace(wini,wfin,Lreal)
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
     !
-    allocate(impSmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    allocate(impSreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(impSmats_periodized))allocate(impSmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impSreal_periodized))allocate(impSreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     invG0mats = zero
     invGmats  = zero
     invG0real = zero
@@ -274,10 +315,10 @@ contains
     do ispin=1,Nspin
       do iorb=1,Norb
         do ii=1,Lmats
-            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
+            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  -(-2.d0*t*cos(kpoint(1))-xmu)                ! FIXME: ad-hoc solution
         enddo
         do ii=1,Lreal
-            invG0real(ispin,ispin,iorb,iorb,ii) = (xi*wr(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
+            invG0real(ispin,ispin,iorb,iorb,ii) = (wr(ii)+xmu)  -(-2.d0*t*cos(kpoint(1))-xmu)                ! FIXME: ad-hoc solution
         enddo
       enddo
     enddo
@@ -299,15 +340,40 @@ contains
          impSreal_periodized(ispin,ispin,iorb,iorb,:) = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
       enddo
     enddo
-       !
     !
-    !Get G0and:
-    !impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
-    !impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
-    !!
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
     !
   end subroutine build_sigma_g_scheme
 
+  !+------------------------------------------------------------------+
+  !                         PRINT 
+  !+------------------------------------------------------------------+  
+
+  subroutine print_periodized()
+    character(len=64) :: suffix
+    integer           :: iorb,ispin
+    !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
+    do iorb=1,Norb
+     do ispin=1,Nspin
+        suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
+        call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perG"//reg(suffix)//"_realw.vca",wr,gfreal_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,impSmats_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perSigma"//reg(suffix)//"_realw.vca",wr,impSreal_periodized(ispin,ispin,iorb,iorb,:))
+      enddo
+    enddo
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    !
+  end subroutine print_periodized
 
  
 
