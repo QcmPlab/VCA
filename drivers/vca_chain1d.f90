@@ -114,7 +114,7 @@ program vca_chain1d
   !
   do ik=1,Nkpts
       print*,ik
-      call periodize_g_scheme([(2*pi/Nkpts)*ik])
+      !call periodize_g_scheme([(2*pi/Nkpts)*ik])
       call build_sigma_g_scheme([(2*pi/Nkpts)*ik])
       do ix=1,Lmats
           gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/Nkpts
@@ -315,10 +315,10 @@ contains
     do ispin=1,Nspin
       do iorb=1,Norb
         do ii=1,Lmats
-            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  -(-2.d0*t*cos(kpoint(1))-xmu)                ! FIXME: ad-hoc solution
+            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
         enddo
         do ii=1,Lreal
-            invG0real(ispin,ispin,iorb,iorb,ii) = (wr(ii)+xmu)  -(-2.d0*t*cos(kpoint(1))-xmu)                ! FIXME: ad-hoc solution
+            invG0real(ispin,ispin,iorb,iorb,ii) = (wr(ii)+xmu)  -(-2.d0*t*cos(kpoint(1)))                ! FIXME: ad-hoc solution
         enddo
       enddo
     enddo
