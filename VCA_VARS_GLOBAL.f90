@@ -142,9 +142,6 @@ MODULE VCA_VARS_GLOBAL
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impGmats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impGreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
-  complex(8),allocatable,dimension(:,:,:,:,:)   :: fullGmats    ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:)   :: fullGreal    ![Nspin][Nspin][Norb][Norb][L]
-  !
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impG0mats ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impG0real ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
