@@ -66,33 +66,33 @@ contains
 
   function frequency_integration() result(out_2)
     integer                         :: inf
-    real(8)                         :: out_2,spin_degeneracy
+    real(8)                         :: out_2,UNEXPLAINED_2
     !
     out_2=0.d0
-    spin_degeneracy=3d0-Nspin 
+    UNEXPLAINED_2=2.d0 ! FIXME: RATHER SELF-EXPLANATORY
     !
     call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
-    out_2=spin_degeneracy*out_2/pi 
+    out_2=UNEXPLAINED_2*out_2/pi 
     return
   end function frequency_integration
 
   function frequency_integration_sample() result(out_2)
       integer                          :: N,i
       real(8),dimension(:),allocatable :: x,func
-      real(8)                          :: out_2,a,b,spin_degeneracy
+      real(8)                          :: out_2,a,b,UNEXPLAINED_2
       !
-      a=0.0001d0  !!FIXME
+      a=0.0001d0
       b=1000.d0
       N=1000
       out_2=0.d0
-      spin_degeneracy=3d0-Nspin 
+      UNEXPLAINED_2=2.d0 ! FIXME: RATHER SELF-EXPLANATORY
       allocate(x(N),func(N))
       x = linspace(a,b,N)
       do i=1,N
          func(i) = sum_kmesh(x(i))
       enddo
       call quad(func,a,b,Ninterp=3,key=6,epsabs=0d0,epsrel=1d-4,verbose=.true.,result=out_2)
-      out_2=spin_degeneracy*out_2/pi 
+      out_2=UNEXPLAINED_2*out_2/pi 
       deallocate(x,func)
       return
   end function frequency_integration_sample

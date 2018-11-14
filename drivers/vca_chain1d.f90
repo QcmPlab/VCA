@@ -113,7 +113,7 @@ program vca_chain1d
   sigmatest_real=zero
   !
   do ik=1,Nkpts
-      print*,ik
+      !print*,ik
       !call periodize_g_scheme([(2*pi/Nkpts)*ik])
       call build_sigma_g_scheme([(2*pi/Nkpts)*ik])
       do ix=1,Lmats
