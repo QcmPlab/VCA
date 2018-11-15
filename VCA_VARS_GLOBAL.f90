@@ -212,7 +212,7 @@ contains
 
 
   !> Get stride position in the one-particle many-body space 
-  function index_stride_lso(ilat,iorb,ispin) result(indx)
+  function index_stride_lso(ilat,ispin,iorb) result(indx)
     integer :: ilat
     integer :: iorb
     integer :: ispin

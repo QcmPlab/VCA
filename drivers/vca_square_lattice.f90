@@ -172,8 +172,8 @@ contains
     H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
     !
     open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat
-       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat)
+    do ilat=1,Nlat*Nspin*Norb
+       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
     enddo
     close(unit)
   end subroutine generate_tcluster
