@@ -134,8 +134,8 @@ contains
 
   subroutine generate_tcluster()
     integer                                      :: ilat,jlat,ispin,iorb,ind1,ind2
-    character(len=64)                            :: file_
     real(8),dimension(Nlso,Nlso)                 :: H0
+    character(len=64)                            :: file_
     integer                                      :: unit
     file_ = "tcluster_matrix.dat"
     !
@@ -182,8 +182,11 @@ contains
 
 
   subroutine generate_hk()
-    integer                             :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(Nkpts**Ndim,Ndim) :: kgrid
+    integer                                      :: ik,ii,ispin,iorb,unit,jj
+    real(8),dimension(Nkpts**Ndim,Ndim)          :: kgrid
+    real(8),dimension(Nlso,Nlso)                 :: H0
+    character(len=64)                            :: file_
+    file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid([Nkpts,Nkpts],kgrid)
     kgrid=kgrid/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
@@ -196,7 +199,13 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
-    !    
+    H0=vca_nnn2lso_reshape(tk([0.3d0,0.6d0]),Nlat,Nspin,Norb)
+    !
+    open(free_unit(unit),file=trim(file_))
+    do ilat=1,Nlat*Nspin*Norb
+       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
+    enddo
+    close(unit)    
   end subroutine generate_hk
 
 
@@ -205,6 +214,7 @@ contains
     real(8),dimension(Ndim),intent(in)                                      :: kpoint
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                   :: hopping_matrix
     !
+    hopping_matrix=zero
     !
     do ilat=1,Nx
       do jlat=1,Ny
