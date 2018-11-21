@@ -8,7 +8,7 @@ program vca_test
   integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
   integer                                         :: iloop
-  integer                                         :: ix,iy
+  integer                                         :: ix,iy,ik
   logical                                         :: converged
   real(8)                                         :: wband
 
@@ -25,12 +25,18 @@ program vca_test
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
   integer                                         :: unit
   integer                                         :: comm,rank
-  logical                                         :: master,wloop
+  logical                                         :: master,wloop,wmin
   integer                                         :: nloop
    !FIX!!!!!!!!!!!!!!!
   real(8)                                         :: mu,t,t_var,mu_var
-  real(8),dimension(:),allocatable   :: ts_array,omega_array
-  integer,dimension(1)               :: min_loc
+  real(8),dimension(:),allocatable                :: ts_array,omega_array
+  integer,dimension(1)                            :: min_loc
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_periodized ![Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: impSmats_periodized         ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: impSreal_periodized         ![Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gtest_mats,gtest_Real,sigmatest_mats,sigmatest_real
+  real(8),allocatable,dimension(:,:)              :: kgrid_test
 
   call init_MPI()
   comm = MPI_COMM_WORLD
@@ -44,6 +50,7 @@ program vca_test
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
+  call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   !
   call vca_read_input(trim(finput),comm)
   !if(Norb/=1)stop "Norb != 1"
@@ -93,6 +100,45 @@ program vca_test
     min_loc = minloc(omega_array)
     write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
   endif
+
+  !MINIMIZATION:
+
+  if(wmin)then
+     print*,"Guess:",ts
+     call  brent(solve_vca_square,ts,[0.5d0,3d0])
+     print*,"Result ts : ",ts
+     t_var=ts
+  endif
+
+  allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  gtest_mats=zero
+  sigmatest_mats=zero
+  gtest_real=zero
+  sigmatest_real=zero
+  !
+  allocate(kgrid_test(Nkpts**ndim,Ndim)) 
+  call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
+  do ik=1,Nkpts**ndim
+      !print*,ik
+      !call periodize_g_scheme([(2*pi/Nkpts)*ik])
+      call build_sigma_g_scheme([0d0,0d0])  !also periodizes g
+      do ix=1,Lmats
+          gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+      enddo
+      do ix=1,Lreal
+          gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+      enddo
+  enddo
+  gfmats_periodized=gtest_mats
+  impSmats_periodized=sigmatest_mats
+  gfreal_periodized=gtest_real
+  impSreal_periodized=sigmatest_real
+  call print_periodized()
 
 
   call finalize_MPI()
@@ -256,6 +302,159 @@ contains
     enddo
     ! 
   end function tk
+
+  !+------------------------------------------------------------------+
+  !Periodization functions
+  !+------------------------------------------------------------------+
+
+ subroutine periodize_g_scheme(kpoint)
+    integer                                                     :: ilat,jlat,ispin,iorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
+    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
+    allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    gfmats_unperiodized=zero
+    gfreal_unperiodized=zero
+    gfprime=zero
+    gfmats_periodized=zero
+    gfreal_periodized=zero
+    !
+    !
+    do ii=1,Lmats    
+        call vca_gf_cluster(xi*wm(ii),gfprime)
+        gfmats_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+    enddo
+    !
+    do ii=1,Lreal    
+        call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
+        gfreal_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+    enddo
+    !
+    do ii=1,Lmats
+        do ilat=1,Nlat
+          ind1=N2indices(ilat)        
+          do jlat=1,Nlat
+            ind2=N2indices(jlat)
+            do ispin=1,Nspin
+               gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind2-ind1))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+            enddo
+          enddo
+        enddo
+    enddo
+    !
+    do ii=1,Lreal   
+     do ilat=1,Nlat
+        do jlat=1,Nlat
+          gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind2-ind1))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+        enddo
+      enddo
+    enddo
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr) 
+    !   
+  end subroutine periodize_g_scheme
+
+
+
+  subroutine build_sigma_g_scheme(kpoint)
+    integer                                                     :: i,ispin,iorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: invG0mats,invGmats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)           :: invG0real,invGreal
+    !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
+    if(.not.allocated(impSmats_periodized))allocate(impSmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impSreal_periodized))allocate(impSreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    invG0mats = zero
+    invGmats  = zero
+    invG0real = zero
+    invGreal  = zero
+    impSmats_periodized  = zero
+    impSreal_periodized  = zero
+    !
+    !Get G0^-1
+    !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
+    !
+    !Get G0^-1
+    do ispin=1,Nspin
+      do iorb=1,Norb
+        do ii=1,Lmats
+            invG0mats(ispin,ispin,iorb,iorb,ii) = (xi*wm(ii)+xmu)  + 2.d0*t_var*(cos(kpoint(1)) + cos(kpoint(2)))             ! FIXME: ad-hoc solution
+        enddo
+        do ii=1,Lreal
+            invG0real(ispin,ispin,iorb,iorb,ii) = (wr(ii)+xmu)   + 2.d0*t_var*(cos(kpoint(1)) + cos(kpoint(2)))               ! FIXME: ad-hoc solution
+        enddo
+      enddo
+    enddo
+    !
+    !Get Gimp^-1
+    call periodize_g_scheme(kpoint)
+    do ispin=1,Nspin
+      do iorb=1,Norb
+         invGmats(ispin,ispin,iorb,iorb,:) = one/gfmats_periodized(ispin,ispin,iorb,iorb,:)
+         invGreal(ispin,ispin,iorb,iorb,:) = one/gfreal_periodized(ispin,ispin,iorb,iorb,:)
+      enddo
+    enddo
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
+    impSmats_periodized=zero
+    impSreal_periodized=zero
+    do ispin=1,Nspin
+      do iorb=1,Norb
+         impSmats_periodized(ispin,ispin,iorb,iorb,:) = invG0mats(ispin,ispin,iorb,iorb,:) - invGmats(ispin,ispin,iorb,iorb,:)
+         impSreal_periodized(ispin,ispin,iorb,iorb,:) = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
+      enddo
+    enddo
+    !
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    !
+  end subroutine build_sigma_g_scheme
+
+
+
+  subroutine print_periodized()
+    character(len=64) :: suffix
+    integer           :: iorb,ispin
+    !
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
+    do iorb=1,Norb
+     do ispin=1,Nspin
+        suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
+        call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perG"//reg(suffix)//"_realw.vca",wr,gfreal_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,impSmats_periodized(ispin,ispin,iorb,iorb,:))
+        call splot("perSigma"//reg(suffix)//"_realw.vca",wr,impSreal_periodized(ispin,ispin,iorb,iorb,:))
+      enddo
+    enddo
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    !
+  end subroutine print_periodized
+
  
 
 
@@ -273,6 +472,15 @@ contains
       N=N+((Nx)**(i-1))*(indices(i)-1)
     enddo
   end function indices2N
+
+  function N2indices(N_) result(indices) ! FIXME: only for 2d
+    integer,dimension(Ndim)      :: indices
+    integer                      :: N,i,N_
+    !
+    N=N_-1
+    indices(1)=mod(N,Nx)+1
+    indices(2)=N/Nx+1
+  end function N2indices
 
 
 end program vca_test
