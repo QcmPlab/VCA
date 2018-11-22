@@ -76,7 +76,13 @@ program vca_test
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
 
-
+  !do ix=1,Nx
+  !  do iy=1,Nx
+  !      print*, ix,iy, indices2n([ix,iy]),[ix,iy]-n2indices(indices2n([ix,iy]))
+  !  enddo
+  !enddo
+  
+  !STOP
   call vca_init_solver(comm)
 
   !htb=Htb_square_lattice(2,2,1.d0)
@@ -122,22 +128,22 @@ program vca_test
   allocate(kgrid_test(Nkpts**ndim,Ndim)) 
   call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
   do ik=1,Nkpts**ndim
-      !print*,ik
-      !call periodize_g_scheme([(2*pi/Nkpts)*ik])
-      call build_sigma_g_scheme([0d0,0d0])  !also periodizes g
+      print*,ik
+      call periodize_g_scheme(kgrid_test(ik,:))
+      !call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
       do ix=1,Lmats
           gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          !sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
       enddo
       do ix=1,Lreal
           gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          !sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
       enddo
   enddo
   gfmats_periodized=gtest_mats
-  impSmats_periodized=sigmatest_mats
+  !impSmats_periodized=sigmatest_mats
   gfreal_periodized=gtest_real
-  impSreal_periodized=sigmatest_real
+  !impSreal_periodized=sigmatest_real
   call print_periodized()
 
 
@@ -311,6 +317,8 @@ contains
     integer                                                     :: ilat,jlat,ispin,iorb,ii
     real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
     complex(8),allocatable,dimension(:,:,:,:,:,:)               :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8),allocatable,dimension(:,:)                       :: gfprime_lso ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
     !
@@ -318,10 +326,12 @@ contains
     if(.not.allocated(wr))allocate(wr(Lreal))
     wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr     = linspace(wini,wfin,Lreal)
-    !
+    !vca_nnn2lso_reshape
     allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
     if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     !
@@ -330,16 +340,28 @@ contains
     gfprime=zero
     gfmats_periodized=zero
     gfreal_periodized=zero
+    Vk_lso=zero
+    gfprime_lso=zero
     !
+    !
+    Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime,Nlat,Nspin,Norb)
     !
     do ii=1,Lmats    
         call vca_gf_cluster(xi*wm(ii),gfprime)
-        gfmats_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        call inv(gfprime_lso)
+        gfprime_lso=gfprime_lso-Vk_lso
+        call inv(gfprime_lso)
+        gfmats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
     enddo
     !
     do ii=1,Lreal    
         call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
-        gfreal_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        call inv(gfprime_lso)
+        gfprime_lso=gfprime_lso-Vk_lso
+        call inv(gfprime_lso)
+        gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
     enddo
     !
     do ii=1,Lmats
@@ -347,9 +369,7 @@ contains
           ind1=N2indices(ilat)        
           do jlat=1,Nlat
             ind2=N2indices(jlat)
-            do ispin=1,Nspin
-               gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind2-ind1))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
-            enddo
+               gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
           enddo
         enddo
     enddo
@@ -357,7 +377,7 @@ contains
     do ii=1,Lreal   
      do ilat=1,Nlat
         do jlat=1,Nlat
-          gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind2-ind1))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+          gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
         enddo
       enddo
     enddo
@@ -445,8 +465,8 @@ contains
         suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
         call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_periodized(ispin,ispin,iorb,iorb,:))
         call splot("perG"//reg(suffix)//"_realw.vca",wr,gfreal_periodized(ispin,ispin,iorb,iorb,:))
-        call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,impSmats_periodized(ispin,ispin,iorb,iorb,:))
-        call splot("perSigma"//reg(suffix)//"_realw.vca",wr,impSreal_periodized(ispin,ispin,iorb,iorb,:))
+        !call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,impSmats_periodized(ispin,ispin,iorb,iorb,:))
+        !call splot("perSigma"//reg(suffix)//"_realw.vca",wr,impSreal_periodized(ispin,ispin,iorb,iorb,:))
       enddo
     enddo
     !
@@ -468,9 +488,7 @@ contains
     !
     !
     N=1
-    do i=1,Ndim
-      N=N+((Nx)**(i-1))*(indices(i)-1)
-    enddo
+    N=N+(indices(1)-1)*Nx+(indices(2)-1)
   end function indices2N
 
   function N2indices(N_) result(indices) ! FIXME: only for 2d
@@ -478,8 +496,8 @@ contains
     integer                      :: N,i,N_
     !
     N=N_-1
-    indices(1)=mod(N,Nx)+1
-    indices(2)=N/Nx+1
+    indices(2)=mod(N,Nx)+1
+    indices(1)=N/Nx+1
   end function N2indices
 
 

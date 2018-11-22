@@ -233,6 +233,8 @@ contains
     integer                                                     :: ilat,jlat,ispin,iorb,ii
     real(8),dimension(Ndim)                                     :: kpoint
     complex(8),allocatable,dimension(:,:,:,:,:,:)               :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8),allocatable,dimension(:,:)                       :: gfprime_lso ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
     !
@@ -244,6 +246,8 @@ contains
     allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
     if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     !
@@ -252,16 +256,30 @@ contains
     gfprime=zero
     gfmats_periodized=zero
     gfreal_periodized=zero
+    Vk_lso=zero
+    gfprime_lso=zero
     !
     !
-    do ii=1,Lmats    
+    Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime,Nlat,Nspin,Norb)
+    !
+    do ii=1,Lmats  
+    gfprime_lso=zero  
         call vca_gf_cluster(xi*wm(ii),gfprime)
-        gfmats_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        call inv(gfprime_lso)
+        gfprime_lso=gfprime_lso-Vk_lso
+        call inv(gfprime_lso)
+        gfmats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
     enddo
     !
-    do ii=1,Lreal    
+    do ii=1,Lreal   
+    gfprime_lso=zero 
         call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
-        gfreal_unperiodized(:,:,:,:,:,:,ii)=gfprime+t_prime-tk(kpoint)
+        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        call inv(gfprime_lso)
+        gfprime_lso=gfprime_lso-Vk_lso
+        call inv(gfprime_lso)
+        gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
     enddo
     !
     do ii=1,Lmats
