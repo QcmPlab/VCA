@@ -326,7 +326,7 @@ contains
     if(.not.allocated(wr))allocate(wr(Lreal))
     wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr     = linspace(wini,wfin,Lreal)
-    !vca_nnn2lso_reshape
+    !
     allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -376,7 +376,9 @@ contains
     !
     do ii=1,Lreal   
      do ilat=1,Nlat
+        ind1=N2indices(ilat)        
         do jlat=1,Nlat
+          ind2=N2indices(jlat)
           gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
         enddo
       enddo
