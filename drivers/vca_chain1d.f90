@@ -21,7 +21,7 @@ program vca_chain1d
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
   character(len=16)                               :: finput
   real(8)                                         :: ts
-  integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
+  integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry,SAMPLING
   integer                                         :: unit
   integer                                         :: comm,rank
   logical                                         :: master,wloop,wmin
@@ -42,13 +42,13 @@ program vca_chain1d
   master = get_Master_MPI(comm)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
+  call parse_cmd_variable(SAMPLING,"SAMPLING",default=100)
   call parse_input_variable(ts,"ts",finput,default=1d0)
   call parse_input_variable(wloop,"wloop",finput,default=.false.,comment="T: includes loop over ts")
   call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(nloop,"NLOOP",finput,default=5)
   !
   call vca_read_input(trim(finput),comm)
-  
   
 
   !Add DMFTtools CTRL Variables:
@@ -109,7 +109,7 @@ program vca_chain1d
   !
   call get_local_gf()
   call get_Akw()
-  call get_dos()
+  !call get_dos()
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -333,46 +333,93 @@ contains
     !
   end subroutine build_sigma_g_scheme
 
+  !---------------------------------------------------------------------
+  !PURPOSE: GET local GF
+  !---------------------------------------------------------------------
+  subroutine get_local_gf()
+    integer                                         :: ik,ispin,iorb
+    character(len=30)                               :: suffix
+    complex(8),allocatable,dimension(:,:,:,:,:)     :: gtest_mats,gtest_real,sigmatest_mats,sigmatest_real
+    !
+    if(master)then
+    !
+      allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+      gtest_mats=zero
+      sigmatest_mats=zero
+      gtest_real=zero
+      sigmatest_real=zero
+    !
+      print*,"Printing local GF"
+      call start_timer
+      do ik=1,SAMPLING
+          !call periodize_g_scheme([(2*pi/SAMPLING)*ik])
+          call build_sigma_g_scheme([(2*pi/SAMPLING)*ik])
+          do ix=1,Lmats
+              gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/SAMPLING
+              sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/SAMPLING
+          enddo
+          do ix=1,Lreal
+              gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/SAMPLING
+              sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/SAMPLING
+          enddo
+          call eta(ik,SAMPLING)
+      enddo
+      call stop_timer
+      !
+      do iorb=1,Norb
+        do ispin=1,Nspin
+          suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
+          call splot("Gloc"//reg(suffix)//"_iw.vca"   ,wm,gtest_mats(ispin,ispin,iorb,iorb,:))
+          call splot("Gloc"//reg(suffix)//"_realw.vca",wr,gtest_real(ispin,ispin,iorb,iorb,:))
+          call splot("Sigmaloc"//reg(suffix)//"_iw.vca"   ,wm,sigmatest_mats(ispin,ispin,iorb,iorb,:))
+          call splot("Sigmaloc"//reg(suffix)//"_realw.vca",wr,sigmatest_real(ispin,ispin,iorb,iorb,:))
+        enddo
+      enddo
+    endif
+end subroutine get_local_gf
 
   !---------------------------------------------------------------------
   !PURPOSE: GET A(k,w)
   !---------------------------------------------------------------------
   subroutine get_Akw()
     integer                                                 :: ik=0,iw
-    integer,parameter                                       :: Lk=200,Lw=10000
+    integer,parameter                                       :: Lw=10000
     integer                                                 :: iorb,jorb
     integer                                                 :: ispin,jspin
     real(8)                                                 :: akrange
     complex(8),dimension(:,:),allocatable                   :: Akreal
     complex(8),dimension(:,:,:,:,:,:),allocatable           :: Gkreal,Gkreal_interpolated
-    real(8),dimension(:)                                    :: Kgrid(Lk),w_int(Lw)
+    real(8),dimension(:)                                    :: Kgrid(SAMPLING),w_int(Lw)
     character(len=30)                                       :: suffix
     !
     if(master)then
     !
     print*,"Build A(k,w)"
     !
-    allocate(Gkreal(Lk,Nspin,Nspin,Norb,Norb,Lreal));Gkreal=zero
-    allocate(Gkreal_interpolated(Lk,Nspin,Nspin,Norb,Norb,Lw));Gkreal_interpolated=zero
-    allocate(Akreal(Lk,Lw));Akreal=zero
-    akrange=6
+    allocate(Gkreal(SAMPLING,Nspin,Nspin,Norb,Norb,Lreal));Gkreal=zero
+    allocate(Gkreal_interpolated(SAMPLING,Nspin,Nspin,Norb,Norb,Lw));Gkreal_interpolated=zero
+    allocate(Akreal(SAMPLING,Lw));Akreal=zero
+    akrange=4d0
     w_int  = linspace(-akrange,akrange,Lw)
     !
-    do ik=1,Lk
-        kgrid(ik)=pi/Lk*(ik-1)
+    do ik=1,SAMPLING
+        kgrid(ik)=pi/SAMPLING*(ik-1)
     enddo
     !
     print*,"Retrieving G(k,w)"
     call start_timer
-    do ik=1,Lk
+    do ik=1,SAMPLING
         call periodize_g_scheme(kgrid(ik))
         Gkreal(ik,:,:,:,:,:)=gfreal_periodized(:,:,:,:,:)
-        call eta(ik,Lk)
+        call eta(ik,SAMPLING)
     enddo
     call stop_timer
     !
     print*,"Interpolating G(k,w)"
-    do ik=1,Lk
+    do ik=1,SAMPLING
       do ispin=1,Nspin
         do iorb=1,Norb
           call cubic_spline(wr,Gkreal(ik,ispin,ispin,iorb,iorb,:),w_int,Gkreal_interpolated(ik,ispin,ispin,iorb,iorb,:))
@@ -391,62 +438,12 @@ contains
 end subroutine get_Akw
 
 
-  !---------------------------------------------------------------------
-  !PURPOSE: GET local GF
-  !---------------------------------------------------------------------
-  subroutine get_local_gf()
-    integer                                         :: ik,ispin,iorb
-    integer,parameter                               :: Lk=200
-    character(len=30)                               :: suffix
-    complex(8),allocatable,dimension(:,:,:,:,:)     :: gtest_mats,gtest_real,sigmatest_mats,sigmatest_real
-    !
-    if(master)then
-    !
-      allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
-      allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
-      allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
-      allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
-      gtest_mats=zero
-      sigmatest_mats=zero
-      gtest_real=zero
-      sigmatest_real=zero
-    !
-      print*,"Printing local GF"
-      call start_timer
-      do ik=1,Lk
-          !call periodize_g_scheme([(2*pi/Lk)*ik])
-          call build_sigma_g_scheme([(2*pi/Lk)*ik])
-          do ix=1,Lmats
-              gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/Lk
-              sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+impSmats_periodized(:,:,:,:,ix)/Lk
-          enddo
-          do ix=1,Lreal
-              gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/Lk
-              sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+impSreal_periodized(:,:,:,:,ix)/Lk
-          enddo
-          call eta(ik,Lk)
-      enddo
-      call stop_timer
-      !
-      do iorb=1,Norb
-        do ispin=1,Nspin
-          suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
-          call splot("Gloc"//reg(suffix)//"_iw.vca"   ,wm,gtest_mats(ispin,ispin,iorb,iorb,:))
-          call splot("Gloc"//reg(suffix)//"_realw.vca",wr,gtest_real(ispin,ispin,iorb,iorb,:))
-          call splot("Sigmaloc"//reg(suffix)//"_iw.vca"   ,wm,sigmatest_mats(ispin,ispin,iorb,iorb,:))
-          call splot("Sigmaloc"//reg(suffix)//"_realw.vca",wr,sigmatest_real(ispin,ispin,iorb,iorb,:))
-        enddo
-      enddo
-    endif
-end subroutine get_local_gf
-
 
   !---------------------------------------------------------------------
   !PURPOSE: GET DOS(w)
   !---------------------------------------------------------------------
   subroutine get_dos()
     integer                                                 :: ik=0,iw
-    integer                                                 :: Lk=100
     integer                                                 :: iorb,jorb
     integer                                                 :: ispin,jspin
     complex(8),dimension(:),allocatable                     :: dosreal
@@ -460,17 +457,17 @@ end subroutine get_local_gf
     !
     allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal));Greal=zero
     allocate(dosreal(Lreal));dosreal=zero
-    allocate(kgrid(Lk))
+    allocate(kgrid(SAMPLING))
     !
-    do ik=1,Lk
-        kgrid(ik)=pi/Lk*(ik-1)
+    do ik=1,SAMPLING
+        kgrid(ik)=pi/SAMPLING*(ik-1)
     enddo
     !
     call start_timer
-    do ik=1,Lk
+    do ik=1,SAMPLING
         call periodize_g_scheme(kgrid(ik))
-        Greal=Greal+gfreal_periodized/Lk
-        call eta(ik,Lk)
+        Greal=Greal+gfreal_periodized/SAMPLING
+        call eta(ik,SAMPLING)
     enddo
     call stop_timer
     !
