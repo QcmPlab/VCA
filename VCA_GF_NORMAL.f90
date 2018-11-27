@@ -745,19 +745,19 @@ end subroutine add_to_lanczos_gf_normal
 
   subroutine build_sigma_normal
     integer                                                     :: ii,ilat,jlat,ispin,iorb
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
-    complex(8),dimension(Nlat,Nlat)                             :: invGimp
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0mats,invGmats
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0real,invGreal
     !
     ! if(.not.allocated(wm))allocate(wm(Lmats))
     ! if(.not.allocated(wr))allocate(wr(Lreal))
     ! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
     ! wr     = linspace(wini,wfin,Lreal)
     !
-    invG0mats = zero
-    invGmats  = zero
-    invG0real = zero
-    invGreal  = zero
+    if(.not.allocated(InvG0mats))allocate(invG0mats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invG0mats=zero
+    if(.not.allocated(InvG0real))allocate(invG0real(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invG0real=zero
+    if(.not.allocated(InvGmats))allocate(invGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invGmats=zero
+    if(.not.allocated(InvGreal))allocate(invGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invGreal=zero
+    !
     !
     !Get G0^-1
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
