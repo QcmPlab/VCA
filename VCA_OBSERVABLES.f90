@@ -158,8 +158,8 @@ contains
            !Get operators:
            do ilat=1,Nlat
              do iorb=1,Norb
-                nup(ilat,iorb)= ibup(imp_state_index(ilat,iorb,1))
-                ndw(ilat,iorb)= ibdw(imp_state_index(ilat,iorb,1))
+                nup(ilat,iorb)= ibup(imp_state_index(ilat,iorb))
+                ndw(ilat,iorb)= ibdw(imp_state_index(ilat,iorb))
                 sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
                 nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
              enddo

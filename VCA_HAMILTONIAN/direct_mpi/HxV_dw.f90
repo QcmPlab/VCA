@@ -12,8 +12,8 @@
              do jlat=1,Nlat
               do iorb=1,Norb
                  do jorb=1,Norb
-                       is = imp_state_index(ilat,iorb,1) ! 1 is actually not used
-                       js = imp_state_index(jlat,jorb,1)
+                       is = imp_state_index(ilat,iorb) ! 1 is actually not used
+                       js = imp_state_index(jlat,jorb)
                     Jcondition = &
                          (impHloc(ilat,jlat,Nspin,Nspin,iorb,jorb)/=zero) .AND. &
                          (ibdw(js)==1) .AND. (ibdw(is)==0)
@@ -32,6 +32,40 @@
               enddo
             enddo
           enddo
+        !>H_hyb: hopping terms for a given spin (imp <--> bath)
+        do ilat=1,Nlat
+          do iorb=1,Norb
+             do kp=1,Nbath
+                ialfa=getBathStride(ilat,iorb,kp)
+                is = imp_state_index(ilat,iorb) ! 1 is actually not used
+                !
+                if( (diag_hybr(ilat,Nspin,iorb,kp)/=0d0) .AND. &
+                     (ibdw(is)==1) .AND. (ibdw(ialfa)==0) )then
+                   call c(is,mdw,k1,sg1)
+                   call cdg(ialfa,k1,k2,sg2)
+                   jup = binary_search(Hs(2)%map,k2)
+                   jdw = idw             
+                   j   = jup + (jdw-1)*DimDw
+                   htmp=diag_hybr(ilat,Nspin,iorb,kp)*sg1*sg2
+                   !
+                   hvt(i) = hvt(i) + htmp*vt(j)
+                   !
+                endif
+                if( (diag_hybr(ilat,Nspin,iorb,kp)/=0d0) .AND. &
+                     (ibdw(is)==0) .AND. (ibdw(ialfa)==1) )then
+                   call c(ialfa,mdw,k1,sg1)
+                   call cdg(is,k1,k2,sg2)
+                   jup = binary_search(Hs(2)%map,k2)
+                   jdw = idw             
+                   j   = jup + (jdw-1)*DimDw
+                   htmp=diag_hybr(ilat,Nspin,iorb,kp)*sg1*sg2
+                   !
+                   hvt(i) = hvt(i) + htmp*vt(j)
+                   !
+                endif
+             enddo
+          enddo
+        enddo
      enddo
   enddo
 

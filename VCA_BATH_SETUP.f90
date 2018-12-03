@@ -7,7 +7,7 @@ MODULE VCA_BATH_SETUP
   USE VCA_VARS_GLOBAL
   implicit none
 
-  
+
   private
 
   
@@ -33,11 +33,11 @@ MODULE VCA_BATH_SETUP
   public :: vca_init_bath                   !INTERNAL (for effective_bath)
   public :: vca_write_bath                  !INTERNAL (for effective_bath)
   public :: vca_save_bath                   !INTERNAL (for effective_bath)
-  public :: vca_set_bath                    !INTERNAL (for effective_bath)
   public :: vca_get_bath                    !INTERNAL (for effective_bath)
+  public :: vca_set_bath                    !INTERNAL (for effective_bath)
+  public :: check_bath_dimension            !INTERNAL (for effective_bath)
+  public :: set_bath_component              !INTERNAL (for effective_bath)
 
-
-  public :: check_bath_dimension
   
 contains
 
@@ -84,7 +84,7 @@ contains
   !
   !##################################################################
   !+-------------------------------------------------------------------+
-  !PURPOSE  : Allocate the ED bath
+  !PURPOSE  : Allocate the VCA bath
   !+-------------------------------------------------------------------+
   subroutine vca_allocate_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
@@ -96,17 +96,17 @@ contains
     ! select case(bath_type)
     ! case default!normal_normal
     !
-    allocate(vca_bath_%e(Nlat,Norb,Nspin,Nbath))  !local energies of the bath per site,orb
-    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization per site,orb
+    allocate(vca_bath_%e(Nlat,Nspin,Norb,Nbath))  !local energies of the bath per site,orb
+    allocate(vca_bath_%v(Nlat,Nspin,Norb,Nbath))  !same-spin hybridization per site,orb
     !
     ! case('hybrid')                            !hybrid_normal
     !    !
     !    allocate(vca_bath_%e(1,1,Nspin,Nbath))        !local energies of the bath stand-alone
-    !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
+    !    allocate(vca_bath_%v(Nlat,Nspin,Norb,Nbath))  !same-spin hybridization, connects site,orb to bath sites
     !    !
     !    ! case('normal_hybrid')
     !    !    allocate(vca_bath_%e(Nlat,1,Nspin,Nbath))        !local energies of the bath stand-alone
-    !    !    allocate(vca_bath_%v(Nlat,Norb,Nspin,Nbath))  !same-spin hybridization, connects site,orb to bath sites
+    !    !    allocate(vca_bath_%v(Nlat,Nspin,Norb,Nbath))  !same-spin hybridization, connects site,orb to bath sites
     !    !
     ! end select
     vca_bath_%e=0d0
@@ -119,7 +119,7 @@ contains
 
 
   !+-------------------------------------------------------------------+
-  !PURPOSE  : Deallocate the ED bath
+  !PURPOSE  : Deallocate the VCA bath
   !+-------------------------------------------------------------------+
   subroutine vca_deallocate_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
@@ -139,7 +139,7 @@ contains
   subroutine vca_init_bath(vca_bath_)
     type(effective_bath) :: vca_bath_
     integer              :: i,unit,flen,Nh
-    integer              :: io,jo,iorb,ispin,jorb,jspin,ilat
+    integer              :: io,jo,ispin,iorb,jorb,jspin,ilat
     logical              :: IOfile
     real(8)              :: de,hwband
     character(len=21)    :: space
@@ -177,7 +177,7 @@ contains
     ! endif
     ! ! call random_number(ran)
     ! ! forall(ilat=1:size(vca_bath_%e,1),iorb=1:size(vca_bath_%e,2),ispin=1:Nspin)&
-    ! !      vca_bath_%e(ilat,iorb,ispin,:) = ran !impHloc(ilat,ilat,iorb,iorb,ispin,ispin) + ran/10d0
+    ! !      vca_bath_%e(ilat,ispin,iorb,:) = ran !impHloc(ilat,ilat,ispin,iorb,ispin,iorb) + ran/10d0
     ! !
     ! !Get spin-keep yhbridizations
     ! do i=1,Nbath
@@ -185,7 +185,7 @@ contains
     ! enddo
     !
     !
-    vca_bath_%e = 0d0
+    vca_bath_%e = 1d0
     vca_bath_%v = 0d0
     !
     !
@@ -204,8 +204,8 @@ contains
        do ilat=1,Nlat
           do i=1,Nbath
              read(unit,*)((&
-                  vca_bath_%e(ilat,iorb,ispin,i),&
-                  vca_bath_%v(ilat,iorb,ispin,i),&
+                  vca_bath_%e(ilat,ispin,iorb,i),&
+                  vca_bath_%v(ilat,ispin,iorb,i),&
                   iorb=1,Norb),ispin=1,Nspin)
           enddo
        enddo
@@ -216,7 +216,7 @@ contains
        !          read(unit,*)(&
        !               vca_bath_%e(1,1,ispin,i),&
        !               (&
-       !               vca_bath_%v(ilat,iorb,ispin,i),&
+       !               vca_bath_%v(ilat,ispin,iorb,i),&
        !               iorb=1,Norb),ispin=1,Nspin)
        !       enddo
        !    enddo
@@ -238,7 +238,7 @@ contains
     integer,optional     :: unit
     integer              :: unit_
     integer              :: i
-    integer              :: io,jo,iorb,ispin,ilat
+    integer              :: io,jo,ispin,iorb,ilat
     complex(8)           :: hybr_aux
     complex(8)           :: hrep_aux(Nspin*Norb,Nspin*Norb)
     !
@@ -254,8 +254,8 @@ contains
        do ilat=1,Nlat
           do i=1,Nbath
              write(unit_,"(90(F21.12,1X))")((&
-                  vca_bath_%e(ilat,iorb,ispin,i),&
-                  vca_bath_%v(ilat,iorb,ispin,i),&
+                  vca_bath_%e(ilat,ispin,iorb,i),&
+                  vca_bath_%v(ilat,ispin,iorb,i),&
                   iorb=1,Norb),ispin=1,Nspin)
           enddo
        enddo
@@ -269,7 +269,7 @@ contains
     !       do i=1,Nbath
     !          write(unit_,"(90(F21.12,1X))")(&
     !               vca_bath_%e(ilat,1,ispin,i),&
-    !               (vca_bath_%v(ilat,iorb,ispin,i),&
+    !               (vca_bath_%v(ilat,ispin,iorb,i),&
     !               iorb=1,Norb),ispin=1,Nspin)
     !       enddo
     !    enddo
@@ -318,7 +318,7 @@ contains
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: vca_bath_
     integer                :: stride,io,jo,i
-    integer                :: iorb,ispin,jorb,jspin,ibath,ilat
+    integer                :: ispin,iorb,jorb,jspin,ibath,ilat
     logical                :: check
     complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
     complex(8)             :: U(Nspin*Norb,Nspin*Norb)
@@ -338,7 +338,7 @@ contains
           do ispin=1,Nspin
              do i=1,Nbath
                 io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                vca_bath_%e(ilat,iorb,ispin,i) = bath_(io)
+                vca_bath_%e(ilat,ispin,iorb,i) = bath_(io)
              enddo
           enddo
        enddo
@@ -349,7 +349,7 @@ contains
           do ispin=1,Nspin
              do i=1,Nbath
                 io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
+                vca_bath_%v(ilat,ispin,iorb,i) = bath_(io)
              enddo
           enddo
        enddo
@@ -368,14 +368,72 @@ contains
     !       do iorb=1,Norb
     !          do ispin=1,Nspin
     !             do i=1,Nbath
-    !                io = stride + i + index_stride_los(ilat,iorb,ispin)
-    !                vca_bath_%v(ilat,iorb,ispin,i) = bath_(io)
+    !                io = stride + i + index_stride_los(ilat,ispin,iorb)
+    !                vca_bath_%v(ilat,ispin,iorb,i) = bath_(io)
     !             enddo
     !          enddo
     !       enddo
     !    enddo
     ! end select
   end subroutine vca_set_bath
+
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : let the user modify bath components
+  !+-------------------------------------------------------------------+
+
+
+  subroutine set_bath_component(bath_,ilat,ispin,iorb,e_component,v_component)
+    real(8),dimension(:),allocatable        :: bath_
+    integer                                 :: stride,io,jo,i
+    integer                                 :: ispin,iorb,jorb,jspin,ibath,ilat
+    logical                                 :: check, is_e
+    complex(8)                              :: hrep_aux(Nspin*Norb,Nspin*Norb)
+    complex(8)                              :: U(Nspin*Norb,Nspin*Norb)
+    complex(8)                              :: Udag(Nspin*Norb,Nspin*Norb)
+    real(8),dimension(Nbath),optional       :: e_component,v_component
+    !
+    !
+    !
+    ! select case(bath_type)
+    ! case default
+    if(present(e_component))then
+      stride = 0
+      do i=1,Nbath
+        io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+        bath_(io) = e_component(i)
+      enddo
+    endif
+    if(present(v_component))then
+      stride = Nlat*Nspin*Norb*Nbath
+      do i=1,Nbath
+        io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
+        bath_(io) = v_component(i)
+      enddo
+    endif
+    !
+    ! case ('hybrid')
+    !    stride = 0
+    !    do ispin=1,Nspin
+    !       do i=1,Nbath
+    !          io = stride + i + (ispin-1)*Nbath
+    !          vca_bath_%e(1,1,ispin,i) = bath_(io)
+    !       enddo
+    !    enddo
+    !    stride = Nspin*Nbath
+    !    do ilat=1,Nlat
+    !       do iorb=1,Norb
+    !          do ispin=1,Nspin
+    !             do i=1,Nbath
+    !                io = stride + i + index_stride_los(ilat,ispin,iorb)
+    !                vca_bath_%v(ilat,ispin,iorb,i) = bath_(io)
+    !             enddo
+    !          enddo
+    !       enddo
+    !    enddo
+    ! end select
+  end subroutine set_bath_component
+
 
 
 
@@ -389,7 +447,7 @@ contains
     complex(8)             :: U(Nspin*Norb,Nspin*Norb)
     complex(8)             :: Udag(Nspin*Norb,Nspin*Norb)
     integer                :: stride,io,jo,i,ilat
-    integer                :: iorb,ispin,jorb,jspin,ibath
+    integer                :: ispin,iorb,jorb,jspin,ibath
     logical                :: check
     !
     if(.not.vca_bath_%status)stop "get_vca_bath error: bath not allocated"
@@ -405,7 +463,7 @@ contains
           do ispin=1,Nspin
              do i=1,Nbath
                 io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                bath_(io) = vca_bath_%e(ilat,iorb,ispin,i)
+                bath_(io) = vca_bath_%e(ilat,ispin,iorb,i)
              enddo
           enddo
        enddo
@@ -416,7 +474,7 @@ contains
           do ispin=1,Nspin
              do i=1,Nbath
                 io = stride + i + (iorb-1)*Nbath + (ilat-1)*Nbath*Norb + (ispin-1)*Nbath*Norb*Nlat
-                bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
+                bath_(io) = vca_bath_%v(ilat,ispin,iorb,i)
              enddo
           enddo
        enddo
@@ -435,8 +493,8 @@ contains
     !       do iorb=1,Norb
     !          do ispin=1,Nspin
     !             do i=1,Nbath
-    !                io = stride + i + index_stride_los(ilat,iorb,ispin)
-    !                bath_(io) = vca_bath_%v(ilat,iorb,ispin,i)
+    !                io = stride + i + index_stride_los(ilat,ispin,iorb)
+    !                bath_(io) = vca_bath_%v(ilat,ispin,iorb,i)
     !             enddo
     !          enddo
     !       enddo

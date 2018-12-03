@@ -11,7 +11,9 @@ program vca_test
   integer                                         :: ix,iy,ik
   logical                                         :: converged
   real(8)                                         :: wband
-
+  !Bath
+  real(8),allocatable                             :: Bath(:)
+  integer                                         :: Nb
   !The local hybridization function:
   real(8),dimension(:,:),allocatable              :: Tsys,Tref,Vmat,Htb,Mmat,dens
   real(8),allocatable,dimension(:)                :: wm,wr
@@ -55,8 +57,6 @@ program vca_test
   call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   !
   call vca_read_input(trim(finput),comm)
-  !if(Norb/=1)stop "Norb != 1"
-  !if(Nspin/=1)stop "Nspin != 1"
   !
   !
   Nlso = (Nx**Ndim)*Norb*Nspin
@@ -78,22 +78,26 @@ program vca_test
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
 
-  !do ix=1,Nx
-  !  do iy=1,Nx
-  !      print*, ix,iy, indices2n([ix,iy]),[ix,iy]-n2indices(indices2n([ix,iy]))
-  !  enddo
-  !enddo
-  
-  !STOP
-  call vca_init_solver(comm)
 
-  !htb=Htb_square_lattice(2,2,1.d0)
-  !t_prime=vca_lso2nnn_reshape(htb,Nlat,Nspin,Norb)
+  
+  Nb=vca_get_bath_dimension()
+  allocate(Bath(Nb))
+  call vca_init_solver(comm,bath)
+    
+  !BATH VARIATIONAL SETUP
+  do ix=1,Nlat
+    do iy=1,Nspin
+        do ik=1,Norb
+            call set_bath_component(bath,ix,iy,ik,e_component=[1.0d0])
+            call set_bath_component(bath,ix,iy,ik,v_component=[0.0d0])
+        enddo
+     enddo
+  enddo
+  !
   call generate_tcluster()
   call generate_hk()
-  call vca_solve(comm,t_prime,h_k)
-  !call print_2DLattice_Structure(dcmplx(htb),[Nx,Ny],1,1,file="Htb_vecchio")
-  !call print_2DLattice_Structure(vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb),[Nx,Ny],1,1,file="Htb_nuovo")
+  call vca_solve(comm,t_prime,h_k,bath)
+
 
   if(wloop)then
     allocate(ts_array(Nloop))

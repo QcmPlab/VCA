@@ -133,7 +133,7 @@ contains
     call sleep(1)
     !
     !>CHECKS:
-    ! if(bath_type/='normal')stop "VCA ERROR: bath_type != normal is not yet supported. ask developers"
+    !if(bath_type/='normal')stop "VCA ERROR: bath_type != normal is not yet supported. ask developers"
     !if(Nspin>1)stop "VCA ERROR: Nspin > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
     !if(Norb>1)stop "VCA ERROR: Norb > 1 is not yet supported. Uncomment this line in VCA_SETUP to use it anyway"
     !    
@@ -359,7 +359,7 @@ contains
           enddo
        enddo
     enddo
-    ! case ('hybrid')
+    ! case ('hybrid') FIXME: MAYBE ADD THIS
     !hybrid:
     !|(1..Na)_1
     !  ...
@@ -741,12 +741,11 @@ contains
     !indx = iorb + (ilat-1)*Norb + (ispin-1)*(Nbath+1)*Norb*Nlat
   !end function imp_state_index
 
-  function imp_state_index(ilat,iorb,ibath) result(indx)  
+  function imp_state_index(ilat,iorb) result(indx)  
     integer :: ilat
-    integer :: ibath
     integer :: iorb
     integer :: indx
-    indx = iorb + (ilat-1)*Norb + (ibath-1)*(Nbath+1)*Norb*Nlat     !UP AND DOWN ARE NOW DIVIDED
+    indx = iorb + (ilat-1)*Norb
   end function imp_state_index
 
 

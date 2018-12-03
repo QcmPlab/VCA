@@ -25,7 +25,8 @@ MODULE VCA
 
 
   USE VCA_BATH_SETUP, only:     &
-       vca_get_bath_dimension
+       vca_get_bath_dimension,  &
+       set_bath_component            
 
 
   USE VCA_MAIN, only:           &

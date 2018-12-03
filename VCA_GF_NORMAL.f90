@@ -120,7 +120,7 @@ contains
     !endif
     ibeta  = ialfa + (ispin-1)*Ns_Ud
     !
-    is = imp_state_index(isite,iorb,1) !IBATH=1 -> no bath
+    is = imp_state_index(isite,iorb)
     !
     write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)
     !
@@ -180,6 +180,7 @@ contains
              call delete_sector(jsector,HJ)
              !
              norm2=dot_product(vvinit,vvinit)
+             if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
           endif
           !
@@ -242,6 +243,7 @@ contains
              call delete_sector(jsector,HJ)
              !
              norm2=dot_product(vvinit,vvinit)
+             if(verbose==3)write(LOGfile,"(A,F6.4)")' Remove particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
           endif
           !
@@ -317,8 +319,8 @@ contains
     ibeta  = ialfa + (ispin-1)*Ns_Ud
     jbeta  = jalfa + (ispin-1)*Ns_Ud
     !
-    is = imp_state_index(isite,iorb,1) !no bath
-    js = imp_state_index(jsite,iorb,1) !no bath
+    is = imp_state_index(isite,iorb)
+    js = imp_state_index(jsite,iorb)
     !
     write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
     !
@@ -760,8 +762,8 @@ end subroutine add_to_lanczos_gf_normal
     !
     !
     !Get G0^-1
-    !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
-    !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
+    invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
@@ -796,8 +798,8 @@ end subroutine add_to_lanczos_gf_normal
        !
     !
     !Get G0and:
-    !impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
-    !impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    impG0mats(:,:,:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    impG0real(:,:,:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),vca_bath)
     !!
     !
   end subroutine build_sigma_normal

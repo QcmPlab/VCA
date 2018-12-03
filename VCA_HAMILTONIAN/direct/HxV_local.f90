@@ -10,8 +10,8 @@
      !
      do ilat=1,Nlat
         do iorb=1,Norb
-           nup(ilat,iorb)=dble(ibup(imp_state_index(ilat,iorb,1)))
-           ndw(ilat,iorb)=dble(ibdw(imp_state_index(ilat,iorb,1)))
+           nup(ilat,iorb)=dble(ibup(imp_state_index(ilat,iorb)))
+           ndw(ilat,iorb)=dble(ibdw(imp_state_index(ilat,iorb)))
         enddo
      enddo
      !> HxV_imp: Diagonal Elements, i.e. local part
@@ -77,13 +77,15 @@
      !
      !> H_Bath: local bath energy contribution.
      !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-     !do iorb=1,size(bath_diag,2)
-      !  do kp=1,Nbath
-       !    ialfa = getBathStride(iorb,kp)
-       !    htmp =htmp + bath_diag(1    ,iorb,kp)*Nup(ialfa) !UP
-       !    htmp =htmp + bath_diag(Nspin,iorb,kp)*Ndw(ialfa) !DW
-       ! enddo
-     !enddo
+     do ilat=1,size(bath_diag,3)
+       do iorb=1,size(bath_diag,3)
+          do kp=1,Nbath
+             ialfa = getBathStride(ilat,iorb,kp)
+             htmp =htmp + bath_diag(ilat,1    ,iorb,kp)*ibup(ialfa) !UP
+             htmp =htmp + bath_diag(ilat,Nspin,iorb,kp)*ibdw(ialfa) !DW
+          enddo
+       enddo
+     enddo
      !
      hv(i) = hv(i) + htmp*vin(i)
      !

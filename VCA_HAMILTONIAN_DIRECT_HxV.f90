@@ -13,15 +13,16 @@ MODULE VCA_HAMILTONIAN_DIRECT_HxV
   integer                              :: isector,jsector
   integer                              :: ms
   integer                              :: impi
-  integer                              :: ilat,jlat,iorb,jorb,ispin,jspin,is,js
+  integer                              :: ilat,jlat,iorb,jorb,ispin,jspin,is,js,ibath
   integer                              :: kp,k1,k2,k3,k4
   integer                              :: ialfa,ibeta
   real(8)                              :: sg1,sg2,sg3,sg4
   real(8)                              :: htmp,htmpup,htmpdw
   logical                              :: Jcondition
-  integer                              :: Nfoo
-  !real(8),dimension(:,:,:),allocatable :: diag_hybr ![Nspin,Norb,Nbath]
-  !real(8),dimension(:,:,:),allocatable :: bath_diag ![Nspin,Norb/1,Nbath]
+  integer                              :: Nfoo,Nfoo2
+  real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
+  real(8),dimension(:,:,:,:),allocatable :: bath_diag ![Nlat,Nspin,Norb/1,Nbath]
+
 
 
 
@@ -55,7 +56,7 @@ contains
     if(Nloc/=getdim(isector))stop "directMatVec_cc ERROR: Nloc != dim(isector)"
     !
     !Get diagonal hybridization, bath energy
-    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
     !
     !
     Hv=0d0
@@ -71,7 +72,7 @@ contains
     include "VCA_HAMILTONIAN/direct/HxV_dw.f90"
     !-----------------------------------------------!
     !
-    !deallocate(diag_hybr,bath_diag)
+    deallocate(diag_hybr,bath_diag)
     return
   end subroutine directMatVec_main
 
@@ -92,7 +93,7 @@ contains
     isector=Hsector
     !
     !Get diagonal hybridization, bath energy
-    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
     !
     !    
     if(MpiComm==MPI_UNDEFINED.OR.MpiComm==Mpi_Comm_Null)&
@@ -123,7 +124,7 @@ contains
     Hv = Hv + Vt
     !-----------------------------------------------!
     !
-    !deallocate(diag_hybr,bath_diag)
+    deallocate(diag_hybr,bath_diag)
     return
   end subroutine directMatVec_MPI_main
 

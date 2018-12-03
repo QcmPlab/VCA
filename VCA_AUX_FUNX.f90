@@ -101,7 +101,7 @@ contains
        ! case default
        Ns = (Nbath+1)*Nlat*Norb !Norb per site plus Nbath per orb per site
        ! case ('hybrid')
-       !    Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites
+       !    Ns = Nbath+Nlat*Norb     !Norb per site plus shared Nbath sites FIXME: MAYBE ADD HYBRID
        ! end select
     endif
     !

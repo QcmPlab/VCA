@@ -38,7 +38,7 @@ MODULE VCA_INPUT_VARS
   logical              :: vca_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   logical              :: vca_sectors          !flag to reduce sector scan for the spectrum to specific sectors +/- vca_sectors_shift
   integer              :: vca_sectors_shift    !shift to the vca_sectors scan
-  ! character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
+  ! character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)  !FIXME: MAYBE ADD HYBRID
   !
   character(len=6)     :: vca_method          !flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)
   !

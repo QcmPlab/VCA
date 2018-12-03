@@ -10,6 +10,7 @@ MODULE VCA_GF_SHARED
   USE VCA_IO                     !< this contains the routine to print GF,Sigma and G0
   USE VCA_EIGENSPACE
   USE VCA_SETUP
+  USE VCA_BATH_FUNCTIONS
   USE VCA_HAMILTONIAN
   USE VCA_AUX_FUNX
   !

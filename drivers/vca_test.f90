@@ -3,12 +3,14 @@ program vca_test
   USE DMFT_TOOLS
   USE MPI
   USE VCA
+  USE VCA_SETUP
+  USE VCA_VARS_GLOBAL   
   !
   implicit none
   integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
   integer                                         :: iloop
-  integer                                         :: ix,iy
+  integer                                         :: ix,iy,stride,i,iorb
   logical                                         :: converged
   real(8)                                         :: wband
 
@@ -60,6 +62,7 @@ program vca_test
   Nsys = Lx*Ly
   !
   Nlso = Nlat*Norb*Nspin
+  !Nspin=2
 
   t_var=1.0d0
   t=1.0d0
@@ -83,15 +86,38 @@ program vca_test
   allocate(Htb(Nlat,Nlat))
 
 
-  call vca_init_solver(comm)
+  !call vca_init_solver(comm)
 
   !htb=Htb_square_lattice(2,2,1.d0)
   !t_prime=vca_lso2nnn_reshape(htb,Nlat,Nspin,Norb)
-  call generate_hcluster()
-  call generate_t_k()
-  call vca_solve(comm,t_prime,t_k)
+  !call generate_hcluster()
+  !call generate_t_k()
+  !call vca_solve(comm,t_prime,t_k)
   !call print_2DLattice_Structure(dcmplx(htb),[Nx,Ny],1,1,file="Htb_vecchio")
   !call print_2DLattice_Structure(vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb),[Nx,Ny],1,1,file="Htb_nuovo")
+    allocate(getBathStride(Nlat,Norb,Nbath));getBathStride=0
+    stride=Nlat*Norb 
+    ! select case(bath_type)
+    ! case default
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do i=1,Nbath
+             getBathStride(ilat,iorb,i) = i + &
+                  (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride 
+          enddo
+       enddo
+    enddo
+do nspin=1,Nspin
+  do ilat=1,Nlat  
+    do ix=1,Norb
+        do iy=1,Nbath
+            print*,"L",Nlat,"O",ix,"S",Nspin,"INDEX",imp_state_index(ilat,ix),"BathStride",getbathStride(ilat,ix,iy)
+        enddo
+    enddo
+  enddo
+enddo
+STOP
+
 
   if(wloop)then
     allocate(ts_array(Nloop))

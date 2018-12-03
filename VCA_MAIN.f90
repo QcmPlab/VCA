@@ -98,9 +98,6 @@ contains
     !
     if(present(bath))then
        if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
-    !
-    bath = 0d0
-    !
        bath=0d0
        call vca_allocate_bath(vca_bath)
        call vca_init_bath(vca_bath)
@@ -124,10 +121,9 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve_serial(Hloc,Hk,Vq,bath)
+  subroutine vca_solve_serial(Hloc,Hk,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim]
-    real(8),intent(in),dimension(:,:,:),optional   :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
     real(8),intent(inout),dimension(:),optional    :: bath
     !
     integer                                        :: Lk,Nsites
@@ -200,10 +196,9 @@ contains
 
 #ifdef _MPI
 
-  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,Vq,bath)
+  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim]
-    real(8),intent(in),dimension(:,:,:),optional   :: Vq   ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lk]
     real(8),intent(inout),dimension(:),optional    :: bath
     !
     integer                                        :: Lk,Nsites

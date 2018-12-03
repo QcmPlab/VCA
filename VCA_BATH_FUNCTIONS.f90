@@ -138,8 +138,8 @@ contains
     do ilat=1,Nlat
        do iorb=1,Norb
           do ispin=1,Nspin
-             eps = vca_bath_%e(ilat,iorb,ispin,1:Nbath)
-             vps = vca_bath_%v(ilat,iorb,ispin,1:Nbath)
+             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
+             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
              do i=1,L
                 Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:)) )
              enddo
@@ -173,8 +173,8 @@ contains
     do ilat=1,Nlat
        do iorb=1,Norb
           do ispin=1,Nspin
-             eps = vca_bath_%e(ilat,iorb,ispin,1:Nbath)
-             vps = vca_bath_%v(ilat,iorb,ispin,1:Nbath)
+             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
+             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
              do i=1,L
                 Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:)) )
              enddo

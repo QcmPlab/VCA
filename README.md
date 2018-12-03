@@ -13,11 +13,11 @@ The code is based on:
 - [x] save weights&poles in file as gf_cluster_restart.vca
 - [ ] make it possible to pass t as a (Nlso,Nlso,Nk) object (useful for
 superconducting case, that is not realizable in this branch)
-- [ ] calculate the Self-Energy
-- [ ] implement G-scheme periodization
+- [x] calculate the Self-Energy
+- [x] implement G-scheme periodization
 - [ ] fix flags for the integration routines (actually in Scifor)
 - [ ] extend to orbital-resolved case
-- [ ] add bath
+- [x] add bath
 - [ ] add finite T case
 
 --

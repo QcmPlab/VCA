@@ -23,18 +23,20 @@ MODULE VCA_HAMILTONIAN_SPARSE_HxV
   !public  :: setup_Hv_sector
   !public  :: delete_Hv_sector
 
-  integer                              :: i,iup,idw
-  integer                              :: j,jup,jdw
-  integer                              :: m,mup,mdw
-  integer                              :: ms,iud
-  integer                              :: impi
-  integer                              :: ilat,jlat,iorb,jorb,ispin,jspin,is,js
-  integer                              :: kp,k1,k2,k3,k4
-  integer                              :: ialfa,ibeta,indx
-  real(8)                              :: sg1,sg2,sg3,sg4
-  real(8)                              :: htmp,htmpup,htmpdw
-  logical                              :: Jcondition
-  integer                              :: Nfoo
+  integer                                :: i,iup,idw
+  integer                                :: j,jup,jdw
+  integer                                :: m,mup,mdw
+  integer                                :: ms,iud
+  integer                                :: impi
+  integer                                :: ilat,jlat,iorb,jorb,ispin,jspin,is,js,ibath
+  integer                                :: kp,k1,k2,k3,k4
+  integer                                :: ialfa,ibeta,indx
+  real(8)                                :: sg1,sg2,sg3,sg4
+  real(8)                                :: htmp,htmpup,htmpdw
+  logical                                :: Jcondition
+  integer                                :: Nfoo,Nfoo2
+  real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
+  real(8),dimension(:,:,:,:),allocatable :: bath_diag ![Nlat,Nspin,Norb/1,Nbath]
 
 contains
 
@@ -68,7 +70,7 @@ contains
     if(spH0d%status)call sp_delete_matrix(spH0d)
     !
     !Get diagonal hybridization, bath energy
-    !include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 TODO
+    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 !TODO
     !    
 #ifdef _MPI
     if(MpiStatus)then
@@ -95,12 +97,6 @@ contains
     include "VCA_HAMILTONIAN/stored/H_cluster_dw.f90"
     !-----------------------------------------------!
 
-    !   if(vca_bath%status)then
-    !      include "vca_Hbath.f90"
-          !
-    !      include "vca_Hhyb_bath.f90"
-    !   endif
-    !
 
     if(present(Hmat))then
        Hmat = 0d0
@@ -124,7 +120,7 @@ contains
        deallocate(Htmp_up,Htmp_dw)
     endif
     !
-    !deallocate(diag_hybr,bath_diag)
+    deallocate(diag_hybr,bath_diag)
     return
 
     !if(present(Hmat))then
