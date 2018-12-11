@@ -1,11 +1,13 @@
 MODULE VCA_GF_NORMAL
   USE VCA_GF_SHARED
+  USE VCA_AUX_FUNX
   implicit none
   private
 
 
   public :: build_gf_normal
   public :: build_sigma_normal
+  public :: build_embedded_gf
 
 
   integer                   :: istate
@@ -762,8 +764,8 @@ end subroutine add_to_lanczos_gf_normal
     !
     !
     !Get G0^-1
-    invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
-    invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
+    !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
@@ -798,11 +800,75 @@ end subroutine add_to_lanczos_gf_normal
        !
     !
     !Get G0and:
-    impG0mats(:,:,:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
-    impG0real(:,:,:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),vca_bath)
+    !impG0mats(:,:,:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
+    !impG0real(:,:,:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),vca_bath)
     !!
     !
   end subroutine build_sigma_normal
+
+  function build_cluster_sigma(freq) result(clusterSigma)
+    integer                                                   :: ii,ilat,jlat,ispin,iorb
+    complex(8),dimension(:,:,:,:,:,:),allocatable             :: invG0,invG,clusterSigma
+    complex(8),dimension(:,:),allocatable                     :: invG_lso
+    real(8)                                                   :: freq
+    !
+    !
+    if(.not.allocated(InvG0))allocate(invG0(Nlat,Nlat,Nspin,Nspin,Norb,Norb));invG0=zero
+    if(.not.allocated(InvG))allocate(invG(Nlat,Nlat,Nspin,Nspin,Norb,Norb));invG=zero
+    if(.not.allocated(InvG_lso))allocate(invG_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb));invG_lso=zero
+    if(.not.allocated(clusterSigma))allocate(clusterSigma(Nlat,Nlat,Nspin,Nspin,Norb,Norb));clusterSigma=zero
+    !
+    !
+    !Get G0^-1
+    invG0(:,:,:,:,:,:)=vca_lso2nnn_reshape((xi*freq+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+    !
+    !Get G^-1
+    call vca_gf_cluster(xi*freq,invG)
+    invG_lso=vca_nnn2lso_reshape(invG,Nlat,Nspin,Norb)
+    call inv(invG_lso)
+    invG=vca_lso2nnn_reshape(invG_lso,Nlat,Nspin,Norb)
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
+    do ilat=1,Nlat
+      do jlat=1,Nlat
+        do ispin=1,Nspin
+          do iorb=1,Norb
+             clusterSigma(ilat,jlat,ispin,ispin,iorb,iorb) = invG0(ilat,jlat,ispin,ispin,iorb,iorb) - invG(ilat,jlat,ispin,ispin,iorb,iorb)
+          enddo
+        enddo
+      enddo
+    enddo
+    !
+    !
+    !
+  end function build_cluster_sigma
+
+
+  function build_embedded_gf(freq) result(embeddedGF)
+    integer                                                                                                   :: ii,jj,ilat,jlat,ispin,iorb
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                                                     :: tempmat
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)                                                     :: tempmat_lso
+    complex(8),dimension(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1))                                 :: embeddedGF,embeddedSigma
+    real(8)                                                                                                   :: freq
+    !
+    embeddedSigma=zero
+    embeddedGF=zero
+    !
+    !1. get Signma of the cluster ath the frequency
+    tempmat=build_cluster_sigma(freq)
+    tempmat_lso=vca_nnn2lso_reshape(tempmat,Nlat,Nspin,Norb)
+    !2. embed Sigma into a cluster+bath matrix
+    do ii=1,Nlat*Nspin*Norb
+      do jj=1,Nlat*Nspin*Norb
+        embeddedSigma(ii,jj)=tempmat_lso(ii,jj)
+      enddo
+    enddo
+    !3. obtain the inverse of the embedded GF
+    embeddedGF=(xi*freq+XMU)*eye(Nlat*Nspin*Norb*(1+Nbath))-embeddedHloc-embeddedSigma
+    !4. obtain embeddedGF
+    call inv(embeddedGF)
+    !call print_embedded_H_lso(embeddedGF)
+    !
+  end function build_embedded_gf
 
 
 END MODULE VCA_GF_NORMAL

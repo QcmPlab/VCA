@@ -15,7 +15,6 @@ MODULE VCA_OMEGA
   public                                            :: reconstruct_g
 
 
-  complex(8),allocatable,dimension(:,:)             :: tmp_mat
   complex(8),allocatable,dimension(:,:,:,:,:,:)     :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
   
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: gftest ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
@@ -32,6 +31,7 @@ contains
     integer                                                  :: ii,jj,kk
     real(8)                                                  :: omega
     real(8)                                                  :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
     !
     out_1=0.d0
     !
@@ -60,6 +60,32 @@ contains
     !
   end function sum_kmesh
 
+  function sum_kmesh_embedded(omega) result(out_1)
+    integer                                                  :: ii,jj,kk
+    real(8)                                                  :: omega
+    real(8)                                                  :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    !
+    out_1=0.d0
+    !
+    !
+    if(allocated(tmp_mat))deallocate(tmp_mat)
+    !
+    allocate(tmp_mat(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1)))
+    !
+    tmp_mat=zero
+    !
+    do ii=1,size(embeddedHk,3)
+       tmp_mat=eye(Nlat*Nspin*Norb*(Nbath+1))+matmul(embeddedHloc-embeddedHk(:,:,ii),build_embedded_gf(omega))
+       out_1=out_1+log(abs(det(tmp_mat)))
+    enddo
+    out_1=out_1/size(embeddedHk,3)
+    !
+    deallocate(tmp_mat)
+    return
+    !
+  end function sum_kmesh_embedded
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Do the frequency sum at zero T
   !+------------------------------------------------------------------+
@@ -71,7 +97,13 @@ contains
     out_2=0.d0
     spin_multiplicity=3.d0-Nspin 
     !
-    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    if(Nbath > 0)then
+      write(LOGfile,"(A)")"Calculating Omega with embedded matrices"
+      call quad(sum_kmesh_embedded,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    else
+      write(LOGfile,"(A)")"Calculating Omega with original matrices"
+      call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    endif
     out_2=spin_multiplicity*out_2/pi 
     return
   end function frequency_integration
@@ -106,8 +138,10 @@ contains
   !+------------------------------------------------------------------+
 
   subroutine reconstruct_g
-    character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,ispin,ifreq
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    character(len=64)                                        :: suffix
+    integer                                                  :: ilat,jlat,iorb,ispin,ifreq
+    !
     allocate(gftest(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     gftest=0
     !
@@ -139,6 +173,7 @@ contains
     integer                                                  :: ii,jj,kk
     real(8)                                                  :: omega
     real(8)                                                  :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
     !
     out_1=0.d0
     omega=1.0d0

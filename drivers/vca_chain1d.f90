@@ -227,7 +227,7 @@ contains
     complex(8),allocatable,dimension(:,:)                       :: XVk_lso ![Nlso][Nlso]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: Xgfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: Xgfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-    !
+    if(master)then
     !
     allocate(Xgfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(Xgfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
@@ -285,7 +285,7 @@ contains
     deallocate(Xgfmats_unperiodized)
     deallocate(Xgfreal_unperiodized)
     deallocate(XVk_lso)
-    !   
+    endif   
   end subroutine periodize_g_scheme
 
 
@@ -295,7 +295,7 @@ contains
     real(8),dimension(Ndim)                                     :: kpoint
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: invertedG0mats,invertedGmats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)           :: invertedG0real,invertedGreal
-    !
+    if(master)then
     !
     if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
@@ -340,7 +340,7 @@ contains
       enddo
     enddo
     !
-    !
+    endif
   end subroutine build_sigma_g_scheme
 
   !+------------------------------------------------------------------+
@@ -356,7 +356,7 @@ contains
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: Sreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: Smats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
     !
-    !
+    if(master)then
     allocate(Smats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(Sreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -414,7 +414,7 @@ contains
     deallocate(gfprime)
     deallocate(gfprime_lso)
     deallocate(invertedG0cluster)
-    !   
+    endif   
   end subroutine periodize_sigma_scheme
 
 
@@ -425,7 +425,7 @@ contains
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)           :: invertedG0real
     complex(8),allocatable,dimension(:,:)                       :: tmpmat ![Nso][Nso]
     !
-    !
+    if(master)then
     if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     allocate(tmpmat(Nspin*Norb,Nspin*Norb))
@@ -472,7 +472,7 @@ contains
     enddo
     !
     deallocate(tmpmat)
-    !
+    endif
   end subroutine build_g_sigma_scheme
 
   !---------------------------------------------------------------------

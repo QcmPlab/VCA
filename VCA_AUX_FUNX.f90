@@ -73,11 +73,14 @@ MODULE VCA_AUX_FUNX
   public :: vca_nnn2lso_reshape
   public :: vca_so2nn_reshape
   public :: vca_nn2so_reshape
+  public :: embed_hcluster
+  public :: embed_hk
   !
   public :: save_gfprime
   public :: read_gfprime
   !
   public :: search_chemical_potential
+  public :: print_embedded_H_lso
 
 
 
@@ -178,9 +181,30 @@ contains
     if(present(file))close(unit)
   end subroutine print_Hcluster_lso
 
+  subroutine print_embedded_H_lso(hloc,file)
+    complex(8),dimension(:,:) :: hloc
+    character(len=*),optional :: file
+    integer                   :: unit,is,js
+    character(len=32)         :: fmt
+    !
+    !
+    unit=LOGfile;
+    !
+    if(present(file))then
+       open(free_unit(unit),file=reg(file))
+       write(LOGfile,"(A)")"print_Hloc to file :"//reg(file)
+    endif
+    write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb*(Nbath+1),"A)"
+    do is=1,Nlat*Nspin*Norb*(Nbath+1)
+       write(unit,fmt)(str(REAL(hloc(is,js)),1)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
+    enddo
+    write(unit,*)""
+    if(present(file))close(unit)
+  end subroutine print_embedded_H_lso
+
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : 
+  !PURPOSE  : allocate code-internal hopping matrices
   !+------------------------------------------------------------------+
   subroutine set_Hcluster_nnn(hloc)
     complex(8),dimension(:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
@@ -204,7 +228,7 @@ contains
 
 
   subroutine set_Hk_nnn(hloc)
-    complex(8),dimension(:,:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8),dimension(:,:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nk]
     call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim],"set_Hk_nnn","Hloc") 
     !
     impHk = Hloc
@@ -214,7 +238,7 @@ contains
   end subroutine set_Hk_nnn
 
   subroutine set_Hk_lso(hloc)
-    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts**Ndim]
+    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts**Ndim][Nk]
     integer                     :: i
     call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nkpts**ndim],"set_Hk_lso","Hloc") 
     !
@@ -226,9 +250,91 @@ contains
     !if(verbose>2)call vca_print_Hcluster(impHk)
   end subroutine set_Hk_lso
 
+  !+------------------------------------------------------------------+
+  !PURPOSE  : embed bath and hopping matrix into a cumulative hamiltonian    FIXME: CHECK AND THEN CHECK AGAIN
+  !+------------------------------------------------------------------+
+
+   subroutine embed_hcluster(hloc)
+     complex(8),dimension(:,:,:,:,:,:)                             :: Hloc     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)         :: tmpmat ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+     integer                                                       :: i,j,ispin,iorb,ilat,ibath,iup,ido,bid_up,bid_dw
+     !
+     embeddedHloc=zero
+     tmpmat=zero
+     !
+     tmpmat=vca_nnn2lso_reshape(Hloc,Nlat,Nspin,Norb)
+     ! 1. fill the top-left quadrant with the cluster hopping matrix
+     do i=1,Nlat*Nspin*Norb
+       do j=1,Nlat*Nspin*Norb
+          embeddedHloc(i,j)=tmpmat(i,j)
+        enddo
+     enddo
+     !2.  fill the rectangular terms with hybridization bath (all spinup then all spindown)
+     ! and the bottom-right quadrant with the diagonal bath terms
+     do ilat=1,Nlat
+       do iorb=1,Norb   
+         iup=(ilat-1)*Norb+iorb
+         ido=Nlat*Norb+iup    
+         do ibath=1,Nbath
+           !spin up
+           bid_up=Nlat*Norb+getbathstride(ilat,iorb,ibath)
+           embeddedHloc(bid_up,bid_up) = vca_bath%e(ilat,1,iorb,ibath) 
+           embeddedHloc(iup,bid_up)    = vca_bath%v(ilat,1,iorb,ibath) 
+           embeddedHloc(bid_up,iup)    = vca_bath%v(ilat,1,iorb,ibath)
+           !spin down
+           bid_dw=bid_up+Nbath*Nlat*Norb
+           embeddedHloc(bid_dw,bid_dw) = vca_bath%e(ilat,Nspin,iorb,ibath)
+           embeddedHloc(ido,bid_dw)    = vca_bath%v(ilat,Nspin,iorb,ibath)
+           embeddedHloc(bid_dw,ido)    = vca_bath%v(ilat,Nspin,iorb,ibath)
+           print*,"I=",iup,"IDO=",ido,"bid_up=",bid_up,"bid_dw=",bid_dw
+         enddo
+       enddo
+     enddo
+     write(LOGfile,"(A)")"Embed Hcluster: done"
+     if(verbose>2)call print_embedded_H_lso(embeddedHloc)
+   end subroutine embed_hcluster
 
 
-
+   subroutine embed_hk(hk)
+     complex(8),dimension(:,:,:,:,:,:,:)                           :: Hk     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nkpts**ndim]
+     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)         :: tmpmat ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+     integer                                                       :: i,j,ispin,iorb,ilat,ibath,iup,ido,bid_up,bid_dw,ik
+     !
+     embeddedHk=zero
+     tmpmat=zero
+     !
+     do ik=1,Nkpts**Ndim 
+       tmpmat=vca_nnn2lso_reshape(Hk(:,:,:,:,:,:,ik),Nlat,Nspin,Norb)
+       ! 1. fill the top-left quadrant with the cluster hopping matrix
+       do i=1,Nlat*Nspin*Norb
+         do j=1,Nlat*Nspin*Norb
+            embeddedHk(i,j,ik)=tmpmat(i,j)
+         enddo
+       enddo
+       !2.  fill the rectangular terms with hybridization bath (all spinup then all spindown)
+       ! and the bottom-right quadrant with the diagonal bath terms
+       do ilat=1,Nlat
+         do iorb=1,Norb   
+           iup=(ilat-1)*Norb+iorb
+           ido=Nlat*Norb+iup    
+           do ibath=1,Nbath
+             !spin up
+             bid_up=Nlat*Norb+getbathstride(ilat,iorb,ibath)
+             embeddedHk(bid_up,bid_up,ik) = vca_bath%e(ilat,1,iorb,ibath) 
+             embeddedHk(iup,bid_up,ik)    = zero 
+             embeddedHk(bid_up,iup,ik)    = zero
+             !spin down
+             bid_dw=bid_up+Nbath*Nlat*Norb
+             embeddedHk(bid_dw,bid_dw,ik) = vca_bath%e(ilat,Nspin,iorb,ibath)
+             embeddedHk(ido,bid_dw,ik)    = zero
+             embeddedHk(bid_dw,ido,ik)    = zero
+           enddo
+         enddo
+       enddo
+    enddo
+    write(LOGfile,"(A)")"Embed Hk: done"
+    if(verbose>2)call print_embedded_H_lso(embeddedHk(:,:,3))
+   end subroutine embed_hk
 
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: 

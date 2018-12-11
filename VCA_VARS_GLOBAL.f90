@@ -84,8 +84,10 @@ MODULE VCA_VARS_GLOBAL
 
   !non-interacting cluster Hamiltonian and full system hopping matrix
   !=========================================================
-  complex(8),dimension(:,:,:,:,:,:),allocatable   :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-  complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: impHk   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  complex(8),dimension(:,:,:,:,:,:),allocatable     :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+  complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: impHk   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nkpts**ndim]
+  complex(8),dimension(:,:),allocatable             :: embeddedHloc ![Nlat*Nspin*Norb*(1+Nbath)][Nlat*Nspin*Norb*(1+Nbath)]
+  complex(8),dimension(:,:,:),allocatable           :: embeddedHk ![Nlat*Nspin*Norb*(1+Nbath)][Nlat*Nspin*Norb*(1+Nbath)][Nkpts**ndim]
 
 
 

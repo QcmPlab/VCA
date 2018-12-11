@@ -163,6 +163,8 @@ contains
     !
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
+    call embed_hcluster(Hloc)
+    call embed_hk(Hk)
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !
@@ -243,6 +245,8 @@ contains
     !
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
+    call embed_hcluster(Hloc)
+    call embed_hk(Hk)
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !

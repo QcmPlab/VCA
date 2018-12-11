@@ -142,6 +142,11 @@ contains
     impHloc=zero
     impHk=zero
     !
+    allocate(embeddedHloc(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1)))
+    allocate(embeddedHk(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1),Nkpts**Ndim))
+    embeddedHloc=zero
+    embeddedHk=zero
+    !
     allocate(spH0ups(Ns_Ud))
     allocate(spH0dws(Ns_Ud))
     !
