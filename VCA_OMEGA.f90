@@ -78,6 +78,7 @@ contains
     do ii=1,size(embeddedHk,3)
        tmp_mat=eye(Nlat*Nspin*Norb*(Nbath+1))+matmul(embeddedHloc-embeddedHk(:,:,ii),build_embedded_gf(omega))
        out_1=out_1+log(abs(det(tmp_mat)))
+       !print*,out_1
     enddo
     out_1=out_1/size(embeddedHk,3)
     !
@@ -97,6 +98,7 @@ contains
     out_2=0.d0
     spin_multiplicity=3.d0-Nspin 
     !
+    !
     if(Nbath > 0)then
       write(LOGfile,"(A)")"Calculating Omega with embedded matrices"
       call quad(sum_kmesh_embedded,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
@@ -114,14 +116,14 @@ contains
       real(8)                          :: out_2,a,b,spin_multiplicity
       !
       a=0.0001d0
-      b=1000.d0
+      b=9999.d0
       N=1000
       out_2=0.d0
       spin_multiplicity=2.d0
       allocate(x(N),func(N))
       x = linspace(a,b,N)
       do i=1,N
-         func(i) = sum_kmesh(x(i))
+         func(i) = sum_kmesh_embedded(x(i))
       enddo
       call quad(func,a,b,Ninterp=3,key=6,epsabs=0d0,epsrel=1d-4,verbose=.true.,result=out_2)
       out_2=spin_multiplicity*out_2/pi 

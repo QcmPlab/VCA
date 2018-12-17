@@ -14,8 +14,8 @@ MODULE VCA_VARS_GLOBAL
 
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
-     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [1//Nlat][1//Norb][Nspin][Nbath]
-     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Norb][Nspin][Nbath]
+     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [1//Nlat][Nspin][1//Norb][Nbath]
+     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Nspin][Norb][Nbath]
      logical                                       :: status=.false.
   end type effective_bath
 
@@ -95,7 +95,7 @@ MODULE VCA_VARS_GLOBAL
   !=========================================================
   integer,allocatable,dimension(:,:)              :: getsector
   integer,allocatable,dimension(:,:,:)            :: getCsector
-  integer,allocatable,dimension(:,:,:)              :: getCDGsector
+  integer,allocatable,dimension(:,:,:)            :: getCDGsector
   integer,allocatable,dimension(:)                :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                :: getNup,getNdw
   integer,allocatable,dimension(:,:,:)            :: getBathStride
@@ -151,6 +151,8 @@ MODULE VCA_VARS_GLOBAL
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impSreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
   type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: impGmatrix
+  type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: HybGmatrix
+  type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: bathGmatrix
 
   !Spin Susceptibilities
   !=========================================================

@@ -70,7 +70,7 @@ contains
     if(spH0d%status)call sp_delete_matrix(spH0d)
     !
     !Get diagonal hybridization, bath energy
-    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 !TODO
+    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 
     !    
 #ifdef _MPI
     if(MpiStatus)then

@@ -196,7 +196,7 @@ contains
     endif
     write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb*(Nbath+1),"A)"
     do is=1,Nlat*Nspin*Norb*(Nbath+1)
-       write(unit,fmt)(str(REAL(hloc(is,js)),1)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
+       write(unit,fmt)(str(REAL(hloc(is,js)),5)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
     enddo
     write(unit,*)""
     if(present(file))close(unit)

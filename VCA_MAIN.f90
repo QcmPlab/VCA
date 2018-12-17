@@ -268,7 +268,7 @@ contains
         write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
         write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
         open(free_unit(unit),file="SFT_potential.vca",position='append')
-        write(unit,*)sft_potential
+        write(unit,*)sft_potential,state_list%emin,-omega_integral
         close(unit)
     endif
     !

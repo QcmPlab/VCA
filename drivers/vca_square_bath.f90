@@ -142,7 +142,7 @@ contains
     real(8)                      :: Omega
     !
     !
-    t_var=1.d0
+    t_var=1.0d0
     Vij=tij
     print*,""
     print*,"------ V = ",Vij,"------"
@@ -152,8 +152,8 @@ contains
     do ix=1,Nlat
       do iy=1,Nspin
         do ik=1,Norb       
-          call set_bath_component(bath,ix,iy,ik,e_component=[0.0d0])
-          call set_bath_component(bath,ix,iy,ik,v_component=[Vij])
+          call set_bath_component(bath,ix,iy,ik,e_component=[-mu_var])
+          call set_bath_component(bath,ix,iy,ik,v_component=[-Vij])
         enddo
       enddo
     enddo
