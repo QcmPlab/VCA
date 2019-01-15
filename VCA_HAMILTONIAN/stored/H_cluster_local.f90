@@ -82,8 +82,9 @@
        do iorb=1,size(bath_diag,3)
           do kp=1,Nbath
              ialfa = getBathStride(ilat,iorb,kp)
-             htmp =htmp + bath_diag(ilat,1    ,iorb,kp)*ibup(ialfa) !UP
-             htmp =htmp + bath_diag(ilat,Nspin,iorb,kp)*ibdw(ialfa) !DW
+             htmp = htmp + bath_diag(ilat,1    ,iorb,kp)*ibup(ialfa) !UP
+             htmp = htmp + bath_diag(ilat,Nspin,iorb,kp)*ibdw(ialfa) !DW
+             htmp = htmp - xmu*dble(ibup(ialfa)+ibdw(ialfa))
           enddo
        enddo
      enddo

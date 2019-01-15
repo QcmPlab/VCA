@@ -1,6 +1,7 @@
 MODULE VCA_OMEGA
   !
   USE VCA_GF_SHARED
+  USE VCA_BATH_FUNCTIONS
   USE VCA_GF_NORMAL
   USE SCIFOR
   !
@@ -49,7 +50,7 @@ contains
     call vca_gf_cluster(xi*omega,gfprime)
     !
     do ii=1,size(impHk,7)
-       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
+       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(delta_bath_freq(xi*omega,vca_bath)+impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
        out_1=out_1+log(abs(det(tmp_mat)))
     enddo
     out_1=out_1/size(impHk,7)
@@ -78,7 +79,6 @@ contains
     do ii=1,size(embeddedHk,3)
        tmp_mat=eye(Nlat*Nspin*Norb*(Nbath+1))+matmul(embeddedHloc-embeddedHk(:,:,ii),build_embedded_gf(omega))
        out_1=out_1+log(abs(det(tmp_mat)))
-       !print*,out_1
     enddo
     out_1=out_1/size(embeddedHk,3)
     !
@@ -99,13 +99,13 @@ contains
     spin_multiplicity=3.d0-Nspin 
     !
     !
-    if(Nbath > 0)then
-      write(LOGfile,"(A)")"Calculating Omega with embedded matrices"
-      call quad(sum_kmesh_embedded,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
-    else
+    !if(Nbath > 0)then
+    !  write(LOGfile,"(A)")"Calculating Omega with embedded matrices"
+    !  call quad(sum_kmesh_embedded,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    !else
       write(LOGfile,"(A)")"Calculating Omega with original matrices"
       call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
-    endif
+    !endif
     out_2=spin_multiplicity*out_2/pi 
     return
   end function frequency_integration

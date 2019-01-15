@@ -195,8 +195,13 @@ contains
        write(LOGfile,"(A)")"print_Hloc to file :"//reg(file)
     endif
     write(fmt,"(A,I0,A)")"(",Nlat*Nspin*Norb*(Nbath+1),"A)"
+    write(unit,"(A)")"REAL"
     do is=1,Nlat*Nspin*Norb*(Nbath+1)
-       write(unit,fmt)(str(REAL(hloc(is,js)),5)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
+       write(unit,fmt)(str(DIMAG(hloc(is,js)),5)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
+    enddo
+    write(unit,"(A)")"IMAG"
+    do is=1,Nlat*Nspin*Norb*(Nbath+1)
+       write(unit,fmt)(str(DREAL(hloc(is,js)),5)//" ",js=1,Nlat*Nspin*Norb*(Nbath+1))
     enddo
     write(unit,*)""
     if(present(file))close(unit)

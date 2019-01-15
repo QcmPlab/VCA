@@ -175,6 +175,7 @@ contains
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
     omega_integral=frequency_integration()
+    sft_potential = state_list%emin-omega_integral
     !
     write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
     write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
@@ -245,17 +246,21 @@ contains
     !
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
-    call embed_hcluster(Hloc)
-    call embed_hk(Hk)
+    !call embed_hcluster(Hloc)
+    !call embed_hk(Hk)
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
-    call observables_cluster()    !obtain impurity observables as thermal averages.
-    call save_gfprime("gfprime",use_formatted=.false.)
-    call read_gfprime("gfprime",use_formatted=.false.)
+    !DEBUG
     call reconstruct_g()
+    !end debug
+    call observables_cluster()    !obtain impurity observables as thermal averages.
+
+    !call save_gfprime("gfprime",use_formatted=.false.)
+    !call read_gfprime("gfprime",use_formatted=.false.)
+    !call reconstruct_g()
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !

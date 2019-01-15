@@ -1,4 +1,4 @@
-program vca_test
+program vca_square_bath
   USE SCIFOR
   USE DMFT_TOOLS
   USE MPI
@@ -88,7 +88,7 @@ program vca_test
   if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(0.1d0,0.7d0,Nloop)
+    ts_array = linspace(0.05d0,2d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
@@ -104,7 +104,7 @@ program vca_test
           call set_bath_component(bath,ix,iy,ik,e_component=[8.0d0])
           call set_bath_component(bath,ix,iy,ik,v_component=[4.0d0])
         enddo
-     enddo
+      enddo
     enddo
     call generate_tcluster()
     call generate_hk()
@@ -138,22 +138,24 @@ contains
 
   function solve_vca_square(tij) result(Omega)
     real(8)                      :: tij
-    real(8)                      :: Vij
+    real(8)                      :: Vij,Eij
     real(8)                      :: Omega
     !
     !
-    t_var=1.0d0
+    t_var=0.0d0
     Vij=tij
+    Eij=Uloc(1)/2d0
+    mu_var=0.d0
     print*,""
-    print*,"------ V = ",Vij,"------"
+    print*,"------ Doing for ",tij," ------"
     call generate_tcluster()
     call generate_hk()
     !BATH VARIATIONAL SETUP
     do ix=1,Nlat
       do iy=1,Nspin
         do ik=1,Norb       
-          call set_bath_component(bath,ix,iy,ik,e_component=[-mu_var])
-          call set_bath_component(bath,ix,iy,ik,v_component=[-Vij])
+          call set_bath_component(bath,ix,iy,ik,e_component=[Eij])
+          call set_bath_component(bath,ix,iy,ik,v_component=[Vij])
         enddo
       enddo
     enddo
@@ -319,7 +321,7 @@ contains
     indices(1)=N/Nx+1
   end function N2indices
 
-end program vca_test
+end program vca_square_bath
 
 
 

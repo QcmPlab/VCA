@@ -114,8 +114,8 @@ contains
 #endif
        call sp_dump_matrix(spH0ups(1),Htmp_up)
        call sp_dump_matrix(spH0dws(1),Htmp_dw)
-       Hmat = Hmat + kronecker_product(eye(DimUp),Htmp_dw) ! kron(eye(DimDw),Htmp_up)
-       Hmat = Hmat + kronecker_product(Htmp_up,eye(DimDw)) ! kron(Htmp_dw,eye(DimUp))
+       Hmat = Hmat + kronecker_product(Htmp_dw,eye(DimUp)) ! kron(Htmp_dw,eye(DimUp))
+       Hmat = Hmat + kronecker_product(eye(DimDw),Htmp_up) ! kron(eye(DimDw),Htmp_up)
        !
        deallocate(Htmp_up,Htmp_dw)
     endif

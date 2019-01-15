@@ -66,32 +66,32 @@ contains
           enddo
           !
           !bath hybridization functions
-          do isite=1,Nlat
-            do jsite=1,Nlat
-              do ibath=1,Nbath
-                icomposite=Nbath*(jsite-1)+ibath
-                call GFmatrix_allocate(hybGmatrix(isite,icomposite,ispin,ispin,iorb,iorb),N=2)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
-                call lanc_build_gf_normal_hyb_main(isite,jsite,ibath,iorb,ispin)    
-              enddo
-            enddo
-          enddo
+          !do isite=1,Nlat
+          !  do jsite=1,Nlat
+          !    do ibath=1,Nbath
+          !      icomposite=Nbath*(jsite-1)+ibath
+          !      call GFmatrix_allocate(hybGmatrix(isite,icomposite,ispin,ispin,iorb,iorb),N=2)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
+          !      call lanc_build_gf_normal_hyb_main(isite,jsite,ibath,iorb,ispin)    
+          !    enddo
+          !  enddo
+          !enddo
           !
           !intra-bath components
-          do isite=1,Nlat
-            do ibath=1,Nbath
-              icomposite=Nbath*(isite-1)+ibath
-              call GFmatrix_allocate(bathGmatrix(icomposite,icomposite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
-              call lanc_build_gf_normal_bath_main(isite,ibath,iorb,ispin)
-               do jsite=1,Nlat
-                 do jbath=1,Nbath
-                   jcomposite=Nbath*(jsite-1)+jbath
-                   if(icomposite==jcomposite)cycle
-                   call GFmatrix_allocate(bathGmatrix(icomposite,jcomposite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
-                   call lanc_build_gf_normal_mix_bath_main(isite,jsite,ibath,jbath,iorb,ispin)
-                enddo
-              enddo
-            enddo
-          enddo
+          !do isite=1,Nlat
+          !  do ibath=1,Nbath
+          !    icomposite=Nbath*(isite-1)+ibath
+          !    call GFmatrix_allocate(bathGmatrix(icomposite,icomposite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
+          !    call lanc_build_gf_normal_bath_main(isite,ibath,iorb,ispin)
+          !     do jsite=1,Nlat
+          !       do jbath=1,Nbath
+          !        jcomposite=Nbath*(jsite-1)+jbath
+          !         if(icomposite==jcomposite)cycle
+          !         call GFmatrix_allocate(bathGmatrix(icomposite,jcomposite,ispin,ispin,iorb,iorb),N=2) !2= add,del exc. c^+_i|psi>
+          !         call lanc_build_gf_normal_mix_bath_main(isite,jsite,ibath,jbath,iorb,ispin)
+          !      enddo
+          !    enddo
+          !  enddo
+          !enddo
           !nondiagonal trick
           do isite=1,Nlat
              do jsite=1,Nlat
@@ -340,7 +340,7 @@ contains
     is = getbathstride(isite,iorb,ibath) !index of the site+orb+bath in the vector representation
     i_comp = Nbath*(isite-1)+ibath       !site-bath composite index for the matrix storage function
     !
-    write(LOGfile,*)"Solving G_cluster_bath"//str(isite,3)//"_bath"//str(isite,3)
+    write(LOGfile,*)"Solving G_cluster_bath"//str(i_comp,3)//"_bath"//str(i_comp,3)
     !
     do istate=1,state_list%size
        !print*,istate
@@ -611,6 +611,7 @@ contains
              call delete_sector(jsector,HJ)
              !
              norm2=dot_product(vvinit,vvinit)
+             if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
           endif
           !
@@ -688,6 +689,7 @@ contains
              call delete_sector(jsector,HJ)
              !
              norm2=dot_product(vvinit,vvinit)
+             if(verbose==3)write(LOGfile,"(A,F6.4)")' Del particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
           endif
           !
@@ -911,7 +913,7 @@ contains
     i_comp = Nbath*(isite-1)+ibath
     j_comp = Nbath*(jsite-1)+jbath
     !
-    write(LOGfile,*)"Solving G_cluster_bath"//str(isite,3)//"_bath"//str(jsite,3)
+    write(LOGfile,*)"Solving G_cluster_bath"//str(i_comp,3)//"_bath"//str(j_comp,3)
     !
     do istate=1,state_list%size
        isector    =  es_return_sector(state_list,istate)
@@ -1577,12 +1579,12 @@ end subroutine add_to_lanczos_gf_bath
 
 
   function build_embedded_gf(freq) result(embeddedGF)
-    integer                                                                                                   :: ii,jj,ilat,jlat,ispin,iorb,ibath,bid_up,bid_dw,iup,ido,icomp
-    complex(8),dimension(:,:,:,:,:,:),allocatable                                                             :: tempmat
-    complex(8),dimension(:,:),allocatable                                                                     :: tempmat_lso
-    complex(8),dimension(Nlat,Nlat*Nbath,Nspin,Nspin,Norb,Norb)                                               :: hybmat
-    complex(8),dimension(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1))                                 :: embeddedGF
-    real(8)                                                                                                   :: freq
+    integer                                                                          :: ii,jj,ilat,jlat,ispin,iorb,ibath,bid_up,bid_dw,iup,ido,icomp
+    complex(8),dimension(:,:,:,:,:,:),allocatable                                    :: tempmat
+    complex(8),dimension(:,:),allocatable                                            :: tempmat_lso
+    complex(8),dimension(Nlat,Nlat*Nbath,Nspin,Nspin,Norb,Norb)                      :: hybmat
+    complex(8),dimension(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1))        :: embeddedGF
+    real(8)                                                                          :: freq
     !
     embeddedGF=zero
     if(allocated(tempmat))deallocate(tempmat)
@@ -1602,7 +1604,7 @@ end subroutine add_to_lanczos_gf_bath
     deallocate(tempmat)
     deallocate(tempmat_lso)
     !
-    !2. Get bath GF
+    !2. Get bath GF elements
     !
     allocate(tempmat(Nlat*Nbath,Nlat*Nbath,Nspin,Nspin,Norb,Norb))
     allocate(tempmat_lso(Nlat*Nbath*Nspin*Norb,Nlat*Nbath*Nspin*Norb))
@@ -1637,6 +1639,9 @@ end subroutine add_to_lanczos_gf_bath
       enddo
     enddo
     !
+    !call inv(embeddedGF)
+    !call print_embedded_H_lso((xi*freq+XMU)*eye((Nbath+1)*Nlat*Nspin*Norb)-embeddedHloc-embeddedGF)
+    !call inv(embeddedGF)
     !call print_embedded_H_lso(embeddedGF)
   end function build_embedded_gf
 

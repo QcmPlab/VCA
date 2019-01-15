@@ -10,6 +10,10 @@ MODULE VCA_BATH_FUNCTIONS
 
   private
 
+  interface delta_bath_freq
+    module procedure delta_bath_freq_main
+  endinterface delta_bath_freq
+
 
   !##################################################################
   !
@@ -89,6 +93,7 @@ MODULE VCA_BATH_FUNCTIONS
      module procedure invg0_bath_real_main_
   end interface invg0_bath_real
   !
+  public :: delta_bath_freq
 
   public :: delta_bath_mats
   public :: g0and_bath_mats
@@ -116,6 +121,37 @@ contains
   !
   !##################################################################
   !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  Delta functions for specific frequency:
+  !+-----------------------------------------------------------------------------+!
+  !NORMAL:
+  function delta_bath_freq_main(x,vca_bath_) result(Delta)
+    complex(8),intent(in)                                         :: x
+    type(effective_bath)                                          :: vca_bath_
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)         :: Delta
+    integer                                                       :: i,ih,L
+    integer                                                       :: ibath
+    integer                                                       :: io,jo
+    real(8),dimension(Nbath)                                      :: eps,vps
+    real(8),dimension(Nlat,Norb,Nbath)                            :: vops
+    !
+    Delta=zero
+    !
+    !
+    if(.not.vca_bath_%status)return
+    !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
+             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
+             Delta(ilat,ilat,ispin,ispin,iorb,iorb) = sum( vps(:)*vps(:)/(x - eps(:)+XMU) )
+          enddo
+       enddo
+    enddo
+  end function delta_bath_freq_main
+
+
+  !+-----------------------------------------------------------------------------+!
   !PURPOSE:  Delta functions on the Matsubara axis:
   !+-----------------------------------------------------------------------------+!
   !NORMAL:
@@ -141,7 +177,7 @@ contains
              eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
              vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
              do i=1,L
-                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:)) )
+                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:) + XMU) )
              enddo
           enddo
        enddo
@@ -176,7 +212,7 @@ contains
              eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
              vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
              do i=1,L
-                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:)) )
+                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:) +XMU) )
              enddo
           enddo
        enddo
