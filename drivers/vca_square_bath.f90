@@ -88,7 +88,7 @@ program vca_square_bath
   if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(0.05d0,2d0,Nloop)
+    ts_array = linspace(0.05d0,0.7d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
@@ -142,7 +142,7 @@ contains
     real(8)                      :: Omega
     !
     !
-    t_var=0.0d0
+    t_var=1.0d0
     Vij=tij
     Eij=Uloc(1)/2d0
     mu_var=0.d0

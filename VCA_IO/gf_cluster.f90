@@ -29,7 +29,7 @@
                       green = green + weight/(zeta-de)
                    enddo
                 enddo
-                gf(ilat,jlat,ispin,ispin,iorb,iorb) = green
+                gf(ilat,jlat,ispin,ispin,iorb,iorb) = GS_MULT*green
              enddo
           enddo
        enddo

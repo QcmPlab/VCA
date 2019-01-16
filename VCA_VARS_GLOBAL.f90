@@ -80,6 +80,7 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                       :: Nsectors !Number of sectors
   integer,save                                       :: Ns_orb
   integer,save                                       :: Ns_ud
+  integer                                            :: GS_MULT
 
 
   !non-interacting cluster Hamiltonian and full system hopping matrix
