@@ -18,6 +18,7 @@ superconducting case, that is not realizable in this branch)
 - [ ] fix flags for the integration routines (actually in Scifor)
 - [ ] extend to orbital-resolved case
 - [x] add bath
+- [x] add sample periodization routines in drivers
 - [ ] add finite T case
 
 --

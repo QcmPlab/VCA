@@ -12,7 +12,6 @@ program vca_test
   logical                                         :: converged
   real(8)                                         :: wband
   !Bath
-  real(8),allocatable                             :: Bath(:)
   integer                                         :: Nb
   !The local hybridization function:
   real(8),dimension(:,:),allocatable              :: Tsys,Tref,Vmat,Htb,Mmat,dens
@@ -80,23 +79,12 @@ program vca_test
 
 
   
-  Nb=vca_get_bath_dimension()
-  allocate(Bath(Nb))
-  call vca_init_solver(comm,bath)
+  call vca_init_solver(comm)
     
-  !BATH VARIATIONAL SETUP
-  do ix=1,Nlat
-    do iy=1,Nspin
-        do ik=1,Norb
-            call set_bath_component(bath,ix,iy,ik,e_component=[1.0d0])
-            call set_bath_component(bath,ix,iy,ik,v_component=[0.0d0])
-        enddo
-     enddo
-  enddo
   !
   call generate_tcluster()
   call generate_hk()
-  call vca_solve(comm,t_prime,h_k,bath)
+  call vca_solve(comm,t_prime,h_k)
 
 
   if(wloop)then

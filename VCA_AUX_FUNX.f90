@@ -552,19 +552,23 @@ subroutine write_formatted(dtv, unit, iotype, v_list, iostat, iomsg)
     integer, intent(out)                :: iostat
     character(*), intent(in)            :: iotype
     integer, intent(in)                 :: v_list(:)
-    integer                             :: Nexc,iexc,Ichan,ilat,jlat,iorb,ispin
-    integer                             :: Nchan
+    integer                             :: Nexc,iexc,Ichan,ilat,jlat,iorb,ispin,istate
+    integer                             :: Nchan,Nstates
     character(*), intent(inout)         :: iomsg
     !
     !
-    Nchan = size(dtv%channel)
+    Nstates = size(dtv%state)
     write (unit, *,IOSTAT=iostat, IOMSG=iomsg) Nchan
-    do ichan=1,Nchan
-      write (unit, *,IOSTAT=iostat, IOMSG=iomsg) size(dtv%channel(ichan)%poles)
-      write (unit, *,IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%poles
-      write (unit, *,IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%weight
+    do istate=1,Nstates
+      Nchan = size(dtv%state(istate)%channel)
+      write (unit, *,IOSTAT=iostat, IOMSG=iomsg) Nchan
+      do ichan=1,Nchan
+        write (unit, *,IOSTAT=iostat, IOMSG=iomsg) size(dtv%state(istate)%channel(ichan)%poles)
+        write (unit, *,IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%poles
+        write (unit, *,IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%weight
+      enddo
+      write (unit, *,IOSTAT=iostat, IOMSG=iomsg) "\n"
     enddo
-    write (unit, *,IOSTAT=iostat, IOMSG=iomsg) "\n"
     !
 end subroutine write_formatted
 
@@ -580,15 +584,19 @@ subroutine read_formatted(dtv, unit,iotype, v_list, iostat, iomsg)
     integer, intent(in)                           :: v_list(:)
     character(*), intent(inout)                   :: iomsg
     logical                                       :: alloc
-    integer                                       :: ichan,Nchan,Nlanc
+    integer                                       :: ichan,Nchan,Nlanc,istate,Nstates
     !
-    read (unit,*,IOSTAT=iostat, IOMSG=iomsg) Nchan
-    call GFmatrix_allocate(dtv,N=Nchan)
-    do ichan=1,Nchan
-      read (unit,*, IOSTAT=iostat, IOMSG=iomsg) Nlanc
-      call GFmatrix_allocate(dtv,i=ichan,Nexc=Nlanc)
-      read (unit, *, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%poles
-      read (unit, *, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%weight
+    read (unit,*,IOSTAT=iostat, IOMSG=iomsg) Nstates
+    call GFmatrix_allocate(dtv,Nstate=Nstates)
+    do istate=1,Nstates
+      read (unit,*,IOSTAT=iostat, IOMSG=iomsg) Nchan
+      call GFmatrix_allocate(dtv,istate=istate,Nchan=Nchan)
+      do ichan=1,Nchan
+        read (unit,*, IOSTAT=iostat, IOMSG=iomsg) Nlanc
+        call GFmatrix_allocate(dtv,istate=istate,ichan=ichan,Nexc=Nlanc)
+        read (unit, *, IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%poles
+        read (unit, *, IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%weight
+      enddo
     enddo
     !
 end subroutine read_formatted
@@ -603,15 +611,19 @@ subroutine write_unformatted(dtv, unit, iostat, iomsg)
     class(GFmatrix), intent(in)         :: dtv
     integer, intent(in)                 :: unit
     integer, intent(out)                :: iostat
-    integer                             :: Nexc,iexc,Ichan,ilat,jlat,iorb,ispin
-    integer                             :: Nchan
+    integer                             :: Nexc,iexc,Ichan,ilat,jlat,iorb,ispin,istate
+    integer                             :: Nchan,Nstates
     character(*), intent(inout)         :: iomsg
     !
     !
-    Nchan = size(dtv%channel)
-    write (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
-    do ichan=1,Nchan
-      write (unit, IOSTAT=iostat, IOMSG=iomsg) size(dtv%channel(ichan)%poles), dtv%channel(ichan)%poles, dtv%channel(ichan)%weight
+    Nstates = size(dtv%state)
+    write (unit, IOSTAT=iostat, IOMSG=iomsg) Nstates
+    do istate=1,Nstates
+      Nchan = size(dtv%state(istate)%channel)
+      write (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
+      do ichan=1,Nchan
+        write (unit, IOSTAT=iostat, IOMSG=iomsg) size(dtv%state(istate)%channel(ichan)%poles), dtv%state(istate)%channel(ichan)%poles, dtv%state(istate)%channel(ichan)%weight
+      enddo
     enddo
     !
 end subroutine write_unformatted
@@ -626,15 +638,19 @@ subroutine read_unformatted(dtv, unit, iostat, iomsg)
     integer, intent(out)                          :: iostat
     character(*), intent(inout)                   :: iomsg
     logical                                       :: alloc
-    integer                                       :: ichan,Nchan,Nlanc
+    integer                                       :: ichan,Nchan,Nlanc,istate,Nstates
     !
-    read (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
-    call GFmatrix_allocate(dtv,N=Nchan)
-    do ichan=1,Nchan
-      read (unit, IOSTAT=iostat, IOMSG=iomsg) Nlanc
-      call GFmatrix_allocate(dtv,i=ichan,Nexc=Nlanc)
-      read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%poles
-      read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%channel(ichan)%weight
+    read (unit, IOSTAT=iostat, IOMSG=iomsg) Nstates
+    call GFmatrix_allocate(dtv,Nstate=Nstates)
+    do istate=1,Nstates
+      read (unit, IOSTAT=iostat, IOMSG=iomsg) Nchan
+      call GFmatrix_allocate(dtv,istate=istate,Nchan=Nchan)
+      do ichan=1,Nchan
+        read (unit, IOSTAT=iostat, IOMSG=iomsg) Nlanc
+        call GFmatrix_allocate(dtv,istate=istate,ichan=ichan,Nexc=Nlanc)
+        read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%poles
+        read (unit, IOSTAT=iostat, IOMSG=iomsg) dtv%state(istate)%channel(ichan)%weight
+      enddo
     enddo
     !
 end subroutine read_unformatted

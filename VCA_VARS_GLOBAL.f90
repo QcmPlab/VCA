@@ -49,10 +49,16 @@ MODULE VCA_VARS_GLOBAL
      real(8),dimension(:),allocatable :: weight
      real(8),dimension(:),allocatable :: poles
   end type GFspectrum
-  type GFmatrix
-     type(GFspectrum),dimension(:),allocatable :: channel
+  type GFchannel
+     type(GFspectrum),dimension(:),allocatable :: channel !N_channel = 2 (c,cdag), 4 (c,cdag,c pm cdag)
+  end type GFchannel
+ type GFmatrix
+     type(GFchannel),dimension(:),allocatable :: state !state_list%size = # of state in the spectrum 
   end type GFmatrix
+
+
   interface GFmatrix_allocate
+     module procedure :: allocate_GFmatrix_Nstate
      module procedure :: allocate_GFmatrix_Nchan
      module procedure :: allocate_GFmatrix_Nexc
   end interface GFmatrix_allocate
@@ -80,7 +86,6 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                       :: Nsectors !Number of sectors
   integer,save                                       :: Ns_orb
   integer,save                                       :: Ns_ud
-  integer                                            :: GS_MULT
 
 
   !non-interacting cluster Hamiltonian and full system hopping matrix
@@ -152,8 +157,6 @@ MODULE VCA_VARS_GLOBAL
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)   :: impSreal ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][L]
   !
   type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: impGmatrix
-  type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: HybGmatrix
-  type(GFmatrix),allocatable,dimension(:,:,:,:,:,:) :: bathGmatrix
 
   !Spin Susceptibilities
   !=========================================================
@@ -294,22 +297,29 @@ contains
   end subroutine vca_del_MpiComm
 
   !Allocate the channels in GFmatrix structure
-  subroutine allocate_gfmatrix_Nchan(self,N)
+subroutine allocate_gfmatrix_Nstate(self,Nstate)
     type(GFmatrix) :: self
-    integer        :: N
-    if(allocated(self%channel))deallocate(self%channel)
-    allocate(self%channel(N))
+    integer        :: Nstate
+    if(allocated(self%state))deallocate(self%state)
+    allocate(self%state(Nstate))
+  end subroutine allocate_gfmatrix_Nstate
+
+  subroutine allocate_gfmatrix_Nchan(self,istate,Nchan)
+    type(GFmatrix) :: self
+    integer        :: istate,Nchan
+    if(allocated(self%state(istate)%channel))deallocate(self%state(istate)%channel)
+    allocate(self%state(istate)%channel(Nchan))
   end subroutine allocate_gfmatrix_Nchan
 
   !Allocate the Excitations spectrum at a given channel
-  subroutine allocate_gfmatrix_Nexc(self,i,Nexc)
+  subroutine allocate_gfmatrix_Nexc(self,istate,ichan,Nexc)
     type(GFmatrix) :: self
-    integer        :: i
+    integer        :: istate,ichan
     integer        :: Nexc
-    if(allocated(self%channel(i)%weight))deallocate(self%channel(i)%weight)
-    if(allocated(self%channel(i)%poles))deallocate(self%channel(i)%poles)
-    allocate(self%channel(i)%weight(Nexc))
-    allocate(self%channel(i)%poles(Nexc))
+    if(allocated(self%state(istate)%channel(ichan)%weight))deallocate(self%state(istate)%channel(ichan)%weight)
+    if(allocated(self%state(istate)%channel(ichan)%poles))deallocate(self%state(istate)%channel(ichan)%poles)
+    allocate(self%state(istate)%channel(ichan)%weight(Nexc))
+    allocate(self%state(istate)%channel(ichan)%poles(Nexc))
   end subroutine allocate_gfmatrix_Nexc
  
 

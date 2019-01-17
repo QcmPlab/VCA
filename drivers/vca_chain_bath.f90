@@ -83,7 +83,7 @@ program vca_chain1d
 
   !INIT SOLVER:
 
-  call vca_init_solver(comm)
+  call vca_init_solver(comm,bath)
   
   !LOOP:
 

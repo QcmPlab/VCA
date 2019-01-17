@@ -63,6 +63,9 @@ contains
        call vca_allocate_bath(vca_bath)
        call vca_init_bath(vca_bath)
        call vca_get_bath(vca_bath,bath)
+    else
+      write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
+      Nbath=0
     endif
     !
     if(isetup)call setup_global
@@ -102,6 +105,9 @@ contains
        call vca_allocate_bath(vca_bath)
        call vca_init_bath(vca_bath)
        call vca_get_bath(vca_bath,bath)
+    else
+      write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
+      Nbath=0
     endif
     !
     if(isetup)call setup_global
@@ -163,8 +169,8 @@ contains
     !
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
-    call embed_hcluster(Hloc)
-    call embed_hk(Hk)
+    !call embed_hcluster(Hloc)
+    !call embed_hk(Hk)
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !
@@ -253,9 +259,6 @@ contains
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
-    !DEBUG
-    call reconstruct_g()
-    !end debug
     call observables_cluster()    !obtain impurity observables as thermal averages.
 
     !call save_gfprime("gfprime",use_formatted=.false.)

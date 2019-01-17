@@ -40,19 +40,9 @@ MODULE VCA_IO
      module procedure :: vca_gf_cluster_array
   end interface vca_gf_cluster
 
-  interface vca_gf_hyb
-     module procedure :: vca_gf_hyb_scalar
-  end interface vca_gf_hyb
-
-  interface vca_gf_bath
-     module procedure :: vca_gf_bath_scalar
-  end interface vca_gf_bath
-
-
   
   public :: vca_gf_cluster
-  public :: vca_gf_hyb
-  public :: vca_gf_bath
+
   !
   public :: vca_get_sigma_matsubara
   public :: vca_get_sigma_realaxis

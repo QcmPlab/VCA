@@ -33,24 +33,31 @@ contains
     real(8)                                                  :: omega
     real(8)                                                  :: out_1
     complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: deltamat 
     !
     out_1=0.d0
     !
     !
     if(allocated(tmp_mat))deallocate(tmp_mat)
     if(allocated(gfprime))deallocate(gfprime)
+    if(allocated(deltamat))deallocate(deltamat)
     !
     allocate(tmp_mat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
     tmp_mat=zero
     gfprime=zero
+    deltamat=zero
     !
     !    
     call vca_gf_cluster(xi*omega,gfprime)
+    if(Nbath>0)then
+      deltamat=delta_bath_freq(xi*omega,vca_bath)
+    endif
     !
     do ii=1,size(impHk,7)
-       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(delta_bath_freq(xi*omega,vca_bath)+impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
+       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(deltamat+impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
        out_1=out_1+log(abs(det(tmp_mat)))
     enddo
     out_1=out_1/size(impHk,7)
@@ -61,31 +68,6 @@ contains
     !
   end function sum_kmesh
 
-  function sum_kmesh_embedded(omega) result(out_1)
-    integer                                                  :: ii,jj,kk
-    real(8)                                                  :: omega
-    real(8)                                                  :: out_1
-    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
-    !
-    out_1=0.d0
-    !
-    !
-    if(allocated(tmp_mat))deallocate(tmp_mat)
-    !
-    allocate(tmp_mat(Nlat*Nspin*Norb*(Nbath+1),Nlat*Nspin*Norb*(Nbath+1)))
-    !
-    tmp_mat=zero
-    !
-    do ii=1,size(embeddedHk,3)
-       tmp_mat=eye(Nlat*Nspin*Norb*(Nbath+1))+matmul(embeddedHloc-embeddedHk(:,:,ii),build_embedded_gf(omega))
-       out_1=out_1+log(abs(det(tmp_mat)))
-    enddo
-    out_1=out_1/size(embeddedHk,3)
-    !
-    deallocate(tmp_mat)
-    return
-    !
-  end function sum_kmesh_embedded
 
   !+------------------------------------------------------------------+
   !PURPOSE  : Do the frequency sum at zero T
@@ -99,13 +81,9 @@ contains
     spin_multiplicity=3.d0-Nspin 
     !
     !
-    !if(Nbath > 0)then
-    !  write(LOGfile,"(A)")"Calculating Omega with embedded matrices"
-    !  call quad(sum_kmesh_embedded,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
-    !else
-      write(LOGfile,"(A)")"Calculating Omega with original matrices"
-      call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
-    !endif
+    write(LOGfile,"(A)")"Calculating Omega with original matrices"
+    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    !
     out_2=spin_multiplicity*out_2/pi 
     return
   end function frequency_integration
@@ -123,7 +101,7 @@ contains
       allocate(x(N),func(N))
       x = linspace(a,b,N)
       do i=1,N
-         func(i) = sum_kmesh_embedded(x(i))
+         func(i) = sum_kmesh(x(i))
       enddo
       call quad(func,a,b,Ninterp=3,key=6,epsabs=0d0,epsrel=1d-4,verbose=.true.,result=out_2)
       out_2=spin_multiplicity*out_2/pi 

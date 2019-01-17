@@ -337,7 +337,6 @@ contains
     !
     !
     numgs=es_return_gs_degeneracy(state_list,gs_threshold)
-    GS_MULT=numgs
     if(numgs>Nsectors)stop "diag: too many gs"
     if(MPIMASTER.AND.verbose>=2)then
        do istate=1,numgs

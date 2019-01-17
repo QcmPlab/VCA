@@ -62,7 +62,7 @@ program vca_chain1d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
 
- 
+  Nspin=1
   if(Norb/=1)stop "Norb != 1"
   if(Nspin/=1)stop "Nspin != 1"
   !

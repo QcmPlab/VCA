@@ -70,7 +70,9 @@ contains
     if(spH0d%status)call sp_delete_matrix(spH0d)
     !
     !Get diagonal hybridization, bath energy
-    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"                 
+    if(Nbath>0)then
+      include "VCA_HAMILTONIAN/diag_hybr_bath.f90"         
+    endif        
     !    
 #ifdef _MPI
     if(MpiStatus)then
@@ -120,7 +122,8 @@ contains
        deallocate(Htmp_up,Htmp_dw)
     endif
     !
-    deallocate(diag_hybr,bath_diag)
+    if(allocated(diag_hybr))deallocate(diag_hybr)
+    if(allocated(bath_diag))deallocate(bath_diag)
     return
 
     !if(present(Hmat))then

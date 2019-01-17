@@ -56,8 +56,9 @@ contains
     if(Nloc/=getdim(isector))stop "directMatVec_cc ERROR: Nloc != dim(isector)"
     !
     !Get diagonal hybridization, bath energy
-    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
-    !
+    if(Nbath>0)then
+      include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    endif
     !
     Hv=0d0
     !
@@ -72,7 +73,8 @@ contains
     include "VCA_HAMILTONIAN/direct/HxV_dw.f90"
     !-----------------------------------------------!
     !
-    deallocate(diag_hybr,bath_diag)
+    if(allocated(diag_hybr))deallocate(diag_hybr)
+    if(allocated(bath_diag))deallocate(bath_diag)
     return
   end subroutine directMatVec_main
 
@@ -93,7 +95,9 @@ contains
     isector=Hsector
     !
     !Get diagonal hybridization, bath energy
-    include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    if(Nbath>0)then
+      include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
+    endif
     !
     !    
     if(MpiComm==MPI_UNDEFINED.OR.MpiComm==Mpi_Comm_Null)&
@@ -124,7 +128,8 @@ contains
     Hv = Hv + Vt
     !-----------------------------------------------!
     !
-    deallocate(diag_hybr,bath_diag)
+    if(allocated(diag_hybr))deallocate(diag_hybr)
+    if(allocated(bath_diag))deallocate(bath_diag)
     return
   end subroutine directMatVec_MPI_main
 
