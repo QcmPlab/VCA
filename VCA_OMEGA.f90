@@ -82,7 +82,7 @@ contains
     !
     !
     write(LOGfile,"(A)")"Calculating Omega with original matrices"
-    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2)
+    call quad(sum_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2,strict=.false.)
     !
     out_2=spin_multiplicity*out_2/pi 
     return
@@ -94,7 +94,7 @@ contains
       real(8)                          :: out_2,a,b,spin_multiplicity
       !
       a=0.0001d0
-      b=9999.d0
+      b=99999.d0
       N=1000
       out_2=0.d0
       spin_multiplicity=2.d0

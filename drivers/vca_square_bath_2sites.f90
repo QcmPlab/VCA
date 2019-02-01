@@ -7,7 +7,7 @@ program vca_square_bath
   implicit none
   integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
-  integer                                         :: iloop
+  integer                                         :: iloop,jloop
   integer                                         :: ix,iy,ik
   logical                                         :: converged
   real(8)                                         :: wband
@@ -32,7 +32,8 @@ program vca_square_bath
   character(len=6)                                :: scheme
    !FIX!!!!!!!!!!!!!!!
   real(8)                                         :: mu,t,t_var,mu_var
-  real(8),dimension(:),allocatable                :: ts_array,omega_array
+  real(8),dimension(:),allocatable                :: ts_array,deltae_array
+  real(8),dimension(:,:),allocatable              :: omega_array
   integer,dimension(1)                            :: min_loc
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_periodized ![Nspin][Nspin][Norb][Norb][Lreal]
@@ -87,38 +88,28 @@ program vca_square_bath
 
   if(wloop)then
     allocate(ts_array(Nloop))
-    allocate(omega_array(Nloop))
+    allocate(deltae_array(Nloop))
+    allocate(omega_array(Nloop,Nloop))
     ts_array = linspace(0.05d0,0.7d0,Nloop)
+    deltae_array = linspace(0.0d0,0.2d0,Nloop)
     !
     do iloop=1,Nloop
-       omega_array(iloop)=solve_vca_square(ts_array(iloop))
-    enddo
-    !
-    call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
-    min_loc = minloc(omega_array)
-    write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
-  else
-    do ix=1,Nlat
-      do iy=1,Nspin
-        do ik=1,Norb
-          call set_bath_component(bath,ix,iy,ik,e_component=[Uloc(1)/2.d0])
-          call set_bath_component(bath,ix,iy,ik,v_component=[0.40816326530612240d0])
-        enddo
+      do jloop=1,Nloop
+         omega_array(iloop,jloop)=solve_vca_square(ts_array(iloop),deltae_array(jloop))
       enddo
     enddo
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k,bath)
+    !
+    call splot3d("sft_Omega_loopVSts.dat",ts_array,deltae_array,omega_array)
   endif
 
   !MINIMIZATION:
 
-  if(wmin)then
-     print*,"Guess:",ts
-     call  brent(solve_vca_square,ts,[0.5d0,3d0])
-     print*,"Result ts : ",ts
-     t_var=ts
-  endif
+  !if(wmin)then
+  !   print*,"Guess:",ts
+  !   call  brent(solve_vca_square,ts,[0.5d0,3d0])
+  !   print*,"Result ts : ",ts
+  !   t_var=ts
+  !endif
 
 
 
@@ -136,26 +127,24 @@ contains
 
 
 
-  function solve_vca_square(tij) result(Omega)
-    real(8)                      :: tij
-    real(8)                      :: Vij,Eij
+  function solve_vca_square(Vij,deltae) result(Omega)
+    real(8)                      :: Vij,Eij,deltae
     real(8)                      :: Omega
     !
     !
     t_var=1.0d0
-    Vij=tij
-    Eij=Uloc(1)/2d0
     mu_var=0.d0
+    Eij=Uloc(1)/2d0
     print*,""
-    print*,"------ Doing for ",tij," ------"
+    print*,"------ Doing for ",deltae,Vij," ------"
     call generate_tcluster()
     call generate_hk()
     !BATH VARIATIONAL SETUP
     do ix=1,Nlat
       do iy=1,Nspin
         do ik=1,Norb       
-          call set_bath_component(bath,ix,iy,ik,e_component=[Eij])
-          call set_bath_component(bath,ix,iy,ik,v_component=[Vij])
+          call set_bath_component(bath,ix,iy,ik,e_component=[Eij+deltae,Eij-deltae])
+          call set_bath_component(bath,ix,iy,ik,v_component=[Vij,Vij])
         enddo
       enddo
     enddo

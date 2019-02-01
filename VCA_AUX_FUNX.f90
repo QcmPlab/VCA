@@ -47,6 +47,7 @@ MODULE VCA_AUX_FUNX
      module procedure :: print_Hcluster_lso
   end interface vca_print_Hcluster
 
+#if __GNUC__ > 6
   interface read(unformatted)
     procedure read_unformatted
   end interface read(unformatted)
@@ -62,6 +63,7 @@ MODULE VCA_AUX_FUNX
   interface write(formatted)
     procedure write_formatted
   end interface write(formatted)
+#endif
 
   public :: vca_get_cluster_dimension
   !
@@ -534,6 +536,8 @@ contains
     enddo
   end function c_nn2nso
 
+#if __GNUC__ > 6
+
   !##################################################################
   !##################################################################
   ! ROUTINES TO READ AND WRITE CLUSTER GREEN FUNCTION
@@ -558,7 +562,7 @@ subroutine write_formatted(dtv, unit, iotype, v_list, iostat, iomsg)
     !
     !
     Nstates = size(dtv%state)
-    write (unit, *,IOSTAT=iostat, IOMSG=iomsg) Nchan
+    write (unit, *,IOSTAT=iostat, IOMSG=iomsg) Nstates
     do istate=1,Nstates
       Nchan = size(dtv%state(istate)%channel)
       write (unit, *,IOSTAT=iostat, IOMSG=iomsg) Nchan
@@ -655,11 +659,14 @@ subroutine read_unformatted(dtv, unit, iostat, iomsg)
     !
 end subroutine read_unformatted
 
+#endif
+
 !+-------------------------------------------------------------------+
 !PURPOSE  : Save cluster GF to file
 !+-------------------------------------------------------------------+
 
 subroutine save_gfprime(file,used,use_formatted)
+
   character(len=*),optional :: file
   character(len=256)        :: file_
   logical,optional          :: used
@@ -669,6 +676,7 @@ subroutine save_gfprime(file,used,use_formatted)
   character(len=16)         :: extension
   integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
   !
+#if __GNUC__ > 6
   if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
   used_=.false.;if(present(used))used_=used
   use_formatted_=.false.;if(present(use_formatted))use_formatted_=use_formatted
@@ -696,6 +704,9 @@ subroutine save_gfprime(file,used,use_formatted)
     enddo
   enddo
   close(unit_)
+#else
+  print*,"Rear/write overloading requires Gfortran 6+"
+#endif
 end subroutine save_gfprime
 
 !+-------------------------------------------------------------------+
@@ -712,6 +723,7 @@ subroutine read_gfprime(file,used,use_formatted)
   character(len=16)         :: extension
   integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
   !
+#if __GNUC__ > 6
   if(allocated(impGmatrix))deallocate(impGmatrix)
   allocate(impGmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   used_=.false.;if(present(used))used_=used
@@ -742,8 +754,10 @@ subroutine read_gfprime(file,used,use_formatted)
     enddo
   enddo
   close(unit_)
+#else
+  print*,"Rear/write overloading requires Gfortran 6+"
+#endif
 end subroutine read_gfprime
-
 
 
   !##################################################################

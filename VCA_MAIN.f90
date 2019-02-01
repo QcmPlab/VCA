@@ -261,8 +261,8 @@ contains
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     call observables_cluster()    !obtain impurity observables as thermal averages.
 
-    !call save_gfprime("gfprime",use_formatted=.false.)
-    !call read_gfprime("gfprime",use_formatted=.false.)
+    !call save_gfprime("gfprime",use_formatted=.true.)
+    !call read_gfprime("gfprime",use_formatted=.true.)
     !call reconstruct_g()
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
