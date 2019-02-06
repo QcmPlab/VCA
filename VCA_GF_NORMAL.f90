@@ -212,6 +212,8 @@ contains
           deallocate(alfa_,beta_)
           if(allocated(vvinit))deallocate(vvinit)          
           if(allocated(vvloc))deallocate(vvloc)
+       else
+          call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),istate=istate,ichan=1,Nexc=0)
        endif
        !
        !REMOVE ONE PARTICLE:
@@ -275,6 +277,8 @@ contains
           deallocate(alfa_,beta_)
           if(allocated(vvinit))deallocate(vvinit)          
           if(allocated(vvloc))deallocate(vvloc)
+       else
+          call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),istate=istate,ichan=2,Nexc=0)
        endif
        !
        !
@@ -423,6 +427,8 @@ contains
           deallocate(alfa_,beta_)
           if(allocated(vvinit))deallocate(vvinit)          
           if(allocated(vvloc))deallocate(vvloc)
+       else
+          call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,iorb),istate=istate,ichan=1,Nexc=0)
        endif
        !
        !EVALUATE (c_is + c_js)|gs>
@@ -501,6 +507,8 @@ contains
           deallocate(alfa_,beta_)
           if(allocated(vvinit))deallocate(vvinit)          
           if(allocated(vvloc))deallocate(vvloc)
+       else
+          call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,iorb),istate=istate,ichan=2,Nexc=0)
        endif
        !
       !EVALUATE (c^+_is + i*c^+_js)|gs>

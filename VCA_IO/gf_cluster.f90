@@ -25,11 +25,13 @@
                   Nchannel = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel)
                   do ichan=1,Nchannel
                      Nexc  = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%poles)
-                     do iexc=1,Nexc
-                        weight = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%weight(iexc)
-                        de     = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%poles(iexc)
-                        green = green + weight/(zeta-de)
-                     enddo
+                     if(Nexc .ne. 0)then
+                       do iexc=1,Nexc
+                          weight = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%weight(iexc)
+                          de     = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%poles(iexc)
+                          green = green + weight/(zeta-de)
+                       enddo
+                    endif
                   enddo
                 enddo
                 gf(ilat,jlat,ispin,ispin,iorb,iorb) = green

@@ -82,15 +82,15 @@ program vca_test
   call vca_init_solver(comm)
     
   !
-  call generate_tcluster()
-  call generate_hk()
-  call vca_solve(comm,t_prime,h_k)
+  !call generate_tcluster()
+  !call generate_hk()
+  !call vca_solve(comm,t_prime,h_k)
 
 
   if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(1.d-2,5.d0,Nloop)
+    ts_array = linspace(1.d-2,3.d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
@@ -110,41 +110,41 @@ program vca_test
      t_var=ts
   endif
 
-  allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
-  gtest_mats=zero
-  sigmatest_mats=zero
-  gtest_real=zero
-  sigmatest_real=zero
+  !allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  !allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
+  !allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  !allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+  !gtest_mats=zero
+  !sigmatest_mats=zero
+  !gtest_real=zero
+  !sigmatest_real=zero
   !
-  allocate(kgrid_test(Nkpts**ndim,Ndim)) 
-  call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
-  do ik=1,Nkpts**ndim
-      print*,ik
-      if (scheme == "g" ) then
-        !call periodize_g_scheme(kgrid_test(ik,:))
-        call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
-      else
-        !call periodize_sigma_scheme(kgrid_test(ik,:))
-        call build_g_sigma_scheme(kgrid_test(ik,:))  !also periodizes Sigma
-      endif
-      do ix=1,Lmats
-          gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-      enddo
-      do ix=1,Lreal
-          gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+Sreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-      enddo
-  enddo
-  gfmats_periodized=gtest_mats
-  Smats_periodized=sigmatest_mats
-  gfreal_periodized=gtest_real
-  Sreal_periodized=sigmatest_real
-  call print_periodized()
-  call get_Akw()
+  !allocate(kgrid_test(Nkpts**ndim,Ndim)) 
+  !call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
+  !do ik=1,Nkpts**ndim
+  !    print*,ik
+  !    if (scheme == "g" ) then
+  !      !call periodize_g_scheme(kgrid_test(ik,:))
+  !      call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
+  !    else
+  !      !call periodize_sigma_scheme(kgrid_test(ik,:))
+  !      call build_g_sigma_scheme(kgrid_test(ik,:))  !also periodizes Sigma
+  !    endif
+  !    do ix=1,Lmats
+  !        gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+  !        sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+  !    enddo
+  !    do ix=1,Lreal
+  !        gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+  !        sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+Sreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+  !    enddo
+  !enddo
+  !gfmats_periodized=gtest_mats
+  !Smats_periodized=sigmatest_mats
+  !gfreal_periodized=gtest_real
+  !Sreal_periodized=sigmatest_real
+  !call print_periodized()
+  !call get_Akw()
 
   call finalize_MPI()
 
@@ -166,6 +166,9 @@ contains
     !
     !
     t_var=tij
+    !!!!TEST
+    !beta=20
+    !!!!
     print*,""
     print*,"------ t = ",t_var,"------"
     call generate_tcluster()

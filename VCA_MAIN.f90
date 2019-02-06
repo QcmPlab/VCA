@@ -216,7 +216,7 @@ contains
     integer                                        :: ispin
 
     integer                                        :: i,j
-    real(8)                                        :: Tr,omega_integral
+    real(8)                                        :: Tr,omega_integral,omegaprime
     integer                                        :: unit
     integer                                        :: MpiComm
     logical                                        :: check
@@ -265,18 +265,29 @@ contains
     !call read_gfprime("gfprime",use_formatted=.true.)
     !call reconstruct_g()
     !
-    !CALCULATE THE VARIATIONAL GRAND POTENTIAL
+    !CALCULATE THE VARIATIONAL GRAND POTENTIAL (T=0)
     !
-    omega_integral=frequency_integration()
-    sft_potential = state_list%emin-omega_integral
+    omegaprime=0.d0
+    omega_integral=0.d0
     !
-    !PRINT
+    if(finiteT)then
+      do i=1,state_list%size
+        omegaprime=omegaprime+exp(-beta*es_return_energy(state_list,i))
+      enddo
+      omegaprime=(-1.d0/beta)*log(omegaprime)
+      omega_integral=frequency_integration_finite_t(4.2d0)
+    else
+      omegaprime=state_list%emin
+      omega_integral=frequency_integration()
+    endif
+    !
+    sft_potential = omegaprime-omega_integral
     !
     if(MPI_MASTER) then
-        write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
-        write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
+        write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
+        write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(omegaprime-omega_integral)/NLAT
         open(free_unit(unit),file="SFT_potential.vca",position='append')
-        write(unit,*)sft_potential,state_list%emin,-omega_integral
+        write(unit,*)sft_potential,omegaprime,-omega_integral
         close(unit)
     endif
     !
