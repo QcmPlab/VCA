@@ -138,7 +138,7 @@ contains
     integer                                        :: ispin
 
     integer                                        :: i,j
-    real(8)                                        :: Tr,omega_integral
+    real(8)                                        :: Tr,omega_integral,omegaprime
     integer                                        :: unit
 
     !
@@ -180,8 +180,21 @@ contains
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
-    omega_integral=frequency_integration()
-    sft_potential = state_list%emin-omega_integral
+    omegaprime=0.d0
+    omega_integral=0.d0
+    !
+    if(finiteT)then
+      do i=1,state_list%size
+        omegaprime=omegaprime+exp(-beta*es_return_energy(state_list,i))
+      enddo
+      omegaprime=(-1.d0/beta)*log(omegaprime)
+      omega_integral=frequency_integration_finite_t()
+    else
+      omegaprime=state_list%emin
+      omega_integral=frequency_integration()
+    endif
+    !
+    sft_potential = omegaprime-omega_integral
     !
     write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",state_list%emin/NLAT
     write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(state_list%emin-omega_integral)/NLAT
@@ -265,7 +278,7 @@ contains
     !call read_gfprime("gfprime",use_formatted=.true.)
     !call reconstruct_g()
     !
-    !CALCULATE THE VARIATIONAL GRAND POTENTIAL (T=0)
+    !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
     omegaprime=0.d0
     omega_integral=0.d0
@@ -275,7 +288,7 @@ contains
         omegaprime=omegaprime+exp(-beta*es_return_energy(state_list,i))
       enddo
       omegaprime=(-1.d0/beta)*log(omegaprime)
-      omega_integral=frequency_integration_finite_t(4.2d0)
+      omega_integral=frequency_integration_finite_t()
     else
       omegaprime=state_list%emin
       omega_integral=frequency_integration()

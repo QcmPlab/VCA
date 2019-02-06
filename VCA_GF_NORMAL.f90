@@ -45,6 +45,7 @@ contains
     if(MPIMASTER)call start_timer
     ! 
     Nstates = state_list%size
+    max_exc=-huge(1d0)          !find the max excitation
     !Spin-Orbital diagonal:
     do ispin=1,Nspin
        do iorb=1,Norb
@@ -728,6 +729,7 @@ subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,i
   !
   do j=1,nlanc
      de = diag(j)-Ei
+     if (de>max_exc)max_exc=de
      peso = pesoBZ*Z(1,j)*Z(1,j)
      !
      impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%weight(j) = peso

@@ -25,6 +25,7 @@ MODULE VCA_INPUT_VARS
   real(8)              :: xmu          !chemical potential
   real(8)              :: beta         !inverse temperature
   real(8)              :: eps          !broadening
+  real(8)              :: bandwidth    !noninteracting original bandwidth
   real(8)              :: wini,wfin    !
   logical              :: chiflag      !
   logical              :: Jhflag       !spin-exchange and pair-hopping flag.

@@ -73,6 +73,47 @@ contains
   end function sum_kmesh
 
 
+  function sum_kmesh_complex(omega) result(out_1)
+    integer                                                  :: ii,jj,kk
+    complex(8)                                               :: omega
+    complex(8)                                               :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: deltamat 
+    !
+    out_1=0.d0
+    !
+    !
+    if(allocated(tmp_mat))deallocate(tmp_mat)
+    if(allocated(gfprime))deallocate(gfprime)
+    if(allocated(deltamat))deallocate(deltamat)
+    !
+    allocate(tmp_mat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !
+    tmp_mat=zero
+    gfprime=zero
+    deltamat=zero
+    !
+    !    
+    call vca_gf_cluster(omega,gfprime)
+    if(Nbath>0)then
+      deltamat=delta_bath_freq(omega,vca_bath)
+    endif
+    !
+    do ii=1,size(impHk,7)
+       tmp_mat=eye(Nlat*Nspin*Norb)+matmul(vca_nnn2lso_reshape(deltamat+impHloc-impHk(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb))
+       out_1=out_1+log(det(tmp_mat))
+    enddo
+    out_1=out_1/size(impHk,7)
+    !
+    deallocate(tmp_mat)
+    deallocate(gfprime)
+    return
+    !
+  end function sum_kmesh_complex
+
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Do the frequency sum at zero T
   !+------------------------------------------------------------------+
@@ -107,12 +148,12 @@ contains
   !PURPOSE  : Do the frequency sum at finite T
   !+------------------------------------------------------------------+
 
-  function frequency_integration_finite_t(om) result(out_2)
+  function frequency_integration_finite_t() result(out_2)
     integer                         :: inf,Nmax,ii
-    real(8)                         :: out_2,spin_multiplicity,om,omegamax,integralpart  !om=max pole frequency
+    real(8)                         :: out_2,spin_multiplicity,bandwidth,omegamax,integralpart  !om=original hopping
     !
     !1) Find the real omegamax
-    nmax=int(32*(om/2+Ndim*4)*beta/pi)
+    nmax=int(2*(abs(max_exc)+bandwidth)*beta/pi)
     if (mod(nmax,2)==0)then
       nmax=nmax/2    
     else
@@ -125,10 +166,10 @@ contains
     !
     out_2=0.d0
     do ii=0,Nmax
-      out_2=out_2+(1/beta)*sum_kmesh(xi*(2*ii+1)*pi/beta)
+      out_2=out_2+dreal(sum_kmesh_complex(xi*(2*ii+1)*pi/beta))
     enddo
     !
-    out_2=2*out_2
+    out_2=2.d0*(1/beta)*out_2
     print*,"SUM PART = ",out_2
     !
     !3) Evaluate integral part
@@ -156,7 +197,7 @@ contains
       fermi=(1/(exp(beta*(w-XMU))+1))
     endif
     !
-    f=dreal((1/pi)*w*fermi*sum_kmesh(w))
+    f=dreal((1/pi)*w*fermi*sum_kmesh_complex(w))
     !print*,zeta,f,fermi,sum_kmesh(w)
  end function integral_contour
 

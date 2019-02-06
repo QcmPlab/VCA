@@ -137,7 +137,7 @@ MODULE VCA_VARS_GLOBAL
   logical                                            :: trim_state_list=.false.
 
 
-  !Partition function, Omega potential, SFT potential
+  !Partition function, Omega potential, SFT potential,original lattice bandwidth
   !=========================================================
   real(8)                                           :: zeta_function
   real(8)                                           :: omega_potential
