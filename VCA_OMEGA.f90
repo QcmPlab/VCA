@@ -150,7 +150,7 @@ contains
 
   function frequency_integration_finite_t() result(out_2)
     integer                         :: inf,Nmax,ii
-    real(8)                         :: out_2,spin_multiplicity,bandwidth,omegamax,integralpart  !om=original hopping
+    real(8)                         :: out_2,spin_multiplicity,omegamax,integralpart
     !
     !1) Find the real omegamax
     nmax=int(2*(abs(max_exc)+bandwidth)*beta/pi)
