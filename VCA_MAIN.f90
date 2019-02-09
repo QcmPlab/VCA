@@ -285,9 +285,9 @@ contains
     !
     if(finiteT)then
       do i=1,state_list%size
-        omegaprime=omegaprime+exp(-beta*es_return_energy(state_list,i))
+        omegaprime=omegaprime+exp(-beta*(es_return_energy(state_list,i)-state_list%emin))
       enddo
-      omegaprime=(-1.d0/beta)*log(omegaprime)
+      omegaprime=state_list%emin-(1.d0/beta)*log(omegaprime)
       omega_integral=frequency_integration_finite_t()
     else
       omegaprime=state_list%emin

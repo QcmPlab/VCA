@@ -67,6 +67,7 @@ program vca_square_bath
   t=1.0d0
   mu=0.d0
   mu_var=0.d0
+  bandwidth=2.d0*Ndim*(2*t) !(2 times sum over dim of 2*t*max (cosine))
 
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
@@ -88,7 +89,7 @@ program vca_square_bath
   if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(0.05d0,0.7d0,Nloop)
+    ts_array = linspace(0.09d0,0.7d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
