@@ -31,11 +31,11 @@ The user has to provide the hopping matrices for the cluster and the lattice (in
 superconducting case, that is not realizable in this branch)
 - [x] calculate the Self-Energy
 - [x] implement G-scheme periodization
-- [ ] fix flags for the integration routines (actually in Scifor)
+- [x] fix flags for the integration routines (actually in Scifor)
 - [ ] extend to orbital-resolved case
 - [x] add bath
 - [x] add sample periodization routines in drivers
-- [ ] add finite T case
+- [x] add finite T case
 
 --
 
