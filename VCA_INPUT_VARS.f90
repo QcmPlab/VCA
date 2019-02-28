@@ -54,7 +54,7 @@ MODULE VCA_INPUT_VARS
   integer              :: lanc_nstates_step   !Number of states added at each step to determine the optimal spectrum size at finite T
   integer              :: lanc_dim_threshold  !Min dimension threshold to use Lanczos determination of the spectrum rather than Lapack based exact diagonalization.
   real(8)              :: lanc_spectrum_threshold  !Threshold for the spectrum annealing error.
-  logical              :: vca_sparse_H         !flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE
+  logical              :: vca_sparse_H         !flag to select storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE
   logical              :: vca_total_ud         !flag to select which type of quantum numbers have to be considered: T (default) total Nup-Ndw, F orbital based Nup-Ndw
   logical              :: vca_solve_offdiag_gf !flag to select the calculation of the off-diagonal impurity GF. this is T by default if bath_type/=normal 
   !
@@ -143,7 +143,7 @@ contains
     !
     call parse_input_variable(vca_sectors,"VCA_SECTORS",INPUTunit,default=.false.,comment="flag to reduce sector scan for the spectrum to specific sectors +/- vca_sectors_shift.")
     call parse_input_variable(vca_sectors_shift,"VCA_SECTORS_SHIFT",INPUTunit,1,comment="shift to vca_sectors")
-    call parse_input_variable(vca_sparse_H,"VCA_SPARSE_H",INPUTunit,default=.true.,comment="flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
+    call parse_input_variable(vca_sparse_H,"VCA_SPARSE_H",INPUTunit,default=.true.,comment="flag to select storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
     call parse_input_variable(vca_total_ud,"VCA_TOTAL_UD",INPUTunit,default=.true.,comment="flag to select which type of quantum numbers have to be considered: T (default) total Nup-Ndw, F orbital based Nup-Ndw")
     call parse_input_variable(vca_solve_offdiag_gf,"VCA_SOLVE_OFFDIAG_GF",INPUTunit,default=.false.,comment="flag to select the calculation of the off-diagonal impurity GF. this is T by default if bath_type/=normal") 
     call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=6,comment="Initial number of states per sector to be determined.")

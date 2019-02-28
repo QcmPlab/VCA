@@ -70,6 +70,7 @@ program vca_square_bath
   t=hopping
   mu=0.d0
   mu_var=0.d0
+  bandwidth=2.d0*Ndim*(2*t) !(2 times sum over dim of 2*t*max (cosine))
 
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
