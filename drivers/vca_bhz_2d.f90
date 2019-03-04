@@ -142,7 +142,7 @@ program vca_square_bath
   else if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(0.05d0,1.5d0,Nloop)
+    ts_array = linspace(0.5d0,1.5d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))

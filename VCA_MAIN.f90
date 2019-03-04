@@ -54,9 +54,6 @@ contains
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
-    !Init Structure & memory
-    if(isetup)call init_cluster_structure()
-    !
     if(present(bath))then
        if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
        bath=0d0
@@ -67,6 +64,8 @@ contains
       write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
       Nbath=0
     endif
+    !Init Structure & memory
+    if(isetup)call init_cluster_structure()
     !
     if(isetup)call setup_global
     !
@@ -93,12 +92,6 @@ contains
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
-    !Init Structure & memory
-    if(isetup)call init_cluster_structure()
-    !
-    !Init bath:
-    !call set_hloc(Hloc)
-    !
     if(present(bath))then
        if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
        bath=0d0
@@ -109,6 +102,12 @@ contains
       write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
       Nbath=0
     endif
+    !Init Structure & memory
+    if(isetup)call init_cluster_structure()
+    !
+    !Init bath:
+    !call set_hloc(Hloc)
+    !
     !
     if(isetup)call setup_global
     !

@@ -126,7 +126,7 @@ contains
     spin_multiplicity=3.d0-Nspin 
     !
     !
-    write(LOGfile,"(A)")"Calculating Omega with original matrices"
+    write(LOGfile,"(A)")"Calculating Omega"
     call quad(imaginary_axis,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2,strict=.false.)
     !
     out_2=spin_multiplicity*out_2/pi 

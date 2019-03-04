@@ -136,7 +136,7 @@ contains
     !
     is = imp_state_index(isite,iorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)
+    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)//"_l"//str(iorb)//str(iorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),istate=istate,Nchan=2) !2= add,del exc. c^+_i|psi> 
@@ -334,7 +334,7 @@ contains
     is = imp_state_index(isite,iorb)
     js = imp_state_index(jsite,jorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
+    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,Nchan=2) !2= add,del exc. c^+_i|psi> 
@@ -554,7 +554,7 @@ contains
     is = imp_state_index(isite,iorb)
     js = imp_state_index(jsite,jorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)
+    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,Nchan=4) !2= add,del exc. c^+_i|psi> 
