@@ -210,7 +210,7 @@ contains
   subroutine reconstruct_g
     complex(8),allocatable,dimension(:,:)                    :: tmp_mat
     character(len=64)                                        :: suffix
-    integer                                                  :: ilat,jlat,iorb,ispin,ifreq
+    integer                                                  :: ilat,jlat,iorb,jorb,ispin,ifreq
     !
     allocate(gftest(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     gftest=0
@@ -226,10 +226,12 @@ contains
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
+            do jorb=1,Norb
              do ispin=1,Nspin
-                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
-                call splot("Gtest"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,gftest(ilat,jlat,ispin,ispin,iorb,iorb,:))
+                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                call splot("Gtest"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,gftest(ilat,jlat,ispin,ispin,iorb,jorb,:))
              enddo
+            enddo
           enddo
        enddo
     enddo

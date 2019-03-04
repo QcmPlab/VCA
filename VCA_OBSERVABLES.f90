@@ -47,7 +47,7 @@ MODULE VCA_OBSERVABLES
   integer                            :: isector,jsector
   integer                            :: idim,idimUP,idimDW
   !
-  real(8),dimension(:),pointer       :: gscvec
+  complex(8),dimension(:),pointer       :: gscvec
   logical                            :: Jcondition
 
 
@@ -93,7 +93,7 @@ contains
     real(8)                             :: peso
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    real(8),dimension(:),pointer        :: gscvec
+    complex(8),dimension(:),pointer        :: gscvec
     type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:

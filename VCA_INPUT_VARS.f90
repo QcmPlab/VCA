@@ -57,6 +57,7 @@ MODULE VCA_INPUT_VARS
   logical              :: vca_sparse_H         !flag to select storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE
   logical              :: vca_total_ud         !flag to select which type of quantum numbers have to be considered: T (default) total Nup-Ndw, F orbital based Nup-Ndw
   logical              :: vca_solve_offdiag_gf !flag to select the calculation of the off-diagonal impurity GF. this is T by default if bath_type/=normal 
+  logical              :: vca_gf_symmetric     !flag to select the calculation of the off-diagonal impurity GF. if T the 2-channel method is used 
   !
 
   real(8)              :: nread        !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -145,7 +146,8 @@ contains
     call parse_input_variable(vca_sectors_shift,"VCA_SECTORS_SHIFT",INPUTunit,1,comment="shift to vca_sectors")
     call parse_input_variable(vca_sparse_H,"VCA_SPARSE_H",INPUTunit,default=.true.,comment="flag to select storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
     call parse_input_variable(vca_total_ud,"VCA_TOTAL_UD",INPUTunit,default=.true.,comment="flag to select which type of quantum numbers have to be considered: T (default) total Nup-Ndw, F orbital based Nup-Ndw")
-    call parse_input_variable(vca_solve_offdiag_gf,"VCA_SOLVE_OFFDIAG_GF",INPUTunit,default=.false.,comment="flag to select the calculation of the off-diagonal impurity GF. this is T by default if bath_type/=normal") 
+    call parse_input_variable(vca_solve_offdiag_gf,"VCA_SOLVE_OFFDIAG_GF",INPUTunit,default=.false.,comment="flag to select the calculation of the off-diagonal impurity GF. this is T by default if bath_type/=normal")
+    call parse_input_variable(vca_gf_symmetric,"VCA_GF_SYMMETRIC",INPUTunit,default=.false.,comment="flag to select the calculation of the off-diagonal impurity GF. if T the 2-channel method is used") 
     call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=6,comment="Initial number of states per sector to be determined.")
     call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
     call parse_input_variable(lanc_nstates_step,"LANC_NSTATES_STEP",INPUTunit,default=2,comment="Number of states added to the spectrum at each step.")

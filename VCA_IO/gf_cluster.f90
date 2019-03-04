@@ -8,46 +8,56 @@
     integer                                                             :: iexc,Nexc
     integer                                                             :: ichan,Nchannel,istate,Nstates
     integer                                                             :: i,is,js
-    real(8)                                                             :: weight,de
+    complex(8)                                                          :: weight,de
+    real(8)                                                             :: chan4
     !
     if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
     !
+    if(vca_gf_symmetric)then
+      chan4=0.d0
+    else
+      chan4=1.d0
+    endif
     gf = zero
     !
     do ilat=1,Nlat
-       do jlat=1,Nlat
-          do iorb=1,Norb
-             do ispin=1,Nspin
+      do jlat=1,Nlat
+        do iorb=1,Norb
+          do jorb=1,Norb
+            do ispin=1,Nspin
                 !
                 green = zero
-                Nstates = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state)
+                Nstates = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state)
                 do istate=1,Nstates
-                  Nchannel = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel)
+                  Nchannel = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel)
                   do ichan=1,Nchannel
-                     Nexc  = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%poles)
+                     Nexc  = size(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%poles)
                      if(Nexc .ne. 0)then
                        do iexc=1,Nexc
-                          weight = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%weight(iexc)
-                          de     = impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)%state(istate)%channel(ichan)%poles(iexc)
+                          weight = impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%weight(iexc)
+                          de     = impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%poles(iexc)
                           green = green + weight/(zeta-de)
                        enddo
                     endif
                   enddo
                 enddo
-                gf(ilat,jlat,ispin,ispin,iorb,iorb) = green
+                gf(ilat,jlat,ispin,ispin,iorb,jorb) = green
              enddo
-          enddo
+           enddo
+         enddo
        enddo
     enddo
     do ispin=1,Nspin
        do iorb=1,Norb
+        do jorb=1,Norb
           do ilat=1,Nlat
              do jlat=1,Nlat
-                if(ilat==jlat)cycle
-                gf(ilat,jlat,ispin,ispin,iorb,iorb) = 0.5d0*(gf(ilat,jlat,ispin,ispin,iorb,iorb) &
-                     - gf(ilat,ilat,ispin,ispin,iorb,iorb) - gf(jlat,jlat,ispin,ispin,iorb,iorb))    
+                if(ilat==jlat .and. iorb==jorb)cycle
+                gf(ilat,jlat,ispin,ispin,iorb,jorb) = 0.5d0*(gf(ilat,jlat,ispin,ispin,iorb,jorb) &
+                     - (one-chan4*xi)*gf(ilat,ilat,ispin,ispin,iorb,iorb) - (one-chan4*xi)*gf(jlat,jlat,ispin,ispin,jorb,jorb))  
              enddo
-          enddo
+           enddo
+         enddo
        enddo
     enddo
     !

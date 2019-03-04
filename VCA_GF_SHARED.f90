@@ -20,9 +20,9 @@ MODULE VCA_GF_SHARED
 
   !Lanczos shared variables
   !=========================================================
-  real(8),dimension(:),pointer                :: state_vec
-  real(8),dimension(:),pointer                :: state_cvec
-  real(8)                                     :: state_e,max_exc
+  complex(8),dimension(:),pointer                :: state_vec
+  complex(8),dimension(:),pointer                :: state_cvec
+  real(8)                                        :: state_e,max_exc
 
   !Frequency and time arrays:
   !=========================================================

@@ -89,7 +89,7 @@ program vca_square_bath
   if(wloop)then
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
-    ts_array = linspace(0.09d0,0.7d0,Nloop)
+    ts_array = linspace(0.05d0,0.7d0,Nloop)
     !
     do iloop=1,Nloop
        omega_array(iloop)=solve_vca_square(ts_array(iloop))
@@ -103,7 +103,7 @@ program vca_square_bath
       do iy=1,Nspin
         do ik=1,Norb
           call set_bath_component(bath,ix,iy,ik,e_component=[Uloc(1)/2.d0])
-          call set_bath_component(bath,ix,iy,ik,v_component=[0.40816326530612240d0])
+          call set_bath_component(bath,ix,iy,ik,v_component=[TS])
         enddo
       enddo
     enddo

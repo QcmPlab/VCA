@@ -109,7 +109,7 @@ contains
 
   subroutine vca_print_impSigma
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,ispin
+    integer           :: ilat,jlat,iorb,jorb,ispin
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
     if(.not.allocated(wr))allocate(wr(Lreal))
@@ -119,11 +119,13 @@ contains
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
+           do jorb=1,Norb
              do ispin=1,Nspin
-                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
-                call splot("impSigma"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impSmats(ilat,jlat,ispin,ispin,iorb,iorb,:))
-                call splot("impSigma"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impSreal(ilat,jlat,ispin,ispin,iorb,iorb,:))
+                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                call splot("impSigma"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                call splot("impSigma"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
              enddo
+            enddo
           enddo
        enddo
     enddo
@@ -141,7 +143,7 @@ contains
 
   subroutine vca_print_impG
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,ispin
+    integer           :: ilat,jlat,iorb,ispin,jorb
     !
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
@@ -151,12 +153,14 @@ contains
     !
     do ilat=1,Nlat
        do jlat=1,Nlat
-          do iorb=1,Norb
+          do iorb=1,Norb  
+            do jorb=1,Norb
              do ispin=1,Nspin
-                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
-                call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,iorb,:))
-                call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impGreal(ilat,jlat,ispin,ispin,iorb,iorb,:))                
+                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                call splot("impG"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                call splot("impG"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:))                
              enddo
+            enddo
           enddo
        enddo
     enddo
@@ -172,7 +176,7 @@ contains
 
   subroutine vca_print_impG0
     character(len=64) :: suffix
-    integer           :: ilat,jlat,iorb,ispin
+    integer           :: ilat,jlat,iorb,ispin,jorb
     !
     if(.not.allocated(wm))allocate(wm(Lmats))
     if(.not.allocated(wr))allocate(wr(Lreal))
@@ -182,11 +186,13 @@ contains
     do ilat=1,Nlat
        do jlat=1,Nlat
           do iorb=1,Norb
+            do jorb=1,Norb
              do ispin=1,Nspin
-                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(iorb)//"_s"//str(ispin)
-                call splot("impG0"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impG0mats(ilat,jlat,ispin,ispin,iorb,iorb,:))
-                call splot("impG0"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impG0real(ilat,jlat,ispin,ispin,iorb,iorb,:))
+                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                call splot("impG0"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                call splot("impG0"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impG0real(ilat,jlat,ispin,ispin,iorb,jorb,:))
              enddo
+            enddo
           enddo
        enddo
     enddo

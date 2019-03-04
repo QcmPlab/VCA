@@ -674,7 +674,7 @@ subroutine save_gfprime(file,used,use_formatted)
   logical,optional          :: use_formatted
   logical                   :: use_formatted_
   character(len=16)         :: extension
-  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
+  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb,jorb
   !
 #if __GNUC__ > 6
   if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
@@ -694,11 +694,13 @@ subroutine save_gfprime(file,used,use_formatted)
     do jlat=1,Nlat
       do ispin=1,Nspin
         do iorb=1,Norb
-          if(use_formatted_)then
-            write(unit_,*)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
-          else
-            write(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
-          endif
+          do jorb=1,Norb
+            if(use_formatted_)then
+              write(unit_,*)impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)
+            else
+              write(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)
+            endif
+          enddo
         enddo
       enddo
     enddo
@@ -721,7 +723,7 @@ subroutine read_gfprime(file,used,use_formatted)
   logical,optional          :: use_formatted
   logical                   :: use_formatted_
   character(len=16)         :: extension
-  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb
+  integer                   :: unit_,Nchannel,Nexc,ichan,iexc,ilat,jlat,ispin,iorb,jorb
   !
 #if __GNUC__ > 6
   if(allocated(impGmatrix))deallocate(impGmatrix)
@@ -744,11 +746,13 @@ subroutine read_gfprime(file,used,use_formatted)
     do jlat=1,Nlat
       do ispin=1,Nspin
         do iorb=1,Norb
-          if(use_formatted_)then
-            read(unit_,*)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
-          else
-            read(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,iorb)
-          endif
+          do jorb=1,Norb
+            if(use_formatted_)then
+              read(unit_,*)impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)
+            else
+              read(unit_)impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)
+            endif
+          enddo
         enddo
       enddo
     enddo

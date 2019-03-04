@@ -32,7 +32,7 @@ MODULE VCA_HAMILTONIAN_SPARSE_HxV
   integer                                :: kp,k1,k2,k3,k4
   integer                                :: ialfa,ibeta,indx
   real(8)                                :: sg1,sg2,sg3,sg4
-  real(8)                                :: htmp,htmpup,htmpdw
+  complex(8)                             :: htmp,htmpup,htmpdw
   logical                                :: Jcondition
   integer                                :: Nfoo,Nfoo2
   real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
@@ -46,16 +46,16 @@ contains
   !             BUILD SPARSE HAMILTONIAN of the SECTOR
   !####################################################################
   subroutine vca_buildh_main(isector,Hmat)
-    integer                              :: isector
-    real(8),dimension(:,:),optional      :: Hmat
-    real(8),dimension(:,:),allocatable   :: Htmp_up,Htmp_dw,Hrdx
-    integer,dimension(Ns)                :: ibup,ibdw
-    integer,dimension(2*Ns_Ud)           :: Indices    ![2-2*Norb] 
-    integer,dimension(Ns_Ud,Ns_Orb)      :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath] 
-    integer,dimension(Nlat,Norb)         :: Nup,Ndw    !
+    integer                               :: isector
+    complex(8),dimension(:,:),optional    :: Hmat
+    complex(8),dimension(:,:),allocatable :: Htmp_up,Htmp_dw,Hrdx
+    integer,dimension(Ns)                 :: ibup,ibdw
+    integer,dimension(2*Ns_Ud)            :: Indices    ![2-2*Norb] 
+    integer,dimension(Ns_Ud,Ns_Orb)       :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath] 
+    integer,dimension(Nlat,Norb)          :: Nup,Ndw    !
     !
-    nup=0.d0
-    ndw=0.d0
+    nup=zero
+    ndw=zero
 #ifdef _MPI
     if(Mpistatus .AND. MpiComm == MPI_COMM_NULL)return
 #endif
@@ -101,9 +101,9 @@ contains
 
 
     if(present(Hmat))then
-       Hmat = 0d0
-       allocate(Htmp_up(DimUp,DimUp));Htmp_up=0d0
-       allocate(Htmp_dw(DimDw,DimDw));Htmp_dw=0d0
+       Hmat = zero
+       allocate(Htmp_up(DimUp,DimUp));Htmp_up=zero
+       allocate(Htmp_dw(DimDw,DimDw));Htmp_dw=zero
        !
 #ifdef _MPI
        if(MpiStatus)then
@@ -116,8 +116,8 @@ contains
 #endif
        call sp_dump_matrix(spH0ups(1),Htmp_up)
        call sp_dump_matrix(spH0dws(1),Htmp_dw)
-       Hmat = Hmat + kronecker_product(Htmp_dw,eye(DimUp)) ! kron(Htmp_dw,eye(DimUp))
-       Hmat = Hmat + kronecker_product(eye(DimDw),Htmp_up) ! kron(eye(DimDw),Htmp_up)
+       Hmat = Hmat + kronecker_product(Htmp_dw,one*eye(DimUp)) ! kron(Htmp_dw,eye(DimUp))
+       Hmat = Hmat + kronecker_product(one*eye(DimDw),Htmp_up) ! kron(eye(DimDw),Htmp_up)
        !
        deallocate(Htmp_up,Htmp_dw)
     endif
@@ -151,13 +151,13 @@ contains
   !+------------------------------------------------------------------+
   subroutine spMatVec_main(Nloc,v,Hv)
     integer                         :: Nloc
-    real(8),dimension(Nloc)         :: v
-    real(8),dimension(Nloc)         :: Hv
-    real(8)                         :: val
+    complex(8),dimension(Nloc)      :: v
+    complex(8),dimension(Nloc)      :: Hv
+    complex(8)                      :: val
     integer                         :: i,iup,idw,j,jup,jdw,jj
     !
     !
-    Hv=0d0
+    Hv=zero
     !
     do i = 1,Nloc
        do j=1,spH0d%row(i)%Size
@@ -213,22 +213,22 @@ contains
 
 #ifdef _MPI
   subroutine spMatVec_mpi_main(Nloc,v,Hv)
-    integer                          :: Nloc
-    real(8),dimension(Nloc)          :: v
-    real(8),dimension(Nloc)          :: Hv
+    integer                             :: Nloc
+    complex(8),dimension(Nloc)          :: v
+    complex(8),dimension(Nloc)          :: Hv
     !
-    integer                          :: N
-    real(8),dimension(:),allocatable :: vt,Hvt
-    real(8)                          :: val
-    integer                          :: i,iup,idw,j,jup,jdw,jj
+    integer                             :: N
+    complex(8),dimension(:),allocatable :: vt,Hvt
+    complex(8)                          :: val
+    integer                             :: i,iup,idw,j,jup,jdw,jj
     !local MPI
-    integer                          :: irank
+    integer                             :: irank
     !
     if(MpiComm==MPI_UNDEFINED)stop "spMatVec_mpi_cc ERROR: MpiComm = MPI_UNDEFINED"
     if(.not.MpiStatus)stop "spMatVec_mpi_cc ERROR: MpiStatus = F"
     !
     !Evaluate the local contribution: Hv_loc = Hloc*v
-    Hv=0d0
+    Hv=zero
     do i=1,Nloc                 !==spH0%Nrow
        do j=1,spH0d%row(i)%Size
           Hv(i) = Hv(i) + spH0d%row(i)%vals(j)*v(i)
@@ -257,10 +257,10 @@ contains
     mpiQup=DimUp/MpiSize
     if(MpiRank<mod(DimUp,MpiSize))MpiQup=MpiQup+1
     !
-    allocate(vt(mpiQup*DimDw)) ;vt=0d0
-    allocate(Hvt(mpiQup*DimDw));Hvt=0d0
+    allocate(vt(mpiQup*DimDw)) ;vt=zero
+    allocate(Hvt(mpiQup*DimDw));Hvt=zero
     call vector_transpose_MPI(DimUp,MpiQdw,v,DimDw,MpiQup,vt)
-    Hvt=0d0    
+    Hvt=zero    
     do idw=1,MpiQup             !<= Transposed order:  column-wise DW <--> UP  
        do iup=1,DimDw           !<= Transposed order:  column-wise DW <--> UP
           i = iup + (idw-1)*DimDw
@@ -273,7 +273,7 @@ contains
           end do hxv_dw
        enddo
     end do
-    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ; vt=0d0
+    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ; vt=zero
     call vector_transpose_MPI(DimDw,mpiQup,Hvt,DimUp,mpiQdw,vt)
     Hv = Hv + Vt
   end subroutine spMatVec_mpi_main

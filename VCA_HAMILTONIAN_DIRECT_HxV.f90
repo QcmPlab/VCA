@@ -17,7 +17,7 @@ MODULE VCA_HAMILTONIAN_DIRECT_HxV
   integer                              :: kp,k1,k2,k3,k4
   integer                              :: ialfa,ibeta
   real(8)                              :: sg1,sg2,sg3,sg4
-  real(8)                              :: htmp,htmpup,htmpdw
+  complex(8)                           :: htmp,htmpup,htmpdw
   logical                              :: Jcondition
   integer                              :: Nfoo,Nfoo2
   real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
@@ -42,9 +42,9 @@ contains
 
   subroutine directMatVec_main(Nloc,vin,Hv)
     integer                             :: Nloc
-    real(8),dimension(Nloc)             :: vin
-    real(8),dimension(Nloc)             :: Hv
-    real(8),dimension(:),allocatable    :: vt,Hvt
+    complex(8),dimension(Nloc)          :: vin
+    complex(8),dimension(Nloc)          :: Hv
+    complex(8),dimension(:),allocatable :: vt,Hvt
     integer,dimension(Ns)               :: ibup,ibdw
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
     integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath] 
@@ -60,7 +60,7 @@ contains
       include "VCA_HAMILTONIAN/diag_hybr_bath.f90"
     endif
     !
-    Hv=0d0
+    Hv=zero
     !
     !-----------------------------------------------!
     !LOCAL HAMILTONIAN PART: H_loc*vin = vout
@@ -81,9 +81,9 @@ contains
 #ifdef _MPI
   subroutine directMatVec_MPI_main(Nloc,vin,Hv)
     integer                             :: Nloc
-    real(8),dimension(Nloc)             :: Vin
-    real(8),dimension(Nloc)             :: Hv
-    real(8),dimension(:),allocatable    :: vt,Hvt
+    complex(8),dimension(Nloc)          :: Vin
+    complex(8),dimension(Nloc)          :: Hv
+    complex(8),dimension(:),allocatable :: vt,Hvt
     integer,dimension(Ns)               :: ibup,ibdw
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
     integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath]
@@ -105,7 +105,7 @@ contains
     ! if(.not.MpiStatus)stop "directMatVec_MPI_cc ERROR: MpiStatus = F"
     !
     !
-    Hv=0d0
+    Hv=zero
     !
     !-----------------------------------------------!
     !LOCAL HAMILTONIAN PART: H_loc*vin = vout
@@ -119,11 +119,11 @@ contains
     !DW HAMILTONIAN TERMS: MEMORY NON-CONTIGUOUS
     mpiQup=DimUp/MpiSize
     if(MpiRank<mod(DimUp,MpiSize))MpiQup=MpiQup+1
-    allocate(vt(mpiQup*DimDw)) ;vt=0d0
-    allocate(Hvt(mpiQup*DimDw));Hvt=0d0
+    allocate(vt(mpiQup*DimDw)) ;vt=zero
+    allocate(Hvt(mpiQup*DimDw));Hvt=zero
     call vector_transpose_MPI(DimUp,MpiQdw,Vin,DimDw,MpiQup,vt) !Vin^T --> Vt
     include "VCA_HAMILTONIAN/direct_mpi/HxV_dw.f90"
-    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ;vt=0d0         !reallocate Vt
+    deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ;vt=zero         !reallocate Vt
     call vector_transpose_MPI(DimDw,mpiQup,Hvt,DimUp,mpiQdw,vt) !Hvt^T --> Vt
     Hv = Hv + Vt
     !-----------------------------------------------!

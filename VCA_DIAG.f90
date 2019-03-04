@@ -32,7 +32,7 @@ contains
   !+-------------------------------------------------------------------+
   subroutine diagonalize_cluster
     call vca_pre_diag
-    call vca_diag_d
+    call vca_diag_c
     !call vca_post_diag(.true.)
   end subroutine diagonalize_cluster
 
@@ -46,7 +46,7 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : diagonalize the Hamiltonian in each sector 
   !+------------------------------------------------------------------+
-  subroutine vca_diag_d
+  subroutine vca_diag_c
     integer                     :: nup,ndw,isector,dim
     integer                     :: DimUps(Ns_Ud),DimUp
     integer                     :: DimDws(Ns_Ud),DimDw
@@ -58,7 +58,7 @@ contains
     integer                     :: iter_spectrum
     real(8)                     :: oldzero,enemin,Ei,neigen_sector_error
     real(8),allocatable         :: eig_values(:)
-    real(8),allocatable         :: eig_basis(:,:),eig_basis_tmp(:,:)
+    complex(8),allocatable      :: eig_basis(:,:),eig_basis_tmp(:,:)
     logical                     :: lanc_solve,Tflag,lanc_verbose,bool,converged_spectrum
     !
     if(state_list%status)call es_delete_espace(state_list)
@@ -159,26 +159,26 @@ contains
           else
              allocate(eig_values(Dim)) ; eig_values=0d0
              !
-             allocate(eig_basis_tmp(Dim,Dim)) ; eig_basis_tmp=0d0
+             allocate(eig_basis_tmp(Dim,Dim)) ; eig_basis_tmp=zero
              !
              call build_Hv_sector(isector,eig_basis_tmp)
              !
              if(MpiMaster)call eigh(eig_basis_tmp,eig_values,'V','U')
-             if(dim==1)eig_basis_tmp(dim,dim)=1d0
+             if(dim==1)eig_basis_tmp(dim,dim)=one
              !
              call delete_Hv_sector()
 #ifdef _MPI
           if(MpiStatus)then
              call Bcast_MPI(MpiComm,eig_values)
              vecDim = vecDim_Hv_sector(isector)
-             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=0d0
+             allocate(eig_basis(vecDim,Neigen)) ; eig_basis=zero
              call scatter_basis_MPI(MpiComm,eig_basis_tmp,eig_basis)
           else
-             allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
+             allocate(eig_basis(Dim,Neigen)) ; eig_basis=zero
              eig_basis = eig_basis_tmp(:,1:Neigen)
           endif
 #else
-          allocate(eig_basis(Dim,Neigen)) ; eig_basis=0d0
+          allocate(eig_basis(Dim,Neigen)) ; eig_basis=zero
           eig_basis = eig_basis_tmp(:,1:Neigen)
 #endif
           endif
@@ -236,7 +236,7 @@ contains
     !
     close(unit)
     !
-  end subroutine vca_diag_d
+  end subroutine vca_diag_c
 
  !###################################################################################################
   !
