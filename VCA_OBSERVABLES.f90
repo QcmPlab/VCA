@@ -47,16 +47,16 @@ MODULE VCA_OBSERVABLES
   integer                            :: isector,jsector
   integer                            :: idim,idimUP,idimDW
   !
-  complex(8),dimension(:),pointer       :: gscvec
+  complex(8),dimension(:),pointer       :: state_cvec
   logical                            :: Jcondition
 
 
 
 contains 
 
-!+-------------------------------------------------------------------+
- !PURPOSE  : Evaluate and print out many interesting physical qties
-!+-------------------------------------------------------------------+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Evaluate and print out many interesting physical qties
+  !+-------------------------------------------------------------------+
 
   subroutine observables_cluster()
     integer :: iorb
@@ -65,7 +65,7 @@ contains
     !case ("full")
     !   call vca_diag_observables
     !case ("lanc")
-       call vca_lanc_observables
+    call vca_lanc_observables
     !case default
     !   stop "observables_cluster error: vca_method != ['full','lanc']"
     !end select
@@ -93,7 +93,7 @@ contains
     real(8)                             :: peso
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer        :: gscvec
+    complex(8),dimension(:),pointer        :: state_cvec
     type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:
@@ -120,12 +120,12 @@ contains
        !
 #ifdef _MPI
        if(MpiStatus)then
-          gscvec => es_return_cvector(MpiComm,state_list,istate)
+          state_cvec => es_return_cvector(MpiComm,state_list,istate)
        else
-          gscvec => es_return_cvector(state_list,istate)
+          state_cvec => es_return_cvector(state_list,istate)
        endif
 #else
-       gscvec => es_return_cvector(state_list,istate)
+       state_cvec => es_return_cvector(state_list,istate)
 #endif
        !
        idim    = getdim(isector)
@@ -133,7 +133,7 @@ contains
        call get_DimDw(isector,iDimDws)
        iDimUp = product(iDimUps)
        iDimDw = product(iDimDws)
-       !norm=sqrt(dot_product(gscvec,gscvec))
+       !norm=sqrt(dot_product(state_cvec,state_cvec))
        !
        !if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
@@ -141,64 +141,74 @@ contains
        peso = peso/zeta_function
        !
        if(MpiMaster)then 
-         call build_sector(isector,Hi)
-         do i=1,idim
-            call state2indices(i,[iDimUps,iDimDws],Indices)
-            do ii=1,Ns_Ud
-              mup = HI(ii)%map(Indices(ii))
-              mdw = HI(ii+Ns_Ud)%map(Indices(ii+Ns_ud))
-              Nups(ii,:) = Bdecomp(mup,Ns_Orb)
-              Ndws(ii,:) = Bdecomp(mdw,Ns_Orb)
-           enddo
-           IbUp = Breorder(Nups)
-           IbDw = Breorder(Ndws)
-           !
-           gs_weight=peso*abs(gscvec(i))**2
-           !
-           !Get operators:
-           do ilat=1,Nlat
-             do iorb=1,Norb
-                nup(ilat,iorb)= ibup(imp_state_index(ilat,iorb))
-                ndw(ilat,iorb)= ibdw(imp_state_index(ilat,iorb))
-                sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-                nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
+          call build_sector(isector,Hi)
+          do i=1,idim
+             call state2indices(i,[iDimUps,iDimDws],Indices)
+             do ii=1,Ns_Ud
+                mup = HI(ii)%map(Indices(ii))
+                mdw = HI(ii+Ns_Ud)%map(Indices(ii+Ns_ud))
+                Nups(ii,:) = Bdecomp(mup,Ns_Orb)
+                Ndws(ii,:) = Bdecomp(mdw,Ns_Orb)
              enddo
-           enddo
-            !
-            !Evaluate averages of observables:
-           do ilat=1,Nlat
-             do iorb=1,Norb
-                dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
-                dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
-                dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
-                docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
-                magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
-                sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
-                do jorb=iorb+1,Norb
-                   sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
-                   sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
+             IbUp = Breorder(Nups)
+             IbDw = Breorder(Ndws)
+             !
+             gs_weight=peso*abs(state_cvec(i))**2
+             !
+             !Get operators:
+             do ilat=1,Nlat
+                do iorb=1,Norb
+                   nup(ilat,iorb)= ibup(imp_state_index(ilat,iorb))
+                   ndw(ilat,iorb)= ibdw(imp_state_index(ilat,iorb))
+                   sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
+                   nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
                 enddo
              enddo
-             s2tot = s2tot  + (sum(sz))**2*gs_weight
-           enddo
-         enddo
-         call delete_sector(isector,HI)
-         if(associated(gscvec))nullify(gscvec)
+             !
+             !Evaluate averages of observables:
+             do ilat=1,Nlat
+                do iorb=1,Norb
+                   dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
+                   dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
+                   dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
+                   docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
+                   magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
+                   sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
+                   do jorb=iorb+1,Norb
+                      sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
+                      sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
+                   enddo
+                enddo
+                s2tot = s2tot  + (sum(sz))**2*gs_weight
+             enddo
+          enddo
+          call delete_sector(isector,HI)
        endif
+       !
+#ifdef _MPI
+       if(MpiStatus)then
+          if(associated(state_cvec))deallocate(state_cvec)
+       else
+          if(associated(state_cvec))nullify(state_cvec)
+       endif
+#else
+       if(associated(state_cvec))nullify(state_cvec)
+#endif
+       !
     enddo
     if(MPIMASTER)then
-        call get_szr
-        if(iolegend)call write_legend
-        call write_observables()
-        !
-        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb))/Nlat,iorb=1,Norb),sum(dens)/Nlat
-        write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb))/Nlat,iorb=1,Norb)
-        if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb))/Nlat,iorb=1,Norb)
-        !
-        imp_dens_up = dens_up
-        imp_dens_dw = dens_dw
-        imp_dens    = dens
-        imp_docc    = docc
+       call get_szr
+       if(iolegend)call write_legend
+       call write_observables()
+       !
+       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb))/Nlat,iorb=1,Norb),sum(dens)/Nlat
+       write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb))/Nlat,iorb=1,Norb)
+       if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb))/Nlat,iorb=1,Norb)
+       !
+       imp_dens_up = dens_up
+       imp_dens_dw = dens_dw
+       imp_dens    = dens
+       imp_docc    = docc
 
     endif
 #ifdef _MPI

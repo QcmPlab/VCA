@@ -42,9 +42,9 @@ contains
     logical :: MaskBool
     !
     if(vca_gf_symmetric)then
-      chan4=0.d0
+       chan4=0.d0
     else
-      chan4=1.d0
+       chan4=1.d0
     endif
     !
     if(allocated(impGmatrix))deallocate(impGmatrix)
@@ -56,45 +56,45 @@ contains
     max_exc=-huge(1d0)          !find the max excitation
     !Spin-Orbital diagonal:
     do ispin=1,Nspin
-      do iorb=1,Norb
-        write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
-        do isite=1,Nlat
-          !site-digonal:
-          call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),Nstate=Nstates) !2= add,del exc. c^+_i|psi>             
-          call lanc_build_gf_normal_main(isite,iorb,ispin)
-          !site-off-diagonal:
+       do iorb=1,Norb
+          write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
+          do isite=1,Nlat
+             !site-digonal:
+             call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),Nstate=Nstates) !2= add,del exc. c^+_i|psi>             
+             call lanc_build_gf_normal_main(isite,iorb,ispin)
+             !site-off-diagonal:
+             do jsite=1,Nlat
+                do jorb=1,Norb
+                   if(isite==jsite .and. iorb==jorb)cycle
+                   call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),Nstate=Nstates)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
+                   if(vca_gf_symmetric)then
+                      call lanc_build_gf_normal_mix_chan2(isite,jsite,iorb,jorb,ispin)
+                   else
+                      call lanc_build_gf_normal_mix_chan4(isite,jsite,iorb,jorb,ispin)
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+       !
+       !nondiagonal trick
+       do isite=1,Nlat
           do jsite=1,Nlat
-            do jorb=1,Norb
-              if(isite==jsite .and. iorb==jorb)cycle
-              call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),Nstate=Nstates)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
-              if(vca_gf_symmetric)then
-                call lanc_build_gf_normal_mix_chan2(isite,jsite,iorb,jorb,ispin)
-              else
-                call lanc_build_gf_normal_mix_chan4(isite,jsite,iorb,jorb,ispin)
-              endif
-            enddo
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   if(isite==jsite .and. iorb==jorb)cycle
+                   impGmats(isite,jsite,ispin,ispin,iorb,jorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,jorb,:) &
+                        - (one-chan4*xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGmats(jsite,jsite,ispin,ispin,jorb,jorb,:))
+                   impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) &
+                        - (one-chan4*xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGreal(jsite,jsite,ispin,ispin,jorb,jorb,:))
+                enddo
+                !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                !     - impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
+                !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
+                !     - impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))        
+             enddo
           enddo
-        enddo
-      enddo
-        !
-        !nondiagonal trick
-      do isite=1,Nlat
-        do jsite=1,Nlat
-          do iorb=1,Norb
-            do jorb=1,Norb
-            if(isite==jsite .and. iorb==jorb)cycle
-              impGmats(isite,jsite,ispin,ispin,iorb,jorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,jorb,:) &
-                  - (one-chan4*xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGmats(jsite,jsite,ispin,ispin,jorb,jorb,:))
-              impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) &
-                  - (one-chan4*xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGreal(jsite,jsite,ispin,ispin,jorb,jorb,:))
-            enddo
-            !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
-            !     - impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
-            !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
-            !     - impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))        
-          enddo
-        enddo
-      enddo
+       enddo
     enddo
     if(MPIMASTER)call stop_timer(LOGfile)
   end subroutine build_gf_normal
@@ -126,11 +126,11 @@ contains
     type(sector_map)            :: HI(2*Ns_Ud),HJ(2*Ns_Ud)
     !
     !if(vca_total_ud)then
-       ialfa = 1
+    ialfa = 1
     !   iorb1 = iorb
     !else
-       !ialfa = iorb
-       !iorb1 = 1
+    !ialfa = iorb
+    !iorb1 = 1
     !endif
     ibeta  = ialfa + (ispin-1)*Ns_Ud
     !
@@ -293,7 +293,16 @@ contains
        endif
        !
        !
-       if(associated(state_cvec))deallocate(state_cvec)
+#ifdef _MPI
+       if(MpiStatus)then
+          if(associated(state_cvec))deallocate(state_cvec)
+       else
+          if(associated(state_cvec))nullify(state_cvec)
+       endif
+#else
+       if(associated(state_cvec))nullify(state_cvec)
+#endif
+       !
        call delete_sector(isector,HI)
        !
     enddo
@@ -317,17 +326,17 @@ contains
     integer,dimension(2)        :: iud,jud
     type(sector_map)            :: HI(2*Ns_Ud),HJ(2*Ns_Ud)
     !
-!    if(vca_total_ud)then
-       ialfa = 1
-       jalfa = 1
-!       iorb1 = iorb
-!       jorb1 = jorb
-!    else
-!       ialfa = iorb
-!       jalfa = jorb
-!       iorb1 = 1
-!       jorb1 = 1
-!    endif
+    !    if(vca_total_ud)then
+    ialfa = 1
+    jalfa = 1
+    !       iorb1 = iorb
+    !       jorb1 = jorb
+    !    else
+    !       ialfa = iorb
+    !       jalfa = jorb
+    !       iorb1 = 1
+    !       jorb1 = 1
+    !    endif
     ibeta  = ialfa + (ispin-1)*Ns_Ud
     jbeta  = jalfa + (ispin-1)*Ns_Ud
     !
@@ -517,7 +526,15 @@ contains
           call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,ichan=2,Nexc=0)
        endif
        !
-       if(associated(state_cvec))deallocate(state_cvec)
+#ifdef _MPI
+       if(MpiStatus)then
+          if(associated(state_cvec))deallocate(state_cvec)
+       else
+          if(associated(state_cvec))nullify(state_cvec)
+       endif
+#else
+       if(associated(state_cvec))nullify(state_cvec)
+#endif
        call delete_sector(isector,HI)
        !
     enddo
@@ -537,17 +554,17 @@ contains
     integer,dimension(2)        :: iud,jud
     type(sector_map)            :: HI(2*Ns_Ud),HJ(2*Ns_Ud)
     !
-!    if(vca_total_ud)then
-       ialfa = 1
-       jalfa = 1
-!       iorb1 = iorb
-!       jorb1 = jorb
-!    else
-!       ialfa = iorb
-!       jalfa = jorb
-!       iorb1 = 1
-!       jorb1 = 1
-!    endif
+    !    if(vca_total_ud)then
+    ialfa = 1
+    jalfa = 1
+    !       iorb1 = iorb
+    !       jorb1 = jorb
+    !    else
+    !       ialfa = iorb
+    !       jalfa = jorb
+    !       iorb1 = 1
+    !       jorb1 = 1
+    !    endif
     ibeta  = ialfa + (ispin-1)*Ns_Ud
     jbeta  = jalfa + (ispin-1)*Ns_Ud
     !
@@ -737,18 +754,18 @@ contains
           call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,ichan=2,Nexc=0)
        endif
        !
-      !EVALUATE (c^+_is + i*c^+_js)|gs>
+       !EVALUATE (c^+_is + i*c^+_js)|gs>
        jsector = getCDGsector(ialfa,ispin,isector)
        if(jsector/=0)then
-          
+
           jdim   = getdim(jsector)
           call get_DimUp(jsector,jDimUps)
           call get_DImDw(jsector,jDimDws)
-          
+
           if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I15)")' add particle cdg_is+xi*cdg_js:',jsector
              allocate(cvinit(jdim)) ; cvinit=zero
-             
+
              call build_sector(jsector,HJ)
              do i=1,iDim
                 call state2indices(i,[iDimUps,iDimDws],Indices)
@@ -756,14 +773,14 @@ contains
                 iud(2)   = HI(ialfa+Ns_Ud)%map(Indices(ialfa+Ns_Ud))
                 nud(1,:) = Bdecomp(iud(1),Ns_Orb)
                 nud(2,:) = Bdecomp(iud(2),Ns_Orb)
-                
+
                 if(nud(ispin,is)/=0)cycle
                 call cdg(is,iud(ispin),r,sgn)
-                
+
                 Jndices        = Indices
                 Jndices(ibeta) = binary_search(HJ(ibeta)%map,r)
                 call indices2state(Jndices,[jDimUps,jDimDws],j)
-                
+
                 cvinit(j) = sgn*state_cvec(i)
              enddo
              do i=1,iDim
@@ -772,14 +789,14 @@ contains
                 iud(2)   = HI(jalfa+Ns_Ud)%map(Indices(jalfa+Ns_Ud))
                 nud(1,:) = Bdecomp(iud(1),Ns_Orb)
                 nud(2,:) = Bdecomp(iud(2),Ns_Orb)
-                
+
                 if(nud(ispin,js)/=0)cycle
                 call cdg(js,iud(ispin),r,sgn)
-                
+
                 Jndices        = Indices
                 Jndices(jbeta) = binary_search(HJ(jbeta)%map,r)
                 call indices2state(Jndices,[jDimUps,jDimDws],j)
-                
+
                 cvinit(j) = cvinit(j) + xi*sgn*state_cvec(i)
              enddo
              call delete_sector(jsector,HJ)
@@ -787,7 +804,7 @@ contains
              norm2=dot_product(cvinit,cvinit)
              cvinit=cvinit/sqrt(norm2)
           endif
-          
+
           nlanc=min(jdim,lanc_nGFiter)
           allocate(alfa_(nlanc),beta_(nlanc))
           alfa_=0.d0
@@ -808,7 +825,7 @@ contains
 #endif
           call delete_Hv_sector()
           call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,jorb,ispin,3,istate)
-          
+
           deallocate(alfa_,beta_)
           if(allocated(cvinit))deallocate(cvinit)          
           if(allocated(vvloc))deallocate(vvloc)
@@ -819,7 +836,7 @@ contains
        !EVALUATE (c_is - i*c_js)|gs>
        jsector = getCsector(ialfa,ispin,isector)
        if(jsector/=0)then
-          
+
           jdim   = getdim(jsector)
           call get_DimUp(jsector,jDimUps)
           call get_DImDw(jsector,jDimDws)
@@ -827,7 +844,7 @@ contains
           if(MpiMaster)then
              if(verbose==3)write(LOGfile,"(A,I15)")' del particle c_is-xi*c_js:',jsector
              allocate(cvinit(jdim)) ; cvinit=zero
-             
+
              call build_sector(jsector,HJ)
              do i=1,iDim
                 call state2indices(i,[iDimUps,iDimDws],Indices)
@@ -835,14 +852,14 @@ contains
                 iud(2)   = HI(ialfa+Ns_Ud)%map(Indices(ialfa+Ns_Ud))
                 nud(1,:) = Bdecomp(iud(1),Ns_Orb)
                 nud(2,:) = Bdecomp(iud(2),Ns_Orb)
-                
+
                 if(nud(ispin,is)/=1)cycle
                 call c(is,iud(ispin),r,sgn)
-                
+
                 Jndices        = Indices
                 Jndices(ibeta) = binary_search(HJ(ibeta)%map,r)
                 call indices2state(Jndices,[jDimUps,jDimDws],j)
-                
+
                 cvinit(j) = sgn*state_cvec(i)
              enddo
              do i=1,iDim
@@ -851,14 +868,14 @@ contains
                 iud(2)   = HI(jalfa+Ns_Ud)%map(Indices(jalfa+Ns_Ud))
                 nud(1,:) = Bdecomp(iud(1),Ns_Orb)
                 nud(2,:) = Bdecomp(iud(2),Ns_Orb)
-                
+
                 if(nud(ispin,js)/=1)cycle
                 call c(js,iud(ispin),r,sgn)
-                
+
                 Jndices        = Indices
                 Jndices(jbeta) = binary_search(HJ(jbeta)%map,r)
                 call indices2state(Jndices,[jDimUps,jDimDws],j)
-                
+
                 cvinit(j) = cvinit(j) - xi*sgn*state_cvec(i)
              enddo
              call delete_sector(jsector,HJ)
@@ -887,15 +904,23 @@ contains
 #endif
           call delete_Hv_sector()    
           call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,jorb,ispin,4,istate)
-          
+
           deallocate(alfa_,beta_)
           if(allocated(cvinit))deallocate(cvinit)          
           if(allocated(vvloc))deallocate(vvloc)
        else
           call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,ichan=4,Nexc=0)
        endif
-       
-       if(associated(state_cvec))deallocate(state_cvec)
+
+#ifdef _MPI
+       if(MpiStatus)then
+          if(associated(state_cvec))deallocate(state_cvec)
+       else
+          if(associated(state_cvec))nullify(state_cvec)
+       endif
+#else
+       if(associated(state_cvec))nullify(state_cvec)
+#endif
        call delete_sector(isector,HI)
        !
     enddo
@@ -912,68 +937,68 @@ contains
 
 
 
-subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,jorb,ispin,ichan,istate)
-  integer                                    :: ilat,jlat
-  complex(8)                                 :: vnorm2,pesoBZ,peso
-  real(8)                                    :: Ei,Egs,de
-  integer                                    :: nlanc,itype
-  real(8),dimension(:)                       :: alanc
-  real(8),dimension(size(alanc))             :: blanc 
-  integer                                    :: isign,iorb,jorb,ispin,ichan,istate
-  real(8),dimension(size(alanc),size(alanc)) :: Z
-  real(8),dimension(size(alanc))             :: diag,subdiag
-  integer                                    :: i,j,ierr
-  complex(8)                                 :: iw
-  !
-  Egs = state_list%emin       !get the gs energy
-  !
-  Nlanc = size(alanc)
-  !
-  if((finiteT).and.(beta*(Ei-Egs).lt.200))then
-     pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
-  elseif(.not.finiteT)then
-     pesoBZ = vnorm2/zeta_function
-  else
-     pesoBZ=0.d0
-  endif
-  !
-  !pesoBZ = vnorm2/zeta_function
-  !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
-  !
-  !
+  subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,ilat,jlat,iorb,jorb,ispin,ichan,istate)
+    integer                                    :: ilat,jlat
+    complex(8)                                 :: vnorm2,pesoBZ,peso
+    real(8)                                    :: Ei,Egs,de
+    integer                                    :: nlanc,itype
+    real(8),dimension(:)                       :: alanc
+    real(8),dimension(size(alanc))             :: blanc 
+    integer                                    :: isign,iorb,jorb,ispin,ichan,istate
+    real(8),dimension(size(alanc),size(alanc)) :: Z
+    real(8),dimension(size(alanc))             :: diag,subdiag
+    integer                                    :: i,j,ierr
+    complex(8)                                 :: iw
+    !
+    Egs = state_list%emin       !get the gs energy
+    !
+    Nlanc = size(alanc)
+    !
+    if((finiteT).and.(beta*(Ei-Egs).lt.200))then
+       pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+    elseif(.not.finiteT)then
+       pesoBZ = vnorm2/zeta_function
+    else
+       pesoBZ=0.d0
+    endif
+    !
+    !pesoBZ = vnorm2/zeta_function
+    !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+    !
+    !
 #ifdef _MPI
-  if(MpiStatus)then
-     if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,alanc)
-     if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,blanc)
-  endif
+    if(MpiStatus)then
+       if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,alanc)
+       if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,blanc)
+    endif
 #endif
-  diag             = 0.d0
-  subdiag          = 0.d0
-  Z                = eye(Nlanc)
-  diag(1:Nlanc)    = alanc(1:Nlanc)
-  subdiag(2:Nlanc) = blanc(2:Nlanc)
-  call tql2(Nlanc,diag,subdiag,Z,ierr)
-  !
-  call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb),istate=istate,ichan=ichan,Nexc=Nlanc)
-  !
-  do j=1,nlanc
-     de = diag(j)-Ei
-     if (de>max_exc)max_exc=de
-     peso = pesoBZ*Z(1,j)*Z(1,j)
-     !
-     impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%weight(j) = peso
-     impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%poles(j)  = isign*de
-     !
-     do i=1,Lmats
-        iw=xi*wm(i)
-        impGmats(ilat,jlat,ispin,ispin,iorb,jorb,i)=impGmats(ilat,jlat,ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
-     enddo
-     do i=1,Lreal
-        iw=dcmplx(wr(i),eps)
-        impGreal(ilat,jlat,ispin,ispin,iorb,jorb,i)=impGreal(ilat,jlat,ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
-     enddo
-  enddo
-end subroutine add_to_lanczos_gf_normal
+    diag             = 0.d0
+    subdiag          = 0.d0
+    Z                = eye(Nlanc)
+    diag(1:Nlanc)    = alanc(1:Nlanc)
+    subdiag(2:Nlanc) = blanc(2:Nlanc)
+    call tql2(Nlanc,diag,subdiag,Z,ierr)
+    !
+    call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb),istate=istate,ichan=ichan,Nexc=Nlanc)
+    !
+    do j=1,nlanc
+       de = diag(j)-Ei
+       if (de>max_exc)max_exc=de
+       peso = pesoBZ*Z(1,j)*Z(1,j)
+       !
+       impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%weight(j) = peso
+       impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb)%state(istate)%channel(ichan)%poles(j)  = isign*de
+       !
+       do i=1,Lmats
+          iw=xi*wm(i)
+          impGmats(ilat,jlat,ispin,ispin,iorb,jorb,i)=impGmats(ilat,jlat,ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
+       enddo
+       do i=1,Lreal
+          iw=dcmplx(wr(i),eps)
+          impGreal(ilat,jlat,ispin,ispin,iorb,jorb,i)=impGreal(ilat,jlat,ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
+       enddo
+    enddo
+  end subroutine add_to_lanczos_gf_normal
 
 
 
@@ -1005,41 +1030,41 @@ end subroutine add_to_lanczos_gf_normal
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
     !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
-      invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
     do ii=1,Lreal
-      invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
     !
     !Get Gimp^-1
     do ilat=1,Nlat
-      do jlat=1,Nlat
-        do ispin=1,Nspin
-          do iorb=1,Norb
-            do jorb=1,Norb
-             invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
-             invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
-            enddo
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
+                   invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
+                enddo
+             enddo
           enddo
-        enddo
-      enddo
+       enddo
     enddo
     !Get Sigma functions: Sigma= G0^-1 - G^-1
     impSmats=zero
     impSreal=zero
     do ilat=1,Nlat
-      do jlat=1,Nlat
-        do ispin=1,Nspin
-          do iorb=1,Norb
-            do jorb=1,Norb
-             impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
-             impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0real(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
-            enddo
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
+                   impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0real(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
+                enddo
+             enddo
           enddo
-        enddo
-      enddo
+       enddo
     enddo
-       !
+    !
     !
     !Get G0and:
     !impG0mats(:,:,:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
