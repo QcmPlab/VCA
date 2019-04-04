@@ -1014,6 +1014,7 @@ contains
     integer                                                     :: ii,ilat,jlat,ispin,iorb,jorb
     complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0mats,invGmats
     complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0real,invGreal
+    complex(8),dimension(:,:),allocatable                       :: invTmpMat_lso
     !
     ! if(.not.allocated(wm))allocate(wm(Lmats))
     ! if(.not.allocated(wr))allocate(wr(Lreal))
@@ -1024,31 +1025,42 @@ contains
     if(.not.allocated(InvG0real))allocate(invG0real(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invG0real=zero
     if(.not.allocated(InvGmats))allocate(invGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invGmats=zero
     if(.not.allocated(InvGreal))allocate(invGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invGreal=zero
+    if(.not.allocated(invTmpMat_lso))allocate(invTmpMat_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb));invTmpMat_lso=zero
     !
     !
     !Get G0^-1
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
     !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
-       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(0d0,wm(ii))+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
     do ii=1,Lreal
-       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
     !
     !Get Gimp^-1
-    do ilat=1,Nlat
-       do jlat=1,Nlat
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
-                   invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
-                enddo
-             enddo
-          enddo
-       enddo
+    do ii=1,Lmats
+       invTmpMat_lso=vca_nnn2lso_reshape(impGmats(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
+       call inv(invTmpMat_lso)
+       invGmats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
     enddo
+    do ii=1,Lreal
+       invTmpMat_lso=vca_nnn2lso_reshape(impGreal(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
+       call inv(invTmpMat_lso)
+       invGreal(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
+    enddo
+    !do ilat=1,Nlat
+    !   do jlat=1,Nlat
+    !      do ispin=1,Nspin
+    !         do iorb=1,Norb
+    !            do jorb=1,Norb
+    !               invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
+    !               invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
+    !            enddo
+    !         enddo
+    !      enddo
+    !   enddo
+    !enddo
     !Get Sigma functions: Sigma= G0^-1 - G^-1
     impSmats=zero
     impSreal=zero

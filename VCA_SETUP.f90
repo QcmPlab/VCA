@@ -387,13 +387,16 @@ contains
           Jups(iud)=Jups(iud)-1; if(Jups(iud) < 0)cycle
           call get_Sector([Jups,Jdws],Ns_Orb,jsector)
           getCsector(iud,1,isector)=jsector
+       enddo
+       do iud=1,Ns_Ud
           !
           Jups=Nups
           Jdws=Ndws 
           Jups(iud)=Jups(iud)+1; if(Jups(iud) > Ns)cycle
           call get_Sector([Jups,Jdws],Ns_Orb,jsector)
           getCDGsector(iud,1,isector)=jsector
-          !
+       enddo
+       do iud=1,Ns_Ud
           !
           !DWs:
           Jups=Nups
@@ -401,13 +404,15 @@ contains
           Jdws(iud)=Jdws(iud)-1; if(Jdws(iud) < 0)cycle
           call get_Sector([Jups,Jdws],Ns_Orb,jsector)
           getCsector(iud,2,isector)=jsector
+       enddo
+       do iud=1,Ns_Ud
           !
           Jups=Nups
           Jdws=Ndws 
           Jdws(iud)=Jdws(iud)+1; if(Jdws(iud) > Ns)cycle
           call get_Sector([Jups,Jdws],Ns_Orb,jsector)
           getCDGsector(iud,2,isector)=jsector
-          enddo
+        enddo
       enddo
     end subroutine setup_global
 
