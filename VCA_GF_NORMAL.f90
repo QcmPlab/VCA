@@ -1016,10 +1016,6 @@ contains
     complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0real,invGreal
     complex(8),dimension(:,:),allocatable                       :: invTmpMat_lso
     !
-    ! if(.not.allocated(wm))allocate(wm(Lmats))
-    ! if(.not.allocated(wr))allocate(wr(Lreal))
-    ! wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    ! wr     = linspace(wini,wfin,Lreal)
     !
     if(.not.allocated(InvG0mats))allocate(invG0mats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invG0mats=zero
     if(.not.allocated(InvG0real))allocate(invG0real(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invG0real=zero
@@ -1032,11 +1028,12 @@ contains
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
     !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
-       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(0d0,wm(ii))+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc
     enddo
     do ii=1,Lreal
-       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(impHloc,Nlat,Nspin,Norb),Nlat,Nspin,Norb)
+       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc
     enddo
+    !
     !
     !Get Gimp^-1
     do ii=1,Lmats
@@ -1049,18 +1046,7 @@ contains
        call inv(invTmpMat_lso)
        invGreal(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
     enddo
-    !do ilat=1,Nlat
-    !   do jlat=1,Nlat
-    !      do ispin=1,Nspin
-    !         do iorb=1,Norb
-    !            do jorb=1,Norb
-    !               invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
-    !               invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = one/impGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
-    !            enddo
-    !         enddo
-    !      enddo
-    !   enddo
-    !enddo
+    !
     !Get Sigma functions: Sigma= G0^-1 - G^-1
     impSmats=zero
     impSreal=zero
@@ -1079,9 +1065,17 @@ contains
     !
     !
     !Get G0and:
-    !impG0mats(:,:,:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
-    !impG0real(:,:,:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),vca_bath)
-    !!
+    do ii=1,Lmats
+       invTmpMat_lso=vca_nnn2lso_reshape(invG0mats(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
+       call inv(invTmpMat_lso)
+       impG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
+    enddo
+    do ii=1,Lreal
+       invTmpMat_lso=vca_nnn2lso_reshape(invG0real(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
+       call inv(invTmpMat_lso)
+       impG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
+    enddo
+    !
     !
   end subroutine build_sigma_normal
 
