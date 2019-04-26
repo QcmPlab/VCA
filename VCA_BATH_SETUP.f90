@@ -355,6 +355,18 @@ contains
        enddo
     enddo
     !
+    if(hfmode)then
+      do ilat=1,Nlat
+         do iorb=1,Norb
+            do ispin=1,Nspin
+               do i=1,Nbath
+                  vca_bath_%e(ilat,ispin,iorb,i) = vca_bath_%e(ilat,ispin,iorb,i)-(0.5d0*Uloc(iorb)+0.5d0*Ust*(Norb-1)+0.5d0*(Ust-Jh)*(Norb-1))
+               enddo
+            enddo
+         enddo
+      enddo
+    endif
+    !
     ! case ('hybrid')
     !    stride = 0
     !    do ispin=1,Nspin
