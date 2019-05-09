@@ -3,6 +3,7 @@ MODULE VCA_OBSERVABLES
   USE VCA_VARS_GLOBAL
   USE VCA_SETUP
   USE VCA_DIAG
+  USE VCA_IO, only:vca_gf_cluster
   USE VCA_AUX_FUNX
   USE VCA_EIGENSPACE
   USE VCA_HAMILTONIAN
@@ -11,56 +12,59 @@ MODULE VCA_OBSERVABLES
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
   USE SF_ARRAYS, only: arange
   USE SF_LINALG
+  USE SF_INTEGRATE
   !
   implicit none
   private
   !
   public :: observables_cluster
+  public :: observables_lattice
 
 
 
-  logical,save                         :: iolegend=.true.
-  real(8),dimension(:,:),allocatable   :: dens,dens_up,dens_dw
-  real(8),dimension(:,:),allocatable   :: docc
-  real(8),dimension(:,:),allocatable   :: magz
-  real(8),dimension(:,:,:),allocatable :: sz2
-  real(8),dimension(:,:,:),allocatable :: zimp,simp
-  real(8)                              :: Egs
-  real(8)                              :: s2tot
-  real(8)                              :: Ei
+  logical,save                                             :: iolegend=.true.
+  real(8),dimension(:,:),allocatable                       :: dens,dens_up,dens_dw
+  real(8),dimension(:,:),allocatable                       :: docc
+  real(8),dimension(:,:),allocatable                       :: magz
+  real(8),dimension(:,:,:),allocatable                     :: sz2
+  real(8),dimension(:,:,:),allocatable                     :: zimp,simp
+  real(8)                                                  :: Egs
+  real(8)                                                  :: s2tot
+  real(8)                                                  :: Ei
   !
-  integer                            :: iorb,jorb,iorb1,jorb1
-  integer                            :: ispin,jspin
-  integer                            :: isite,jsite
-  integer                            :: ibath
-  integer                            :: r,m,k,k1,k2
-  integer                            :: iup,idw
-  integer                            :: jup,jdw
-  integer                            :: mup,mdw
-  real(8)                            :: sgn,sgn1,sgn2,sg1,sg2
-  real(8)                            :: gs_weight
+  integer                                                  :: iorb,jorb,iorb1,jorb1
+  integer                                                  :: ispin,jspin
+  integer                                                  :: isite,jsite
+  integer                                                  :: ibath
+  integer                                                  :: r,m,k,k1,k2
+  integer                                                  :: iup,idw
+  integer                                                  :: jup,jdw
+  integer                                                  :: mup,mdw
+  real(8)                                                  :: sgn,sgn1,sgn2,sg1,sg2
+  real(8)                                                  :: gs_weight
   !
-  real(8)                            :: peso
-  real(8)                            :: norm
+  real(8)                                                  :: peso
+  real(8)                                                  :: norm
   !
-  integer                            :: i,j,ii
-  integer                            :: isector,jsector
-  integer                            :: idim,idimUP,idimDW
+  integer                                                  :: i,j,ii
+  integer                                                  :: isector,jsector
+  integer                                                  :: idim,idimUP,idimDW
+  complex(8),allocatable,dimension(:,:,:,:,:,:)            :: sij
   !
-  complex(8),dimension(:),pointer       :: state_cvec
-  logical                            :: Jcondition
+  complex(8),dimension(:),pointer                          :: state_cvec
+  logical                                                  :: Jcondition
 
 
 
 contains 
 
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : Evaluate and print out many interesting physical qties
-  !+-------------------------------------------------------------------+
+  !+---------------------------------------------------------------------------------+
+  !PURPOSE  : Evaluate and print out many interesting physical qties for the cluster
+  !+---------------------------------------------------------------------------------+
 
   subroutine observables_cluster()
     integer :: iorb
-    write(LOGfile,"(A)")"Get local observables:"
+    write(LOGfile,"(A)")"Get cluster observables:"
     !select case(vca_method)
     !case ("full")
     !   call vca_diag_observables
@@ -72,7 +76,23 @@ contains
   end subroutine observables_cluster
 
   !+-------------------------------------------------------------------+
-  !PURPOSE  : Evaluate and print out many interesting physical qties
+  !PURPOSE  : Evaluate and print out many interesting physical qties for the lattice
+  !+-------------------------------------------------------------------+
+
+  subroutine observables_lattice()
+    write(LOGfile,"(A)")"Get lattice observables:"
+    !select case(vca_method)
+    !case ("full")
+    !   call vca_diag_observables
+    !case ("lanc")
+    call vca_gf_observables
+    !case default
+    !   stop "observables_cluster error: vca_method != ['full','lanc']"
+    !end select
+  end subroutine observables_lattice
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Evaluate and print out many interesting physical qties for the cluster
   !+-------------------------------------------------------------------+
   subroutine vca_lanc_observables()
     integer,dimension(Ns)               :: IbUp,IbDw  ![Ns]
@@ -197,9 +217,9 @@ contains
        !
     enddo
     if(MPIMASTER)then
-       call get_szr
-       if(iolegend)call write_legend
-       call write_observables()
+       !call get_szr
+       !if(iolegend)call write_legend
+       !call write_observables()
        !
        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb))/Nlat,iorb=1,Norb),sum(dens)/Nlat
        write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb))/Nlat,iorb=1,Norb)
@@ -224,10 +244,180 @@ contains
   end subroutine vca_lanc_observables
 
 
+!+---------------------------------------------------------------------------------+
+!PURPOSE  : Evaluate and print out many interesting physical qties for the lattice
+!+---------------------------------------------------------------------------------+
+
+
+ subroutine vca_gf_observables()
+    integer,dimension(Ns)               :: IbUp,IbDw  ![Ns]
+    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]
+    integer,dimension(2*Ns_Ud)          :: Indices,Jndices
+    integer,dimension(Ns_Ud)            :: iDimUps,iDimDws
+    integer                             :: i,j,ii
+    integer                             :: istate
+    integer                             :: isector,jsector
+    integer                             :: idim,jdim,ilat
+    integer                             :: isz,jsz
+    integer                             :: iorb,jorb,ispin,jspin,isite,jsite,ibath
+    integer                             :: numstates
+    integer                             :: r,m,k
+    real(8)                             :: sgn,sgn1,sgn2
+    real(8)                             :: weight
+    real(8)                             :: Ei
+    real(8)                             :: peso
+    real(8)                             :: norm
+    real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
+    complex(8),dimension(:),pointer     :: state_cvec
+    type(sector_map)                    :: Hi(2*Ns_Ud)
+    !
+    !OBSERVABLE MATRIX:
+    !
+    if(allocated(sij))deallocate(sij)
+    allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    sij=zero
+    !
+    !LOCAL OBSERVABLES:
+    allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
+    allocate(docc(Nlat,Norb))
+    allocate(magz(Nlat,Norb),sz2(Nlat,Norb,Norb))
+    allocate(simp(Nlat,Norb,Nspin),zimp(Nlat,Norb,Nspin))
+    !
+    dens    = 0.d0
+    dens_up = 0.d0
+    dens_dw = 0.d0
+    docc    = 0.d0
+    magz    = 0.d0
+    sz2     = 0.d0
+    simp    = 0.d0
+    zimp    = 0.d0
+    nup     = 0.d0
+    ndw     = 0.d0
+    Egs     = state_list%emin
+    gs_weight=1.d0
+    !
+    !CALCULATE OBSERAVABLE:
+    !
+    !Get operators:
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          sij=zero
+          sij(ilat,ilat,1,1,iorb,iorb)=1.d0
+          nup(ilat,iorb)= calculate_observable_integral()
+          !
+          sij=zero
+          sij(ilat,ilat,2,2,iorb,iorb)=1.d0
+          ndw(ilat,iorb)= calculate_observable_integral()
+          !
+          sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
+          nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
+       enddo
+    enddo
+    !
+    do ilat=1,Nlat
+      do iorb=1,Norb
+         dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
+         dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
+         dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
+         docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
+         magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
+         sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
+         do jorb=iorb+1,Norb
+            sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
+            sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
+         enddo
+      enddo
+      s2tot = s2tot  + (sum(sz))**2*gs_weight
+    enddo
+    !
+    if(MPIMASTER)then
+       call get_szr
+       if(iolegend)call write_legend
+       call write_observables()
+       !
+       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb)),iorb=1,Norb),sum(dens)
+       write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb)),iorb=1,Norb)
+       if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb)),iorb=1,Norb)
+       !
+       imp_dens_up = dens_up
+       imp_dens_dw = dens_dw
+       imp_dens    = dens
+       imp_docc    = docc
+
+    endif
+    deallocate(dens,docc,dens_up,dens_dw,magz,sz2)
+    deallocate(simp,zimp)
+  end subroutine vca_gf_observables
 
 
 
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Frequency integral
+  !+-------------------------------------------------------------------+
 
+
+  function calculate_observable_integral() result(out_2)
+    integer                                                   :: inf
+    real(8)                                                   :: out_2,spin_multiplicity
+    !
+    out_2=0.d0
+    spin_multiplicity=3.d0-Nspin   !FIXME: NEEDED?
+    !
+    !
+    call quad(sum_observable_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2,strict=.false.)
+    !
+    out_2=spin_multiplicity*out_2/(pi*Nlat) 
+    return
+  end function calculate_observable_integral
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : sum on k-vectors
+  !+-------------------------------------------------------------------+
+
+
+  function sum_observable_kmesh(omega) result(out_1)
+    integer                                                  :: ii,jj,kk
+    real(8)                                                  :: omega
+    real(8)                                                  :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: gfprime
+    complex(8),allocatable,dimension(:,:)                    :: gfprime_lso
+    complex(8),allocatable,dimension(:,:)                    :: Gk_lso
+    !
+    out_1=0.d0
+    !
+    !
+    if(allocated(tmp_mat))deallocate(tmp_mat)
+    if(allocated(gfprime))deallocate(gfprime)
+    !
+    allocate(tmp_mat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Gk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    !
+    tmp_mat=zero
+    gfprime=zero
+    gfprime_lso=zero
+    Gk_lso=zero
+    !
+    !    
+    call vca_gf_cluster(xi*omega,gfprime)
+    gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+    call inv(gfprime_lso)
+    !
+    do ii=1,size(impHk,7)
+       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
+       Gk_lso=gfprime_lso-Gk_lso
+       call inv(Gk_lso)
+       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb),Gk_lso))-trace(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb))/(xi*omega-1.1d0))  !!FIXME: CHECK
+    enddo
+    out_1=out_1/(size(impHk,7))
+    !
+    deallocate(tmp_mat)
+    deallocate(gfprime)
+    return
+    !
+  end function sum_observable_kmesh
 
 
   !####################################################################
