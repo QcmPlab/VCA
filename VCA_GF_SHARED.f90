@@ -47,7 +47,7 @@ contains
     if(.not.allocated(vm))allocate(vm(0:Lmats))          !bosonic frequencies
     if(.not.allocated(wr))allocate(wr(Lreal))
     if(.not.allocated(tau))allocate(tau(0:Ltau))
-    print*,beta
+    !print*,beta
     wm     = pi/beta*(2*arange(1,Lmats)-1)
     do i=0,Lmats
        vm(i) = pi/beta*2*i

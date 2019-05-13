@@ -4,6 +4,7 @@ MODULE VCA_OBSERVABLES
   USE VCA_SETUP
   USE VCA_DIAG
   USE VCA_IO, only:vca_gf_cluster
+  USE VCA_GF_SHARED, only:max_exc
   USE VCA_AUX_FUNX
   USE VCA_EIGENSPACE
   USE VCA_HAMILTONIAN
@@ -31,6 +32,7 @@ MODULE VCA_OBSERVABLES
   real(8)                                                  :: Egs
   real(8)                                                  :: s2tot
   real(8)                                                  :: Ei
+  real(8)                                                  :: integrationR
   !
   integer                                                  :: iorb,jorb,iorb1,jorb1
   integer                                                  :: ispin,jspin
@@ -298,7 +300,6 @@ contains
     !
     !CALCULATE OBSERAVABLE:
     !
-    !Get operators:
     do ilat=1,Nlat
        do iorb=1,Norb
           sij=zero
@@ -314,6 +315,7 @@ contains
        enddo
     enddo
     !
+    !Get operators:
     do ilat=1,Nlat
       do iorb=1,Norb
          dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
@@ -355,8 +357,18 @@ contains
   !PURPOSE  : Frequency integral
   !+-------------------------------------------------------------------+
 
-
-  function calculate_observable_integral() result(out_2)
+   function calculate_observable_integral() result(out_3)
+     real(8)                                            :: out_3
+     !
+     if(finiteT) then
+       out_3=calculate_observable_integral_finite_t()
+     else
+       out_3=calculate_observable_integral_zero_t()
+     endif
+   end function calculate_observable_integral
+  
+  !T=0
+  function calculate_observable_integral_zero_t() result(out_2)
     integer                                                   :: inf
     real(8)                                                   :: out_2,spin_multiplicity
     !
@@ -368,7 +380,63 @@ contains
     !
     out_2=spin_multiplicity*out_2/(pi*Nlat) 
     return
-  end function calculate_observable_integral
+  end function calculate_observable_integral_zero_t
+
+  !T finite
+
+  function calculate_observable_integral_finite_t() result(out_2)
+    integer                         :: inf,Nmax,ii
+    real(8)                         :: out_2,spin_multiplicity,omegamax,integralpart
+    !
+    !1) Find the real omegamax
+    nmax=int(2*(abs(max_exc)+bandwidth)*beta/pi)
+    if (mod(nmax,2)==0)then
+      nmax=nmax/2    
+    else
+      nmax=(nmax+1)/2
+    endif
+    integrationR=2*(nmax+1)*pi/beta
+    print*,"NMAX=",nmax
+    print*,"INTEGRATION R=",integrationR
+    !2) Evaluate discrete sum
+    !
+    out_2=0.d0
+    do ii=0,Nmax
+      out_2=out_2+dreal(sum_observable_kmesh_complex(xi*(2*ii+1)*pi/beta))
+    enddo
+    !
+    out_2=2.d0*(1/beta)*out_2
+    print*,"SUM PART = ",out_2
+    !
+    !3) Evaluate integral part
+    integralpart=0.d0
+    call quad(integral_contour,a=-pi,b=pi,verbose=(verbose>=3),key=6,result=integralpart,strict=.false.)
+    !
+    print*,"INTEGRAL PART = ",integralpart
+    !4) Sum all
+    out_2=out_2+integralpart
+    !5) Spin trick
+    spin_multiplicity=3.d0-Nspin 
+    out_2=spin_multiplicity*out_2/Nlat  !FIXME: NEEDED?
+    return
+  end function calculate_observable_integral_finite_t
+
+
+ function integral_contour(zeta) result(f)
+    real(8)                 :: zeta,f
+    complex(8)              :: w,fermi
+    !
+    w=integrationR*exp(xi*zeta)
+    if(dreal((w-XMU)*beta)>= 100)then
+      fermi=0.d0
+    else
+      fermi=(1/(exp(beta*(w-XMU))+1))
+    endif
+    !
+    f=dreal((1.d0/pi)*w*fermi*sum_observable_kmesh_complex(w)-trace(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb))/(w-1.1d0))
+    !print*,zeta,f,fermi,sum_kmesh(w)
+ end function integral_contour
+
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : sum on k-vectors
@@ -418,6 +486,51 @@ contains
     return
     !
   end function sum_observable_kmesh
+
+  function sum_observable_kmesh_complex(omega) result(out_1)
+    integer                                                  :: ii,jj,kk
+    complex(8)                                               :: omega
+    complex(8)                                               :: out_1
+    complex(8),allocatable,dimension(:,:)                    :: tmp_mat
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: gfprime
+    complex(8),allocatable,dimension(:,:)                    :: gfprime_lso
+    complex(8),allocatable,dimension(:,:)                    :: Gk_lso
+    !
+    out_1=0.d0
+    !
+    !
+    if(allocated(tmp_mat))deallocate(tmp_mat)
+    if(allocated(gfprime))deallocate(gfprime)
+    !
+    allocate(tmp_mat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Gk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    !
+    tmp_mat=zero
+    gfprime=zero
+    gfprime_lso=zero
+    Gk_lso=zero
+    !
+    !    
+    call vca_gf_cluster(omega,gfprime)
+    gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+    call inv(gfprime_lso)
+    !
+    do ii=1,size(impHk,7)
+       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
+       Gk_lso=gfprime_lso-Gk_lso
+       call inv(Gk_lso)
+       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb),Gk_lso)))  !!FIXME: CHECK
+    enddo
+    out_1=out_1/(size(impHk,7))
+    !
+    deallocate(tmp_mat)
+    deallocate(gfprime)
+    return
+    !
+  end function sum_observable_kmesh_complex
+
 
 
   !####################################################################
