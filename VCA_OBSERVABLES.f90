@@ -396,8 +396,8 @@ contains
       nmax=(nmax+1)/2
     endif
     integrationR=2*(nmax+1)*pi/beta
-    print*,"NMAX=",nmax
-    print*,"INTEGRATION R=",integrationR
+    !print*,"NMAX=",nmax
+    !print*,"INTEGRATION R=",integrationR
     !2) Evaluate discrete sum
     !
     out_2=0.d0
@@ -406,13 +406,13 @@ contains
     enddo
     !
     out_2=2.d0*(1/beta)*out_2
-    print*,"SUM PART = ",out_2
+    !print*,"SUM PART = ",out_2
     !
     !3) Evaluate integral part
     integralpart=0.d0
     call quad(integral_contour,a=-pi,b=pi,verbose=(verbose>=3),key=6,result=integralpart,strict=.false.)
     !
-    print*,"INTEGRAL PART = ",integralpart
+    !print*,"INTEGRAL PART = ",integralpart
     !4) Sum all
     out_2=out_2+integralpart
     !5) Spin trick
@@ -433,7 +433,7 @@ contains
       fermi=(1/(exp(beta*(w-XMU))+1))
     endif
     !
-    f=dreal((1.d0/pi)*w*fermi*sum_observable_kmesh_complex(w)-trace(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb))/(w-1.1d0))
+    f=dreal((1.d0/pi)*w*fermi*sum_observable_kmesh_complex(w))
     !print*,zeta,f,fermi,sum_kmesh(w)
  end function integral_contour
 
