@@ -43,6 +43,11 @@ program vca_bhz_2d
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
   integer                                         :: iii,jjj,kkk
   !
+  !
+  integer,  allocatable  :: nbd(:)
+  real(8), allocatable   :: parvec(:), l(:), u(:)
+  !
+  !
   call init_MPI()
   comm = MPI_COMM_WORLD
   call StartMsg_MPI(comm)
@@ -87,6 +92,20 @@ program vca_bhz_2d
   wr     = linspace(wini,wfin,Lreal)
   !
   call vca_init_solver(comm)
+  !
+  if(wmin)then
+    t=0.5d0
+    allocate ( nbd(3), parvec(3), l(3), u(3) )
+    parvec=[t,(2.d0*t)*Mh,(2.d0*t)*0.3d0]
+    do iii=1,3
+      nbd(iii) = 2
+      l(iii)   = parvec(iii)-0.2
+      u(iii)   = parvec(iii)+0.2
+    enddo
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d9,pgtol=1.d-3)
+    print*,"MINIMUM IS ",solve_vca_multi(parvec)," AT ",parvec
+    STOP
+  endif
   !
   if(wloop)then
     allocate(ts_array(Nloop))
@@ -156,6 +175,32 @@ contains
     print*,""
     !
   end function solve_vca_square
+
+  function solve_vca_multi(pars) result(Omega)
+    real(8),dimension(:)         :: pars
+    real(8)                      :: Omega
+    !
+    t=0.5d0
+    mu=0.d0*t
+    M=(2.d0*t)*Mh
+    lambda=(2.d0*t)*0.3d0
+    !
+    t_var=pars(1)  
+    mu_var=0.d0*t_var
+    M_var=pars(2)
+    lambda_var=pars(3)
+    !
+    print*,""
+    print*,"------ Doing for ",pars," ------"
+    call generate_tcluster()
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
+    call vca_get_sft_potential(omega)
+    print*,""
+    print*,"------ DONE ------"
+    print*,""
+    !
+  end function solve_vca_multi
 
 
   !+------------------------------------------------------------------+

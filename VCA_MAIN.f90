@@ -272,8 +272,8 @@ contains
     !
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
-    call observables_cluster()    !obtain impurity observables as thermal averages.
-    call observables_lattice()    !obtain impurity observables as thermal averages.
+    !call observables_cluster()    !obtain impurity observables as thermal averages.
+    !call observables_lattice()    !obtain impurity observables as thermal averages.
 
     !call save_gfprime("gfprime",use_formatted=.true.)
     !call read_gfprime("gfprime",use_formatted=.true.)
