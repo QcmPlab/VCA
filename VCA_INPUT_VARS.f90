@@ -36,6 +36,7 @@ MODULE VCA_INPUT_VARS
   logical              :: print_Sigma  !flag to print impurity Green`s functions
   logical              :: print_impG   !flag to print impurity Green`s functions
   logical              :: print_impG0  !flag to print impurity Green`s functions
+  logical              :: print_observables  !flag to calculate and print observables
   logical              :: vca_twin    !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   logical              :: vca_sectors          !flag to reduce sector scan for the spectrum to specific sectors +/- vca_sectors_shift
   integer              :: vca_sectors_shift    !shift to the vca_sectors scan
@@ -136,6 +137,7 @@ contains
     call parse_input_variable(print_Sigma,"PRINT_SIGMA",INPUTunit,default=.true.,comment="Flag to print impurity Self-energy")
     call parse_input_variable(print_impG,"PRINT_IMPG",INPUTunit,default=.true.,comment="Flag to print impurity interacting Greens function")
     call parse_input_variable(print_impG0,"PRINT_IMPG0",INPUTunit,default=.true.,comment="Flag to print impurity non-interacting Greens function")
+    call parse_input_variable(print_observables,"PRINT_OBSERVABLES",INPUTunit,default=.true.,comment="Flag to calculate and print observables")
     ! call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     !
     call parse_input_variable(vca_method,"VCA_METHOD",INPUTunit,default="lanc",comment="flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)")

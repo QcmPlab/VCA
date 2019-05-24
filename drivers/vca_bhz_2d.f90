@@ -7,7 +7,7 @@ program vca_bhz_2d
   implicit none
   integer                                         :: Nlso,Nsys
   integer                                         :: ilat,jlat
-  integer                                         :: iloop
+  integer                                         :: iloop,jloop
   integer                                         :: ix,iy,ik
   logical                                         :: converged,usez
   real(8)                                         :: wband
@@ -27,7 +27,7 @@ program vca_bhz_2d
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry,SAMPLING
   integer                                         :: unit
   integer                                         :: comm,rank
-  logical                                         :: master,wloop,wmin
+  logical                                         :: master,wloop,wmin,MULTIMAX
   integer                                         :: nloop
   character(len=6)                                :: scheme
   !MINIMIZATION ROUTINES
@@ -35,7 +35,8 @@ program vca_bhz_2d
   !VARIATIONAL PARAMETERS
   real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var,Mh
   !
-  real(8),dimension(:),allocatable                :: ts_array,omega_array
+  real(8),dimension(:),allocatable                :: ts_array,omega_array,ts_array_x,ts_array_y
+  real(8),dimension(:,:),allocatable              :: omega_grid
   integer,dimension(1)                            :: min_loc
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized         ![Nspin][Nspin][Norb][Norb][Lmats]
@@ -44,8 +45,7 @@ program vca_bhz_2d
   integer                                         :: iii,jjj,kkk
   !
   !
-  integer,  allocatable  :: nbd(:)
-  real(8), allocatable   :: parvec(:), l(:), u(:)
+  real(8), allocatable   :: params(:)
   !
   !
   call init_MPI()
@@ -94,31 +94,42 @@ program vca_bhz_2d
   call vca_init_solver(comm)
   !
   if(wmin)then
-    t=0.5d0
-    allocate ( nbd(3), parvec(3), l(3), u(3) )
-    parvec=[t,(2.d0*t)*Mh,(2.d0*t)*0.3d0]
-    do iii=1,3
-      nbd(iii) = 2
-      l(iii)   = parvec(iii)-0.2
-      u(iii)   = parvec(iii)+0.2
-    enddo
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d9,pgtol=1.d-3)
-    print*,"MINIMUM IS ",solve_vca_multi(parvec)," AT ",parvec
-    STOP
-  endif
   !
-  if(wloop)then
-    allocate(ts_array(Nloop))
-    allocate(omega_array(Nloop))
-    ts_array = linspace(0d0,2d0,Nloop)
+    print_impG=.false.
+    print_impG0=.false.
+    print_Sigma=.false.
+    print_observables=.false.
+    MULTIMAX=.false.
+    t=0.5d0
+    params=[t,(2.d0*t)*Mh,(2.d0*t)*0.3d0]
+    call minimize_parameters(params,1d0)
+    print_observables=.true.
+    omegadummy=solve_vca_multi(params)
+    print*,"MINIMUM IS ",omegadummy," AT ",params
+    call solve_Htop_new()
+    call build_z2_indices() 
+  !
+  elseif(wloop)then
+    !allocate(ts_array(Nloop))
+    !allocate(omega_array(Nloop))
+    !ts_array = linspace(0d0,2d0,Nloop)
+    allocate(ts_array_x(Nloop))
+    allocate(ts_array_y(Nloop))
+    allocate(omega_grid(Nloop,Nloop))
     !
+    t=0.5d0
+    ts_array_x = linspace(t-0.2d0,t+0.2d0,Nloop)
+    ts_array_y = linspace((2.d0*t)*Mh-0.2d0,(2.d0*t)*Mh+0.2d0,Nloop)
     do iloop=1,Nloop
-       omega_array(iloop)=solve_vca_square(ts_array(iloop))
+      do jloop=1,Nloop
+        omega_grid(iloop,jloop)=solve_vca_multi([ts_array_x(iloop),ts_array_y(jloop),0.3d0])
+      enddo
     enddo
     !
-    call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
-    min_loc = minloc(omega_array)
-    write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
+    !call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
+    call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
+    !min_loc = minloc(omega_array)
+    !write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
   else
     omegadummy=solve_vca_square(ts)
     if(scheme=="g")then
@@ -178,15 +189,16 @@ contains
 
   function solve_vca_multi(pars) result(Omega)
     real(8),dimension(:)         :: pars
+    logical                      :: invert
     real(8)                      :: Omega
     !
     t=0.5d0
-    mu=0.d0*t
+    mu=0.d0
     M=(2.d0*t)*Mh
     lambda=(2.d0*t)*0.3d0
     !
     t_var=pars(1)  
-    mu_var=0.d0*t_var
+    mu_var=0.d0
     M_var=pars(2)
     lambda_var=pars(3)
     !
@@ -196,6 +208,7 @@ contains
     call generate_hk()
     call vca_solve(comm,t_prime,h_k)
     call vca_get_sft_potential(omega)
+    if(MULTIMAX)omega=-omega
     print*,""
     print*,"------ DONE ------"
     print*,""
@@ -804,6 +817,48 @@ contains
 end subroutine get_local_sigma
 
  
+  !+------------------------------------------------------------------+
+  !MINIMIZER ROUTINE
+  !+------------------------------------------------------------------+
+  subroutine minimize_parameters(v,radius)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    real(8)                                   :: radius     
+    integer                                   :: i         
+    !
+    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
+    parvec=v
+    MULTIMAX=.false.
+    do i=1,size(v)
+      nbd(i) = 2
+      l(i)   = 0.0d0
+      u(i)   = parvec(i)+radius
+    enddo
+    lold=l
+    uold=u
+    print*,"LOOKING FOR MINIMUMS"
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1)
+    do i=1,size(v)
+      if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
+        parvec(i)=v(i)
+      MULTIMAX=.true.
+      else
+        l(i)=parvec(i)
+        u(i)=parvec(i)
+      endif
+    enddo
+    if (MULTIMAX) then
+    print*,"LOOKING FOR MAXIMUMS"
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1)
+    do i=1,size(v)
+      if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
+    enddo
+    MULTIMAX=.false.
+    v=parvec
+    endif
+    deallocate(nbd,parvec,l,u,lold,uold)
+  end subroutine minimize_parameters
+
   !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
