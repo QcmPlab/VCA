@@ -83,10 +83,11 @@ program vca_bhz_2d
   lambda=(2.d0*t)*lambdauser
   mu=0.d0*t
   !
-  !ALLOCATE FREQUENCY VECTORS:
+  !ALLOCATE VECTORS:
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
   if(.not.allocated(wr))allocate(wr(Lreal))
+  if(.not.allocated(params))allocate(params(3))
   wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
   wr     = linspace(wini,wfin,Lreal)
   !
@@ -114,6 +115,7 @@ program vca_bhz_2d
     omegadummy=solve_vca_multi(params)
     !
     write(*,"(A,ES15.7,A,3ES15.7)")bold_green("FOUND MINIMUM "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
+    write(*,"(A)")""
     !
     call solve_Htop_new()
     call build_z2_indices() 
@@ -134,6 +136,9 @@ program vca_bhz_2d
     !
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
     !
+  else
+    omegadummy=solve_vca_multi([ts,Mh,lambdauser])
+    write(*,"(A,ES15.7,A,3ES15.7)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
   endif
   if(scheme=="g")then
     call get_local_gf()
@@ -147,6 +152,7 @@ program vca_bhz_2d
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
+  if(allocated(params))deallocate(params)
   !
   call finalize_MPI()
   !
