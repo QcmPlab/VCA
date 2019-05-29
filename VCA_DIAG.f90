@@ -441,8 +441,8 @@ contains
           !
        endif
     endif
-    write(LOGfile,*)""
-    write(LOGfile,*)""
+    if(verbose>=1)write(LOGfile,*)""
+    if(verbose>=1)write(LOGfile,*)""
   end subroutine vca_post_diag
 
 

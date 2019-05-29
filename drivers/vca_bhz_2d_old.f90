@@ -4,38 +4,49 @@ program vca_bhz_2d
   USE MPI
   USE VCA
   !
-  !System parameters
   implicit none
   integer                                         :: Nlso,Nsys
-  integer                                         :: Nx,Ny
   integer                                         :: ilat,jlat
-  real(8)                                         :: ts,Mh,lambda
-  real(8)                                         :: M,M_var,t,t_var,lambda_var,mu,mu_var
+  integer                                         :: iloop,jloop
+  integer                                         :: ix,iy,ik
+  logical                                         :: converged,usez
+  real(8)                                         :: wband
   !Bath
-  integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
-  !Matrices:
+  integer                                         :: Nb,COUNTER
+  !The local hybridization function:
+  real(8),dimension(:,:),allocatable              :: Tsys,Tref,Vmat,Htb,Mmat,dens
   real(8),allocatable,dimension(:)                :: wm,wr
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal,t_k,h_k
-  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized     ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso     
+  complex(8)                                      :: iw
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
-  !Utility variables:
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: t_k
+  character(len=16)                               :: finput
+  real(8)                                         :: ts,hopping
+  integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry,SAMPLING
   integer                                         :: unit
   integer                                         :: comm,rank
-  integer                                         :: iloop,jloop,nloop
-  integer                                         :: iii,jjj,kkk
   logical                                         :: master,wloop,wmin,MULTIMAX
-  logical                                         :: converged,usez
+  integer                                         :: nloop
   character(len=6)                                :: scheme
-  character(len=16)                               :: finput
-  real(8)                                         :: omegadummy
-  real(8),dimension(:),allocatable                :: ts_array,omega_array,ts_array_x,ts_array_y,params
-  real(8),dimension(:,:),allocatable              :: omega_grid
-  real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
+  !MINIMIZATION ROUTINES
+  real(8)                                         :: ts_dummy1,ts_dummy2,DUMMY1,DUMMY2,dummy3,ts_dummy3,omegadummy
+  !VARIATIONAL PARAMETERS
+  real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var,Mh
   !
-  !MPI INIT
+  real(8),dimension(:),allocatable                :: ts_array,omega_array,ts_array_x,ts_array_y
+  real(8),dimension(:,:),allocatable              :: omega_grid
+  integer,dimension(1)                            :: min_loc
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized         ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso     
+  real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
+  integer                                         :: iii,jjj,kkk
+  !
+  !
+  real(8), allocatable   :: params(:)
+  !
   !
   call init_MPI()
   comm = MPI_COMM_WORLD
@@ -43,18 +54,17 @@ program vca_bhz_2d
   rank = get_Rank_MPI(comm)
   master = get_Master_MPI(comm)
   !
-  !PARSE INPUT VARIABLES
-  !
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
-  call parse_input_variable(ts,"ts",finput,default=0.5d0)
+  call parse_cmd_variable(SAMPLING,"SAMPLING",default=100)
+  call parse_input_variable(ts,"ts",finput,default=1d0)
   call parse_input_variable(Mh,"Mh",finput,default=3d0)
-  call parse_input_variable(LAMBDA,"lambda",finput,default=0.3d0)
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
+  call parse_input_variable(hopping,"HOPPING",finput,default=1.d0)
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
-  call parse_input_variable(wmin,"WMIN",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(scheme,"SCHEME",finput,default="g")
+  call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(usez,"USEZ",finput,default=.false.)
   !
   call vca_read_input(trim(finput),comm)
@@ -70,32 +80,19 @@ program vca_bhz_2d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   !
-  !SET CLUSTER DIMENSIONS:
-  !
   Nlat=Nx**Ndim
   Ny=Nx
   Nlso = Nlat*Norb*Nspin
+  COUNTER=0
   !
-  !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-  !
-  t=ts
-  M=(2.d0*t)*Mh
-  lambda=(2.d0*t)*lambda
-  mu=0.d0*t
-  !
-  !ALLOCATE FREQUENCY VECTORS:
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
   if(.not.allocated(wr))allocate(wr(Lreal))
   wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
   wr     = linspace(wini,wfin,Lreal)
   !
-  !INITIALIZE SOLVER:
-  !
   call vca_init_solver(comm)
   !
-  !SOLVE INTERACTING PROBLEM:
-  ! 
   if(wmin)then
   !
     print_impG=.false.
@@ -103,46 +100,52 @@ program vca_bhz_2d
     print_Sigma=.false.
     print_observables=.false.
     MULTIMAX=.false.
-    !
-    !INITIALIZE VARIABLES TO THE LATTICE VALUES
-    !
-    params=[t,M,lambda]
-    !
+    t=0.5d0
+    params=[t,(2.d0*t)*Mh,(2.d0*t)*0.3d0]
     call minimize_parameters(params,1d0)
-    !
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
-    !
-    write(*,"(A,ES15.7,A,3ES15.7)")bold_green("FOUND MINIMUM "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
-    !
+    print*,"MINIMUM IS ",omegadummy," AT ",params
     call solve_Htop_new()
     call build_z2_indices() 
-    !
+  !
   elseif(wloop)then
+    !allocate(ts_array(Nloop))
+    !allocate(omega_array(Nloop))
+    !ts_array = linspace(0d0,2d0,Nloop)
     allocate(ts_array_x(Nloop))
     allocate(ts_array_y(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
+    t=0.5d0
     ts_array_x = linspace(t-0.2d0,t+0.2d0,Nloop)
-    ts_array_y = linspace(M-0.2d0,M+0.2d0,Nloop)
+    ts_array_y = linspace((2.d0*t)*Mh-0.2d0,(2.d0*t)*Mh+0.2d0,Nloop)
     do iloop=1,Nloop
       do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca_multi([ts_array_x(iloop),ts_array_y(jloop),lambda])
+        omega_grid(iloop,jloop)=solve_vca_multi([ts_array_x(iloop),ts_array_y(jloop),0.3d0])
       enddo
     enddo
     !
+    !call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
-    !
-  endif
-  if(scheme=="g")then
-    call get_local_gf()
-    call solve_Htop_new()
-    call build_z2_indices() 
+    !min_loc = minloc(omega_array)
+    !write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
   else
-    call get_local_sigma()
-    call solve_Htop_new()
-    call build_z2_indices() 
+    omegadummy=solve_vca_square(ts)
+    if(scheme=="g")then
+      call get_local_gf()
+      !call solve_Htop()
+      call solve_Htop_new()
+      call build_z2_indices() 
+    else
+      call get_local_sigma()
+      !call solve_Htop()
+      call solve_Htop_new()
+      call build_z2_indices() 
+    endif
   endif
+  !
+  !MINIMIZATION:
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -155,100 +158,62 @@ contains
   !PURPOSE  : solve the model
   !+------------------------------------------------------------------+
 
+
+  function solve_vca_square(tij) result(Omega)
+    real(8)                      :: tij
+    real(8)                      :: Vij,Eij
+    real(8)                      :: Omega
+    !
+    t=0.5d0
+    t_var=tij
+    !
+    mu=0.d0*t
+    M=(2.d0*t)*Mh
+    lambda=(2.d0*t)*0.3d0
+    !  
+    mu_var=0.d0*t
+    M_var=(2.d0*t)*Mh
+    lambda_var=(2.d0*t)*0.3d0
+    !
+    print*,""
+    print*,"------ Doing for ",tij," ------"
+    call generate_tcluster()
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
+    call vca_get_sft_potential(omega)
+    print*,""
+    print*,"------ DONE ------"
+    print*,""
+    !
+  end function solve_vca_square
+
   function solve_vca_multi(pars) result(Omega)
     real(8),dimension(:)         :: pars
     logical                      :: invert
     real(8)                      :: Omega
     !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    t=0.5d0
+    mu=0.d0
+    M=(2.d0*t)*Mh
+    lambda=(2.d0*t)*0.3d0
     !
     t_var=pars(1)  
+    mu_var=0.d0
     M_var=pars(2)
     lambda_var=pars(3)
-    mu_var=0.d0*t_var
     !
     print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",pars(1)
-    print*,"M      = ",pars(2)
-    print*,"lambda = ",pars(3)
+    print*,"------ Doing for ",pars," ------"
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k)
     call vca_get_sft_potential(omega)
-    !
     if(MULTIMAX)omega=-omega
-    !    
+    print*,""
+    print*,"------ DONE ------"
     print*,""
     !
   end function solve_vca_multi
-
- 
-  !+------------------------------------------------------------------+
-  !PURPOSE:  multidimensional finder of stationary points
-  !+------------------------------------------------------------------+
-  subroutine minimize_parameters(v,radius)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
-    integer,dimension(:),allocatable          :: nbd
-    real(8)                                   :: radius     
-    integer                                   :: i,iprint_         
-    !
-    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
-    !
-    !INITIALIZE FLAGS
-    !
-    iprint_=-1
-    if(verbose .ge. 1)iprint_=1
-    MULTIMAX=.false.
-    !
-    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
-    !
-    parvec=v
-    !
-    do i=1,size(v)
-      nbd(i) = 2
-      l(i)   = 0.0d0
-      u(i)   = parvec(i)+radius
-    enddo
-    lold=l
-    uold=u
-    !
-    write(*,"(A)")""
-    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
-    !
-    !FIND LOCAL MINIMA
-    !
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
-    !
-    !RESET MINIMIZER FOR VARIABLES ON THE BORDER
-    !
-    do i=1,size(v)
-      if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
-        parvec(i)=v(i)
-      MULTIMAX=.true.
-      else
-        l(i)=parvec(i)
-        u(i)=parvec(i)
-      endif
-    enddo
-    !
-    !IF NEEDED FIND SADDLE POINTS
-    !
-    if (MULTIMAX) then
-      write(*,"(A)")""
-      write(*,"(A)")bold_red("LOOKING FOR MAXIMUMS")
-      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
-      do i=1,size(v)
-        if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
-      enddo
-      !
-      MULTIMAX=.false.
-      v=parvec
-    endif
-    !
-    deallocate(nbd,parvec,l,u,lold,uold)
-    !
-  end subroutine minimize_parameters
 
 
   !+------------------------------------------------------------------+
@@ -364,9 +329,7 @@ contains
     file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid([Nkpts,Nkpts],kgrid)
-    !Reduced Brillouin Zone
-    kgrid=kgrid/Nx 
-    !
+    kgrid=kgrid/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim)) 
     h_k=zero
@@ -386,7 +349,7 @@ contains
   end subroutine generate_hk
 
 
-!AUXILLIARY HOPPING MATRIX CONSTRUCTORS
+!hopping matrices
 
   function t_m(mass) result(tmpmat)
     complex(8),dimension(Norb,Norb) :: tmpmat
@@ -424,6 +387,105 @@ contains
   !PURPOSE  : PRINT HAMILTONIAN ALONG PATH
   !+------------------------------------------------------------------+
 
+
+  function tk_wrapper(kpoint,N) result(hopping_matrix_lso)
+    integer                                         :: N
+    real(8),dimension(:)                            :: kpoint
+    complex(8),dimension(N,N)                       :: hopping_matrix_lso
+    if(N.ne.Nlso)stop "error N: wrong dimension"
+    !
+    hopping_matrix_lso=vca_nnn2lso_reshape(tk(kpoint),Nlat,Nspin,Norb)
+    !
+  end function tk_wrapper
+
+
+  subroutine solve_hk_GXMG(kpath_)
+    integer                                  :: i,j
+    integer                                  :: Npts,Nkpath
+    type(rgb_color),dimension(:),allocatable :: colors
+    real(8),dimension(:,:),optional          :: kpath_
+    real(8),dimension(:,:),allocatable       :: kpath
+    character(len=64)                        :: file
+    
+    !This routine build the H(k) along the GXMG path in BZ,
+    !Hk(k) is constructed along this path.
+    Nkpath=500 
+    !
+    if(present(kpath_))then
+       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
+       Npts = size(kpath_,1)
+       allocate(kpath(Npts,size(kpath_,2)))
+       kpath=kpath_
+       file="Eig_path.nint"
+    else
+       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+       Npts = 4
+       allocate(kpath(Npts,3))
+       kpath(1,:)=[0.d0,0.d0,0.0d0]
+       kpath(2,:)=[pi/Nx,pi/ny,0.0d0]
+       kpath(3,:)=[pi/Nx,0.d0,0.0d0]
+       kpath(4,:)=[0.d0,0.d0,0.0d0]
+       file="Eigenbands.nint"
+    endif
+   allocate(colors(Nlso))
+   colors=[red1,blue1,red1,blue1]
+   
+   if(master) call TB_Solve_model(tk_wrapper,Nlso,kpath,Nkpath,&
+         colors_name=colors,&
+         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
+         file=reg(file))
+  end subroutine solve_hk_GXMG
+
+
+
+
+  function hk_bhz(kpoint,N) result(hopping_matrix_lso)
+    integer                                         :: N
+    real(8),dimension(:)                            :: kpoint
+    real(8),dimension(Ndim)                         :: kpoint_
+    complex(8),dimension(N,N)                       :: hopping_matrix_lso
+    real(8)                                         :: energy_scale
+    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
+    !
+    energy_scale=2.d0*t_var
+    hopping_matrix_lso=zero
+    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+    print*,COUNTER
+    COUNTER=COUNTER+1
+    if(scheme=="g")then
+      call build_sigma_g_scheme(kpoint)
+    else
+      call periodize_sigma_scheme(kpoint)
+    endif
+    !hopping_matrix_lso=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,1),Nspin,Norb)
+    !call inv(hopping_matrix_lso)
+    hopping_matrix_lso=hopping_matrix_lso+DREAL(smats_periodized_lso(:,:,1))
+    hopping_matrix_lso=matmul(Zrenorm(smats_periodized_lso(:,:,1)),DREAL(hopping_matrix_lso))
+    !
+  end function hk_bhz
+
+  function hk_bhz_local(kpoint,N) result(hopping_matrix_lso)
+    integer                                         :: N
+    real(8),dimension(:)                            :: kpoint
+    complex(8),dimension(N,N)                       :: hopping_matrix_lso
+    real(8)                                         :: energy_scale
+    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
+    !
+    energy_scale=2.d0*t_var
+    hopping_matrix_lso=zero
+    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+    print*,COUNTER
+    COUNTER=COUNTER+1
+    hopping_matrix_lso=hopping_matrix_lso+DREAL(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb))
+    hopping_matrix_lso=matmul(Zrenorm(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb)),hopping_matrix_lso)
+    !
+  end function hk_bhz_local
+
+
   function hk_bhz_clusterbase(kpoint,N) result(hopping_matrix_lso)
     integer                                                       :: N,ilat,jlat
     real(8),dimension(:)                                          :: kpoint
@@ -446,6 +508,47 @@ contains
     !
   end function hk_bhz_clusterbase
 
+
+  subroutine solve_Htop(kpath_)
+    integer                                  :: i,j
+    integer                                  :: Npts,Nkpath
+    type(rgb_color),dimension(:),allocatable :: colors
+    real(8),dimension(:,:),optional          :: kpath_
+    real(8),dimension(:,:),allocatable       :: kpath
+    character(len=64)                        :: file
+    
+    !This routine build the H(k) along the GXMG path in BZ,
+    !Hk(k) is constructed along this path.
+    Nkpath=100
+    !
+    if(present(kpath_))then
+       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
+       Npts = size(kpath_,1)
+       allocate(kpath(Npts,size(kpath_,2)))
+       kpath=kpath_
+    else
+       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+       Npts = 4
+       allocate(kpath(Npts,2))
+       kpath(1,:)=[0.d0,0.d0]
+       kpath(2,:)=[pi,pi]
+       kpath(3,:)=[pi,0.d0]
+       kpath(4,:)=[0.d0,0.d0]
+    endif
+   allocate(colors(Nspin*Norb))
+   colors=[red1,blue1,red1,blue1]
+   !
+   file="Eig_Htop_kSigma.nint"
+   if(master) call TB_Solve_model(hk_bhz,Nspin*Norb,kpath,Nkpath,&   
+         colors_name=colors,&
+         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
+         file=reg(file))
+   file="Eig_Htop_localSigma.nint"
+   if(master) call TB_Solve_model(hk_bhz_local,Nspin*Norb,kpath,Nkpath,&   
+         colors_name=colors,&
+         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
+         file=reg(file))
+  end subroutine solve_Htop
 
 
   subroutine solve_Htop_new(kpath_)
@@ -502,9 +605,6 @@ contains
   !+------------------------------------------------------------------+
   !Periodization functions G-SCHEME
   !+------------------------------------------------------------------+
-
-  !SET THE BATH DELTA FUNCTION
-
   function set_delta(freq,vps,eps) result(DELTA)
     complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
     complex(8)                                                  :: freq
@@ -525,7 +625,6 @@ contains
     endif
   end function set_delta
 
-  !OBTAIN PERIODIZED G
 
   subroutine periodize_g_scheme(kpoint)
     integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
@@ -550,7 +649,7 @@ contains
     call vca_get_gimp_matsubara(gfprime)
     !
     do ii=1,Lmats         
-      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(xi*wm(ii),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)
+      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(xi*wm(ii),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)    !!!CORREGGI I PARAMETRI DEL BAGNO
       gfTempMat=vca_nnn2lso_reshape(gfprime(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
       call inv(gfTempMat)
       gfTempMat=gfTempMat-Vk_lso
@@ -568,7 +667,7 @@ contains
     !   
   end subroutine periodize_g_scheme
 
-! OBTAIN PERIODIZED SIGMA
+
 
   subroutine build_sigma_g_scheme(kpoint)
     integer                                                       :: i,ispin,iorb,ii
@@ -587,12 +686,12 @@ contains
     do ii=1,Lmats
         invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
                                                                  lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)        ! FIXME: ad-hoc solution
     enddo
     !  
     !Get Gimp^-1
     call periodize_g_scheme(kpoint)
-    do ii=1,Lmats
+    do ii=1,Lmats  !FIXMEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
       invGmats_lso(:,:,ii)=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
       call inv(invGmats_lso(:,:,ii))
     enddo
@@ -601,10 +700,9 @@ contains
     !
   end subroutine build_sigma_g_scheme
 
-!OBTAIN LOCAL GF
 
   subroutine get_local_gf()
-    integer                                         :: ix,ik,ispin,iorb,jorb
+    integer                                         :: ik,ispin,iorb,jorb
     character(len=30)                               :: suffix
     !
     if(master)then
@@ -650,9 +748,8 @@ contains
   !Periodization functions SIGMA-SCHEME
   !+------------------------------------------------------------------+
 
-! OBTAIN PERIODIZED SIGMA
 
-  subroutine periodize_sigma_scheme(kpoint)
+ subroutine periodize_sigma_scheme(kpoint)
     integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
     real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: tmpSigmaMat
@@ -680,10 +777,9 @@ contains
     !
   end subroutine periodize_sigma_scheme
 
-! OBTAIN LOCAL SIGMA
 
   subroutine get_local_sigma()
-    integer                                         :: ix,ik,ispin,iorb,jorb
+    integer                                         :: ik,ispin,iorb,jorb
     character(len=30)                               :: suffix
     !
     if(master)then
@@ -720,7 +816,48 @@ contains
   !
 end subroutine get_local_sigma
 
-
+ 
+  !+------------------------------------------------------------------+
+  !MINIMIZER ROUTINE
+  !+------------------------------------------------------------------+
+  subroutine minimize_parameters(v,radius)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    real(8)                                   :: radius     
+    integer                                   :: i         
+    !
+    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
+    parvec=v
+    MULTIMAX=.false.
+    do i=1,size(v)
+      nbd(i) = 2
+      l(i)   = 0.0d0
+      u(i)   = parvec(i)+radius
+    enddo
+    lold=l
+    uold=u
+    print*,"LOOKING FOR MINIMUMS"
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1,nloop=Nloop)
+    do i=1,size(v)
+      if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
+        parvec(i)=v(i)
+      MULTIMAX=.true.
+      else
+        l(i)=parvec(i)
+        u(i)=parvec(i)
+      endif
+    enddo
+    if (MULTIMAX) then
+    print*,"LOOKING FOR MAXIMUMS"
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1,nloop=Nloop)
+    do i=1,size(v)
+      if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
+    enddo
+    MULTIMAX=.false.
+    v=parvec
+    endif
+    deallocate(nbd,parvec,l,u,lold,uold)
+  end subroutine minimize_parameters
 
   !+------------------------------------------------------------------+
   !Auxilliary functions
@@ -757,8 +894,13 @@ end subroutine get_local_sigma
          if(abs(Htrims(2,Nocc,itrim))>0.125 .or. abs(Htrims(4,Nocc,itrim))>0.125 .or. abs(Htrims(6,Nocc,itrim))>0.125 .or. abs(Htrims(8,Nocc,itrim))>0.125&
           .or. abs(Htrims(10,Nocc,itrim))>0.125 .or. abs(Htrims(12,Nocc,itrim))>0.125 .or. abs(Htrims(14,Nocc,itrim))>0.125 .or. abs(Htrims(16,Nocc,itrim))>0.125) then
           Delta(itrim)=Delta(itrim)*xi
+          print*,"lol",Delta(itrim)
+          else
+          print*,"asd", Delta(itrim)
+          print*,Htrims(:,Nocc,itrim)
           endif
        enddo
+      PRINT*,"NEWTRIM"
     enddo
     !
     z2=product(Delta(:))
@@ -780,7 +922,7 @@ end subroutine get_local_sigma
     Sigma=zero
     !
     if (usez) then
-      do i=1,Nlat*Nspin*Norb
+      do i=1,Nspin*Norb
       Zmats(i,i)  = 1.d0/abs( 1.d0 +  abs(dimag(sigma(i,i))/(pi/beta)) )
       end do
     else
@@ -798,7 +940,7 @@ end subroutine get_local_sigma
     N=N+(indices(1)-1)*Nx+(indices(2)-1)
   end function indices2N
 
-  function N2indices(N_) result(indices)
+  function N2indices(N_) result(indices) ! FIXME: only for 2d
     integer,dimension(Ndim)      :: indices
     integer                      :: N,i,N_
     !
@@ -810,174 +952,3 @@ end subroutine get_local_sigma
 
 end program vca_bhz_2d
 
-
-
-
-
-
-
-
-
-!OLD FUNCTIONS
-
-!  function solve_vca_square(tij) result(Omega)
-!    real(8)                      :: tij
-!    real(8)                      :: Vij,Eij
-!    real(8)                      :: Omega
-!    !
-!   t=0.5d0
-!    t_var=tij
-!    !
-!    mu=0.d0*t
-!    M=(2.d0*t)*Mh
-!    lambda=(2.d0*t)*0.3d0
-!    !  
-!    mu_var=0.d0*t
-!    M_var=(2.d0*t)*Mh
-!    lambda_var=(2.d0*t)*0.3d0
-!    !
-!    print*,""
-!    print*,"------ Doing for ",tij," ------"
-!    call generate_tcluster()
-!    call generate_hk()
-!    call vca_solve(comm,t_prime,h_k)
-!    call vca_get_sft_potential(omega)
-!    print*,""
-!    print*,"------ DONE ------"
-!    print*,""
-!    !
-!  end function solve_vca_square
-!
-!  subroutine solve_Htop(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=100
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,2))
-!       kpath(1,:)=[0.d0,0.d0]
-!       kpath(2,:)=[pi,pi]
-!       kpath(3,:)=[pi,0.d0]
-!       kpath(4,:)=[0.d0,0.d0]
-!    endif
-!   allocate(colors(Nspin*Norb))
-!   colors=[red1,blue1,red1,blue1]
-!   !
-!   file="Eig_Htop_kSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!   file="Eig_Htop_localSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz_local,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_Htop
-!
-!
-!  function tk_wrapper(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    if(N.ne.Nlso)stop "error N: wrong dimension"
-!    !
-!    hopping_matrix_lso=vca_nnn2lso_reshape(tk(kpoint),Nlat,Nspin,Norb)
-!    !
-!  end function tk_wrapper
-!
-!
-!  subroutine solve_hk_GXMG(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=500 
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!       file="Eig_path.nint"
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,3))
-!       kpath(1,:)=[0.d0,0.d0,0.0d0]
-!       kpath(2,:)=[pi/Nx,pi/ny,0.0d0]
-!       kpath(3,:)=[pi/Nx,0.d0,0.0d0]
-!       kpath(4,:)=[0.d0,0.d0,0.0d0]
-!       file="Eigenbands.nint"
-!    endif
-!   allocate(colors(Nlso))
-!   colors=[red1,blue1,red1,blue1]
-!   
-!   if(master) call TB_Solve_model(tk_wrapper,Nlso,kpath,Nkpath,&
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_hk_GXMG
-!
-!
-!
-!  function hk_bhz(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    real(8),dimension(Ndim)                         :: kpoint_
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    if(scheme=="g")then
-!      call build_sigma_g_scheme(kpoint)
-!    else
-!      call periodize_sigma_scheme(kpoint)
-!    endif
-!    !hopping_matrix_lso=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,1),Nspin,Norb)
-!    !call inv(hopping_matrix_lso)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(smats_periodized_lso(:,:,1))
-!    hopping_matrix_lso=matmul(Zrenorm(smats_periodized_lso(:,:,1)),DREAL(hopping_matrix_lso))
-!    !
-!  end function hk_bhz
-!
-!  function hk_bhz_local(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb))
-!    hopping_matrix_lso=matmul(Zrenorm(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb)),hopping_matrix_lso)
-!    !
-!  end function hk_bhz_local
