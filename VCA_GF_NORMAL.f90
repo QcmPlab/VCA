@@ -35,7 +35,7 @@ contains
   !                        NORMAL
   !+------------------------------------------------------------------+
   subroutine build_gf_normal()
-    integer :: iorb,jorb,ispin,i
+    integer :: iorb,jorb,ispin,i,counter
     integer :: Nstates
     real(8) :: chan4
     integer :: isite,jsite,ibath,icomposite,jbath,jcomposite
@@ -46,6 +46,7 @@ contains
     else
        chan4=1.d0
     endif
+    counter=1
     !
     if(allocated(impGmatrix))deallocate(impGmatrix)
     allocate(impGmatrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -57,11 +58,14 @@ contains
     !Spin-Orbital diagonal:
     do ispin=1,Nspin
        do iorb=1,Norb
-          write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
+          if(verbose .ge. 2)write(LOGfile,"(A)")"Get impG_l"//str(iorb)//"_s"//str(ispin)
           do isite=1,Nlat
              !site-digonal:
              call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),Nstate=Nstates) !2= add,del exc. c^+_i|psi>             
              call lanc_build_gf_normal_main(isite,iorb,ispin)
+             !
+             counter=counter+1
+             if(verbose .eq. 1)call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
              !site-off-diagonal:
              do jsite=1,Nlat
                 do jorb=1,Norb
@@ -69,8 +73,12 @@ contains
                    call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),Nstate=Nstates)!4=add,del exc. (c^+_i + c^+_j)/(c^+_i +ic^+_j)|psi>
                    if(vca_gf_symmetric)then
                       call lanc_build_gf_normal_mix_chan2(isite,jsite,iorb,jorb,ispin)
+                      counter=counter+1
+                      if(verbose .eq. 1)call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
                    else
                       call lanc_build_gf_normal_mix_chan4(isite,jsite,iorb,jorb,ispin)
+                      counter=counter+1
+                      if(verbose .eq. 1)call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
                    endif
                 enddo
              enddo
@@ -136,7 +144,7 @@ contains
     !
     is = imp_state_index(isite,iorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)//"_l"//str(iorb)//str(iorb)
+    if(verbose .ge. 2)write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(isite,3)//"_l"//str(iorb)//str(iorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,isite,ispin,ispin,iorb,iorb),istate=istate,Nchan=2) !2= add,del exc. c^+_i|psi> 
@@ -343,7 +351,7 @@ contains
     is = imp_state_index(isite,iorb)
     js = imp_state_index(jsite,jorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
+    if(verbose .ge. 2)write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,Nchan=2) !2= add,del exc. c^+_i|psi> 
@@ -571,7 +579,7 @@ contains
     is = imp_state_index(isite,iorb)
     js = imp_state_index(jsite,jorb)
     !
-    write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
+    if(verbose .ge. 2)write(LOGfile,*)"Solving G_cluster_I"//str(isite,3)//"_J"//str(jsite,3)//"_l"//str(iorb)//str(jorb)
     !
     do istate=1,state_list%size
        call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,Nchan=4) !2= add,del exc. c^+_i|psi> 

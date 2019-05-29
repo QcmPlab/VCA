@@ -837,7 +837,7 @@ end subroutine get_local_sigma
     lold=l
     uold=u
     print*,"LOOKING FOR MINIMUMS"
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1)
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1,nloop=Nloop)
     do i=1,size(v)
       if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
         parvec(i)=v(i)
@@ -849,7 +849,7 @@ end subroutine get_local_sigma
     enddo
     if (MULTIMAX) then
     print*,"LOOKING FOR MAXIMUMS"
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1)
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=1,nloop=Nloop)
     do i=1,size(v)
       if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
     enddo
