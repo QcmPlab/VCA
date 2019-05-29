@@ -9,8 +9,8 @@ program vca_bhz_2d
   integer                                         :: Nlso,Nsys
   integer                                         :: Nx,Ny
   integer                                         :: ilat,jlat
-  real(8)                                         :: ts,Mh,lambda
-  real(8)                                         :: M,M_var,t,t_var,lambda_var,mu,mu_var
+  real(8)                                         :: ts,Mh,lambdauser
+  real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var
   !Bath
   integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
@@ -46,9 +46,9 @@ program vca_bhz_2d
   !PARSE INPUT VARIABLES
   !
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
-  call parse_input_variable(ts,"ts",finput,default=0.5d0)
-  call parse_input_variable(Mh,"Mh",finput,default=3d0)
-  call parse_input_variable(LAMBDA,"lambda",finput,default=0.3d0)
+  call parse_input_variable(ts,"ts",finput,default=0.5d0,comment="Hopping parameter (units of epsilon)")
+  call parse_input_variable(Mh,"Mh",finput,default=3d0,comment="Field splitting (units of epsilon)")
+  call parse_input_variable(lambdauser,"lambda",finput,default=0.3d0,comment="Spin/orbit coupling (units of epsilon)")
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
@@ -70,7 +70,7 @@ program vca_bhz_2d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   !
-  !SET CLUSTER DIMENSIONS:
+  !SET CLUSTER DIMENSIONS (ASSUME SQUARE CLUSTER):
   !
   Nlat=Nx**Ndim
   Ny=Nx
@@ -80,7 +80,7 @@ program vca_bhz_2d
   !
   t=ts
   M=(2.d0*t)*Mh
-  lambda=(2.d0*t)*lambda
+  lambda=(2.d0*t)*lambdauser
   mu=0.d0*t
   !
   !ALLOCATE FREQUENCY VECTORS:
@@ -119,6 +119,7 @@ program vca_bhz_2d
     call build_z2_indices() 
     !
   elseif(wloop)then
+    !
     allocate(ts_array_x(Nloop))
     allocate(ts_array_y(Nloop))
     allocate(omega_grid(Nloop,Nloop))
