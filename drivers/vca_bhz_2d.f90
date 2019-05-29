@@ -114,7 +114,7 @@ program vca_bhz_2d
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
     !
-    write(*,"(A,ES15.7,A,3ES15.7)")bold_green("FOUND MINIMUM "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND MINIMUM "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
     write(*,"(A)")""
     !
     call solve_Htop_new()
@@ -138,7 +138,7 @@ program vca_bhz_2d
     !
   else
     omegadummy=solve_vca_multi([ts,Mh,lambdauser])
-    write(*,"(A,ES15.7,A,3ES15.7)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts,Mh,lambdauser
   endif
   if(scheme=="g")then
     call get_local_gf()
@@ -264,7 +264,7 @@ contains
 
 
   subroutine generate_tcluster()
-    integer                                      :: ilat,jlat,ispin,iorb,jorb,ind1,ind2,asdlol
+    integer                                      :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
     complex(8),dimension(Nlso,Nlso)              :: H0
     character(len=64)                            :: file_
     integer                                      :: unit
