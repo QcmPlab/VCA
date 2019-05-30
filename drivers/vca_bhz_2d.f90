@@ -6,7 +6,7 @@ program vca_bhz_2d
   !
   !System parameters
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso
   integer                                         :: Nx,Ny
   integer                                         :: ilat,jlat
   real(8)                                         :: ts,Mh,lambdauser
@@ -16,22 +16,25 @@ program vca_bhz_2d
   real(8),allocatable                             :: Bath(:)
   !Matrices:
   real(8),allocatable,dimension(:)                :: wm,wr
-  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal,t_k,h_k
-  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized     ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso     
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized     ![Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_local,gfreal_periodized     ![Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: Sreal_local,Sreal_periodized       ![Nspin][Nspin][Norb][Norb][L]
+  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso,Sreal_periodized_lso    
   !Utility variables:
   integer                                         :: unit
   integer                                         :: comm,rank
   integer                                         :: iloop,jloop,nloop
   integer                                         :: iii,jjj,kkk
   logical                                         :: master,wloop,wmin,MULTIMAX
-  logical                                         :: converged,usez
+  logical                                         :: usez
+  logical                                         :: print_mats,print_real
   character(len=6)                                :: scheme
   character(len=16)                               :: finput
   real(8)                                         :: omegadummy
-  real(8),dimension(:),allocatable                :: ts_array,omega_array,ts_array_x,ts_array_y,params
+  real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
   !
@@ -54,6 +57,9 @@ program vca_bhz_2d
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
   call parse_input_variable(wmin,"WMIN",finput,default=.false.,comment="T: includes global minimization")
+  call parse_input_variable(scheme,"SCHEME",finput,default="g")
+  call parse_input_variable(print_mats,"PRINT_MATS",finput,default=.true.)
+  call parse_input_variable(print_real,"PRINT_REAL",finput,default=.true.)
   call parse_input_variable(scheme,"SCHEME",finput,default="g")
   call parse_input_variable(usez,"USEZ",finput,default=.false.)
   !
@@ -94,16 +100,16 @@ program vca_bhz_2d
   !INITIALIZE SOLVER:
   !
   call vca_init_solver(comm)
+  print_impG=.false.
+  print_impG0=.false.
+  print_Sigma=.false.
+  print_observables=.false.
+  MULTIMAX=.false.
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
   if(wmin)then
-  !
-    print_impG=.false.
-    print_impG0=.false.
-    print_Sigma=.false.
-    print_observables=.false.
-    MULTIMAX=.false.
+    !
     !
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
     !
@@ -114,7 +120,7 @@ program vca_bhz_2d
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
     !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND MINIMUM "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
     write(*,"(A)")""
     !
     call solve_Htop_new()
@@ -140,15 +146,12 @@ program vca_bhz_2d
     omegadummy=solve_vca_multi([ts,Mh,lambdauser])
     write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts,Mh,lambdauser
   endif
-  if(scheme=="g")then
-    call get_local_gf()
-    call solve_Htop_new()
-    call build_z2_indices() 
-  else
-    call get_local_sigma()
-    call solve_Htop_new()
-    call build_z2_indices() 
-  endif
+  !
+  !PRINT LOCAL GF AND SIGMA
+  !
+  call print_local(scheme)
+  call solve_Htop_new()
+  call build_z2_indices() 
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -239,7 +242,7 @@ contains
       endif
     enddo
     !
-    !IF NEEDED FIND SADDLE POINTS
+    !IF NEEDED FIND MAXIMUMS/SADDLE POINTS
     !
     if (MULTIMAX) then
       write(*,"(A)")""
@@ -510,31 +513,9 @@ contains
   !Periodization functions G-SCHEME
   !+------------------------------------------------------------------+
 
-  !SET THE BATH DELTA FUNCTION
-
-  function set_delta(freq,vps,eps) result(DELTA)
-    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-    complex(8)                                                  :: freq
-    real(8),dimension(:)                                        :: vps,eps
-    integer                                                     :: ispin,iorb,ilat
-    !
-    allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    DELTA=zero
-    !
-    if (Nbath .ne. 0)then
-      do ilat=1,Nlat
-        do ispin=1,Nspin
-           do iorb=1,Norb
-             DELTA(ilat,ilat,ispin,ispin,iorb,iorb)=sum( vps(:)*vps(:)/(freq - eps(:)+XMU) )
-           enddo
-        enddo
-      enddo
-    endif
-  end function set_delta
-
   !OBTAIN PERIODIZED G
 
-  subroutine periodize_g_scheme(kpoint)
+  subroutine periodize_gmats_g_scheme(kpoint)
     integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
     real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
     complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
@@ -572,19 +553,67 @@ contains
           gfmats_periodized=gfmats_periodized+exp(-xi*dot_product(kpoint,ind1-ind2))*gfmats_unperiodized(ilat,jlat,:,:,:,:,:)/Nlat
       enddo
     enddo
+    !
+    deallocate(gfmats_unperiodized,Vk_lso,gfTempMat,gfprime)
     !   
-  end subroutine periodize_g_scheme
+  end subroutine periodize_gmats_g_scheme
+
+  subroutine periodize_greal_g_scheme(kpoint)
+    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),allocatable,dimension(:,:)                       :: gfTempMat ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    !
+    !
+    allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(gfTempMat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    gfreal_unperiodized=zero
+    gfprime=zero
+    gfTempMat=zero
+    Vk_lso=zero
+    gfreal_periodized=zero
+    call vca_get_gimp_realaxis(gfprime)
+    !
+    do ii=1,Lreal       
+      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(dcmplx(wr(ii),eps),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)
+      gfTempMat=vca_nnn2lso_reshape(gfprime(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
+      call inv(gfTempMat)
+      gfTempMat=gfTempMat-Vk_lso
+      call inv(gfTempMat)
+      gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfTempMat,Nlat,Nspin,Norb)
+    enddo
+    !
+    do ilat=1,Nlat
+      ind1=N2indices(ilat)   
+      do jlat=1,Nlat
+        ind2=N2indices(jlat)
+          gfreal_periodized=gfreal_periodized+exp(-xi*dot_product(kpoint,ind1-ind2))*gfreal_unperiodized(ilat,jlat,:,:,:,:,:)/Nlat
+      enddo
+    enddo
+    !
+    deallocate(gfreal_unperiodized,Vk_lso,gfTempMat,gfprime)
+    !   
+  end subroutine periodize_greal_g_scheme
 
 ! OBTAIN PERIODIZED SIGMA
 
-  subroutine build_sigma_g_scheme(kpoint)
+  subroutine build_smats_g_scheme(kpoint)
     integer                                                       :: i,ispin,iorb,ii
     real(8)                                                       :: energy_Scale
     real(8),dimension(Ndim)                                       :: kpoint
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,Lmats)             :: invG0mats_lso,invGmats_lso ![Nlso][Nlso]
+    complex(8),dimension(:,:,:),allocatable                       :: invG0mats_lso,invGmats_lso ![Nlso][Nlso]
     !
     !
+    if(.not.allocated(invG0mats_lso))allocate(invG0mats_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(invGmats_lso))allocate(invGmats_lso(Nspin*Norb,Nspin*Norb,Lmats))
     if(.not.allocated(Smats_periodized_lso))allocate(Smats_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     invG0mats_lso=zero
     invGmats_lso=zero
     Smats_periodized_lso  = zero
@@ -598,59 +627,59 @@ contains
     enddo
     !  
     !Get Gimp^-1
-    call periodize_g_scheme(kpoint)
+    call periodize_gmats_g_scheme(kpoint)
     do ii=1,Lmats
       invGmats_lso(:,:,ii)=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
       call inv(invGmats_lso(:,:,ii))
     enddo
     !Get Sigma functions: Sigma= G0^-1 - G^-1
-    Smats_periodized_lso = invG0mats_lso - invGmats_lso
+    do ii=1,Lmats
+      Smats_periodized_lso(:,:,ii) = invG0mats_lso(:,:,ii) - invGmats_lso(:,:,ii)
+      Smats_periodized(:,:,:,:,ii) = vca_so2nn_reshape(Smats_periodized_lso(:,:,ii),Nspin,Norb)
+    enddo
     !
-  end subroutine build_sigma_g_scheme
+    deallocate(invG0mats_lso,invGmats_lso)
+    !
+  end subroutine build_smats_g_scheme
 
-!OBTAIN LOCAL GF
 
-  subroutine get_local_gf()
-    integer                                         :: ix,ik,ispin,iorb,jorb
-    character(len=30)                               :: suffix
+  subroutine build_sreal_g_scheme(kpoint)
+    integer                                                       :: i,ispin,iorb,ii
+    real(8)                                                       :: energy_Scale
+    real(8),dimension(Ndim)                                       :: kpoint
+    complex(8),dimension(:,:,:),allocatable                       :: invG0real_lso,invGreal_lso ![Nlso][Nlso]
     !
-    if(master)then
     !
-      if(.not.allocated(Gfmats_local))allocate(Gfmats_local(Nspin,Nspin,Norb,Norb,Lmats))
-      if(.not.allocated(Smats_local))allocate(Smats_local(Nspin,Nspin,Norb,Norb,Lmats))
-      gfmats_local=zero
-      smats_local=zero
-      !
-      allocate(kgrid_test(Nkpts**ndim,Ndim)) 
-      call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
-      !
-      print*,"Calculating Gloc and Sigma ",scheme," scheme"  
-      !
-      call start_timer
-      !
-      do ik=1,Nkpts**ndim
-        call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
-        do ix=1,Lmats
-          gfmats_local(:,:,:,:,ix)=gfmats_local(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+vca_so2nn_reshape(Smats_periodized_lso(:,:,ix),Nspin,Norb)/(Nkpts**Ndim)
-        enddo
-        call eta(ik,Nkpts**ndim)
-      enddo
-      !
-      call stop_timer
-      !
-      do iorb=1,Norb
-       do jorb=1,Norb
-         do ispin=1,Nspin
-           suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//"_"//str(scheme)//"_scheme"
-           call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_local(ispin,ispin,iorb,jorb,:))
-           call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,Smats_local(ispin,ispin,iorb,jorb,:))
-          enddo
-        enddo
-      enddo
-    endif
-  !
-  end subroutine get_local_gf
+    if(.not.allocated(invG0real_lso))allocate(invG0real_lso(Nspin*Norb,Nspin*Norb,Lreal))
+    if(.not.allocated(invGreal_lso))allocate(invGreal_lso(Nspin*Norb,Nspin*Norb,Lreal))
+    if(.not.allocated(Sreal_periodized_lso))allocate(Sreal_periodized_lso(Nspin*Norb,Nspin*Norb,Lreal))
+    if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    invG0real_lso=zero
+    invGreal_lso=zero
+    energy_scale=2.d0*t_var
+    !
+    !Get G0^-1
+    do ii=1,Lreal
+        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+    enddo
+    !  
+    !Get Gimp^-1
+    call periodize_greal_g_scheme(kpoint)
+    do ii=1,Lreal
+      invGreal_lso(:,:,ii)=vca_nn2so_reshape(gfreal_periodized(:,:,:,:,ii),Nspin,Norb)
+      call inv(invGreal_lso(:,:,ii))
+    enddo
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
+    do ii=1,Lreal
+      Sreal_periodized_lso(:,:,ii) = invG0real_lso(:,:,ii) - invGreal_lso(:,:,ii)
+      Sreal_periodized(:,:,:,:,ii) = vca_so2nn_reshape(Sreal_periodized_lso(:,:,ii),Nspin,Norb)
+    enddo
+    !
+    deallocate(invG0real_lso,invGreal_lso)
+    !
+  end subroutine build_sreal_g_scheme
 
 
   !+------------------------------------------------------------------+
@@ -659,16 +688,18 @@ contains
 
 ! OBTAIN PERIODIZED SIGMA
 
-  subroutine periodize_sigma_scheme(kpoint)
+  subroutine periodize_smats_sigma_scheme(kpoint)
     integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
     real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: tmpSigmaMat
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: tmpSigmaMat
     !
     if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(Smats_periodized_lso))allocate(Smats_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(tmpSigmaMat))allocate(tmpSigmaMat(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
     !
     Smats_periodized=zero
     Smats_periodized_lso=zero
+    tmpSigmaMat=zero
     !
     call vca_get_sigma_matsubara(tmpSigmaMat)
     do ii=1,Lmats
@@ -685,48 +716,192 @@ contains
       Smats_periodized_lso(:,:,ii)=vca_nn2so_reshape(Smats_periodized(:,:,:,:,ii),Nspin,Norb)
     enddo
     !
-  end subroutine periodize_sigma_scheme
+    deallocate(tmpSigmamat)
+    !
+  end subroutine periodize_smats_sigma_scheme
 
-! OBTAIN LOCAL SIGMA
-
-  subroutine get_local_sigma()
-    integer                                         :: ix,ik,ispin,iorb,jorb
-    character(len=30)                               :: suffix
+  subroutine periodize_sreal_sigma_scheme(kpoint)
+    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: tmpSigmaMat
     !
-    if(master)then
+    if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(Sreal_periodized_lso))allocate(Sreal_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(tmpSigmaMat))allocate(tmpSigmaMat(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
     !
-    if(.not.allocated(Smats_local))allocate(Smats_local(Nspin,Nspin,Norb,Norb,Lmats))
-    smats_local=zero
+    Sreal_periodized=zero
+    Sreal_periodized_lso=zero
+    tmpSigmaMat=zero
     !
-    allocate(kgrid_test(Nkpts**ndim,Ndim)) 
-    call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
-    !
-    print*,"Calculating SigmaLoc sigma scheme"  
-    !
-    call start_timer
-    !
-    do ik=1,Nkpts**ndim
-      call periodize_sigma_scheme(kgrid_test(ik,:))
-      do ix=1,Lmats
-        smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-      enddo
-      call eta(ik,Nkpts**ndim)
-    enddo
-    !
-    call stop_timer
-    !
-    do iorb=1,Norb
-     do jorb=1,Norb
-       do ispin=1,Nspin
-         suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//"_"//str(scheme)//"_scheme"
-         call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,Smats_local(ispin,ispin,iorb,jorb,:))
+    call vca_get_sigma_realaxis(tmpSigmaMat)
+    do ii=1,Lreal
+      do ilat=1,Nlat
+        ind1=N2indices(ilat)   
+        do jlat=1,Nlat
+          ind2=N2indices(jlat)
+          Sreal_periodized(:,:,:,:,ii)=Sreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*tmpSigmaMat(ilat,jlat,:,:,:,:,ii)/Nlat
         enddo
       enddo
     enddo
-  endif
-  !
-end subroutine get_local_sigma
+    !
+    do ii=1,Lreal
+      Sreal_periodized_lso(:,:,ii)=vca_nn2so_reshape(Sreal_periodized(:,:,:,:,ii),Nspin,Norb)
+    enddo
+    !
+    deallocate(tmpSigmaMat)
+    !
+  end subroutine periodize_sreal_sigma_scheme
 
+
+! OBTAIN PERIODIZED G
+
+  subroutine build_gmats_sigma_scheme(kpoint)
+    integer                                                       :: i,ispin,iorb,ii
+    real(8)                                                       :: energy_Scale
+    real(8),dimension(Ndim)                                       :: kpoint
+    complex(8),dimension(:,:,:),allocatable                       :: invG0mats_lso,invGmats_lso ![Nlso][Nlso]
+    !
+    !
+    if(.not.allocated(invG0mats_lso))allocate(invG0mats_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(invGmats_lso))allocate(invGmats_lso(Nspin*Norb,Nspin*Norb,Lmats))
+    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    !
+    invG0mats_lso=zero
+    invGmats_lso=zero
+    gfmats_periodized  = zero
+    energy_scale=2.d0*t_var
+    !
+    !Get G0^-1
+    do ii=1,Lmats
+        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+    enddo
+    !  
+    !Get Sigma functions
+    call periodize_smats_sigma_scheme(kpoint)
+    !Get Gimp^-1: G^-1 = G0^-1 - Sigma
+    do ii=1,Lmats
+      invGmats_lso(:,:,ii) = invG0mats_lso(:,:,ii) - vca_nn2so_reshape(Smats_periodized(:,:,:,:,ii),Nspin,Norb)
+    enddo    
+    !
+    do ii=1,Lmats
+      call inv(invGmats_lso(:,:,ii))
+      gfmats_periodized(:,:,:,:,ii)=vca_so2nn_reshape(invGmats_lso(:,:,ii),Nspin,Norb)
+    enddo
+    !
+    !
+    deallocate(invG0mats_lso,invGmats_lso)
+    !
+  end subroutine build_gmats_sigma_scheme
+
+  subroutine build_greal_sigma_scheme(kpoint)
+    integer                                                       :: i,ispin,iorb,ii
+    real(8)                                                       :: energy_Scale
+    real(8),dimension(Ndim)                                       :: kpoint
+    complex(8),dimension(:,:,:),allocatable                       :: invG0real_lso,invGreal_lso ![Nlso][Nlso]
+    !
+    !
+    if(.not.allocated(invG0real_lso))allocate(invG0real_lso(Nspin*Norb,Nspin*Norb,Lreal))
+    if(.not.allocated(invGreal_lso))allocate(invGreal_lso(Nspin*Norb,Nspin*Norb,Lreal))
+    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    invG0real_lso=zero
+    invGreal_lso=zero
+    gfreal_periodized = zero
+    energy_scale=2.d0*t_var
+    !
+    !Get G0^-1
+    do ii=1,Lreal
+        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+    enddo
+    !  
+    !Get Sigma functions
+    call periodize_sreal_sigma_scheme(kpoint)
+    !Get Gimp^-1: G^-1 = G0^-1 - Sigma
+    do ii=1,Lreal
+      invGreal_lso(:,:,ii) = invG0real_lso(:,:,ii) - vca_nn2so_reshape(Sreal_periodized(:,:,:,:,ii),Nspin,Norb)
+    enddo    
+    !
+    do ii=1,Lreal
+      call inv(invGreal_lso(:,:,ii))
+      gfreal_periodized(:,:,:,:,ii)=vca_so2nn_reshape(invGreal_lso(:,:,ii),Nspin,Norb)
+    enddo
+    !
+    !
+    deallocate(invG0real_lso,invGreal_lso)
+    !
+  end subroutine build_greal_sigma_scheme
+
+
+  !+------------------------------------------------------------------+
+  !PRINT LOCAL QUANTITIES
+  !+------------------------------------------------------------------+
+
+  subroutine print_local(scheme)
+    integer                                         :: ix,ik,ispin,iorb,jorb
+    character(len=30)                               :: suffix
+    character(len=6)                                :: scheme
+    !
+    if(master)then
+    !
+      if(.not.allocated(Gfmats_local))allocate(Gfmats_local(Nspin,Nspin,Norb,Norb,Lmats))
+      if(.not.allocated(Smats_local))allocate(Smats_local(Nspin,Nspin,Norb,Norb,Lmats))
+      if(.not.allocated(Gfreal_local))allocate(Gfreal_local(Nspin,Nspin,Norb,Norb,Lreal))
+      if(.not.allocated(Sreal_local))allocate(Sreal_local(Nspin,Nspin,Norb,Norb,Lreal))
+      gfmats_local=zero
+      smats_local=zero
+      gfreal_local=zero
+      sreal_local=zero
+      !
+      allocate(kgrid_test(Nkpts**ndim,Ndim)) 
+      call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
+      !
+      print*,"Calculating Gloc and Sigma ",scheme," scheme"  
+      !
+      call start_timer
+      !
+      do ik=1,Nkpts**ndim
+        if(scheme=="g")then
+          if(print_mats)call build_smats_g_scheme(kgrid_test(ik,:))       !also periodizes g
+          if(print_real)call build_sreal_g_scheme(kgrid_test(ik,:))       !also periodizes g
+        else
+          if(print_mats)call build_gmats_sigma_scheme(kgrid_test(ik,:))   !also periodizes sigma
+          if(print_real)call build_greal_sigma_scheme(kgrid_test(ik,:))       !also periodizes sigma
+        endif
+        if(print_mats)then
+          do ix=1,Lmats
+            gfmats_local(:,:,:,:,ix)=gfmats_local(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+            smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          enddo
+        endif
+        if(print_real)then
+          do ix=1,Lreal
+            gfreal_local(:,:,:,:,ix)=gfreal_local(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+            sreal_local(:,:,:,:,ix)=sreal_local(:,:,:,:,ix)+Sreal_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+          enddo
+        endif
+        call eta(ik,Nkpts**ndim)
+      enddo
+      !
+      call stop_timer
+      !
+      do iorb=1,Norb
+       do jorb=1,Norb
+         do ispin=1,Nspin
+           suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//"_"//str(scheme)//"_scheme"
+           if(print_mats)call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_local(ispin,ispin,iorb,jorb,:))
+           if(print_mats)call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,Smats_local(ispin,ispin,iorb,jorb,:))
+           if(print_real)call splot("perG"//reg(suffix)//"_realw.vca"   ,wr,gfreal_local(ispin,ispin,iorb,jorb,:))
+           if(print_real)call splot("perSigma"//reg(suffix)//"_realw.vca"   ,wr,Sreal_local(ispin,ispin,iorb,jorb,:))
+          enddo
+        enddo
+      enddo
+    endif
+  !
+  end subroutine print_local
 
 
   !+------------------------------------------------------------------+
@@ -795,6 +970,28 @@ end subroutine get_local_sigma
     endif 
     !
   end function Zrenorm
+
+  !SET THE BATH DELTA FUNCTION
+
+  function set_delta(freq,vps,eps) result(DELTA)
+    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+    complex(8)                                                  :: freq
+    real(8),dimension(:)                                        :: vps,eps
+    integer                                                     :: ispin,iorb,ilat
+    !
+    allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    DELTA=zero
+    !
+    if (Nbath .ne. 0)then
+      do ilat=1,Nlat
+        do ispin=1,Nspin
+           do iorb=1,Norb
+             DELTA(ilat,ilat,ispin,ispin,iorb,iorb)=sum( vps(:)*vps(:)/(freq - eps(:)+XMU) )
+           enddo
+        enddo
+      enddo
+    endif
+  end function set_delta
 
   function indices2N(indices) result(N)
     integer,dimension(Ndim)      :: indices
