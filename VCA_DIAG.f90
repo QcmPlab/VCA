@@ -141,16 +141,22 @@ contains
              !
 #ifdef _MPI
              if(MpiStatus)then
-                call sp_eigh(MpiComm,spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                call sp_eigh(MpiComm,spHtimesV_p,eig_values,eig_basis,&
+                     Nblock,&
+                     Nitermax,&
                      tol=lanc_tolerance,&
                      iverbose=(verbose>3))
              else
-                call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
+                     Nblock,&
+                     Nitermax,&
                      tol=lanc_tolerance,&
                      iverbose=(verbose>3))
              endif
 #else
-             call sp_eigh(spHtimesV_p,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,&
+                call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
+                  Nblock,&
+                  Nitermax,&
                   tol=lanc_tolerance,&
                   iverbose=(verbose>=3))
 #endif

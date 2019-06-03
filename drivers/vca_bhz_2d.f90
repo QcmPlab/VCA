@@ -115,7 +115,7 @@ program vca_bhz_2d
     !
     params=[t,M,lambda]
     !
-    call minimize_parameters(params,1d0)
+    call minimize_parameters(params,0.2d0)
     !
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
@@ -207,8 +207,8 @@ contains
     !
     !INITIALIZE FLAGS
     !
-    iprint_=-1
-    if(verbose .ge. 1)iprint_=1
+    iprint_=1
+    !if(verbose .ge. 1)iprint_=1
     MULTIMAX=.false.
     !
     !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
@@ -217,7 +217,7 @@ contains
     !
     do i=1,size(v)
       nbd(i) = 2
-      l(i)   = 0.0d0
+      l(i)   = parvec(i)-radius
       u(i)   = parvec(i)+radius
     enddo
     lold=l
