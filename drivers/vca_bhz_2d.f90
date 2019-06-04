@@ -17,6 +17,7 @@ program vca_bhz_2d
   !Matrices:
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized     ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_local,gfreal_periodized     ![Nspin][Nspin][Norb][Norb][L]
@@ -33,7 +34,7 @@ program vca_bhz_2d
   logical                                         :: print_mats,print_real
   character(len=6)                                :: scheme
   character(len=16)                               :: finput
-  real(8)                                         :: omegadummy
+  real(8)                                         :: omegadummy,observable_dummy
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
@@ -143,8 +144,29 @@ program vca_bhz_2d
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
     !
   else
+    print_observables=.true.
     omegadummy=solve_vca_multi([ts,Mh,lambdauser])
+    !
     write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts,Mh,lambdauser
+    !
+    allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !
+    !SET OBSERVABLE MATRIX: AS AN EXAMPLE, THE TWO ORBITAL OCCUPATIONS
+    !
+    observable_matrix=zero
+    do iii=1,Nlat
+          observable_matrix(iii,iii,1,1,1,1)=1.d0
+          observable_matrix(iii,iii,2,2,1,1)=1.d0
+    enddo
+    call observables_lattice(observable_matrix,observable_dummy)
+    print*,"User-requested observable with value store is ",observable_dummy
+    !
+    observable_matrix=zero
+    do iii=1,Nlat
+          observable_matrix(iii,iii,1,1,2,2)=1.d0
+          observable_matrix(iii,iii,2,2,2,2)=1.d0
+    enddo
+    call observables_lattice(observable_matrix)
   endif
   !
   !PRINT LOCAL GF AND SIGMA

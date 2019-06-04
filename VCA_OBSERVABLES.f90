@@ -34,10 +34,6 @@ MODULE VCA_OBSERVABLES
   real(8)                                                  :: Ei
   real(8)                                                  :: integrationR
   !
-  integer                                                  :: iorb,jorb,iorb1,jorb1
-  integer                                                  :: ispin,jspin
-  integer                                                  :: isite,jsite
-  integer                                                  :: ibath
   integer                                                  :: r,m,k,k1,k2
   integer                                                  :: iup,idw
   integer                                                  :: jup,jdw
@@ -67,30 +63,28 @@ contains
   subroutine observables_cluster()
     integer :: iorb
     write(LOGfile,"(A)")"Get cluster observables:"
-    !select case(vca_method)
-    !case ("full")
-    !   call vca_diag_observables
-    !case ("lanc")
     call vca_lanc_observables
-    !case default
-    !   stop "observables_cluster error: vca_method != ['full','lanc']"
-    !end select
   end subroutine observables_cluster
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : Evaluate and print out many interesting physical qties for the lattice
   !+-------------------------------------------------------------------+
 
-  subroutine observables_lattice()
-    write(LOGfile,"(A)")"Get lattice observables:"
-    !select case(vca_method)
-    !case ("full")
-    !   call vca_diag_observables
-    !case ("lanc")
-    call vca_gf_observables
-    !case default
-    !   stop "observables_cluster error: vca_method != ['full','lanc']"
-    !end select
+  subroutine observables_lattice(sij_,userobs_)
+    complex(8),allocatable,dimension(:,:,:,:,:,:),optional        :: sij_
+    real(8),optional                                              :: userobs_
+    !
+    if(present(sij_))then
+      if(present(userobs_))then
+        call vca_gf_observables(sij_,userobs_)
+      else
+        call vca_gf_observables(sij_)
+      endif
+    else
+      write(LOGfile,"(A)")"Get lattice observables:"
+      call vca_gf_observables()
+    endif
+
   end subroutine observables_lattice
 
   !+-------------------------------------------------------------------+
@@ -115,7 +109,7 @@ contains
     real(8)                             :: peso
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer        :: state_cvec
+    complex(8),dimension(:),pointer     :: state_cvec
     type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:
@@ -251,27 +245,29 @@ contains
 !+---------------------------------------------------------------------------------+
 
 
- subroutine vca_gf_observables()
-    integer,dimension(Ns)               :: IbUp,IbDw  ![Ns]
-    integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]
-    integer,dimension(2*Ns_Ud)          :: Indices,Jndices
-    integer,dimension(Ns_Ud)            :: iDimUps,iDimDws
-    integer                             :: i,j,ii
-    integer                             :: istate
-    integer                             :: isector,jsector
-    integer                             :: idim,jdim,ilat
-    integer                             :: isz,jsz
-    integer                             :: iorb,jorb,ispin,jspin,isite,jsite,ibath
-    integer                             :: numstates
-    integer                             :: r,m,k
-    real(8)                             :: sgn,sgn1,sgn2
-    real(8)                             :: weight
-    real(8)                             :: Ei
-    real(8)                             :: peso
-    real(8)                             :: norm
-    real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer     :: state_cvec
-    type(sector_map)                    :: Hi(2*Ns_Ud)
+ subroutine vca_gf_observables(sij_,userobs)
+    integer,dimension(Ns)                                    :: IbUp,IbDw  ![Ns]
+    integer,dimension(Ns_Ud,Ns_Orb)                          :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]
+    integer,dimension(2*Ns_Ud)                               :: Indices,Jndices
+    integer,dimension(Ns_Ud)                                 :: iDimUps,iDimDws
+    integer                                                  :: i,j,ii
+    integer                                                  :: istate
+    integer                                                  :: isector,jsector
+    integer                                                  :: idim,jdim,ilat
+    integer                                                  :: isz,jsz
+    integer                                                  :: iorb,jorb,ispin,jspin,isite,jsite,ibath
+    integer                                                  :: numstates
+    integer                                                  :: r,m,k
+    real(8)                                                  :: sgn,sgn1,sgn2
+    real(8)                                                  :: weight
+    real(8)                                                  :: Ei
+    real(8)                                                  :: peso
+    real(8)                                                  :: norm,no_userobs
+    real(8),dimension(Nlat,Norb)                             :: nup,ndw,Sz,nt
+    complex(8),dimension(:),pointer                          :: state_cvec
+    complex(8),allocatable,dimension(:,:,:,:,:,:),optional   :: sij_
+    real(8),optional                                         :: userobs
+    type(sector_map)                                         :: Hi(2*Ns_Ud)
     !
     !OBSERVABLE MATRIX:
     !
@@ -279,76 +275,86 @@ contains
     allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     sij=zero
     !
-    !LOCAL OBSERVABLES:
-    allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
-    allocate(docc(Nlat,Norb))
-    allocate(magz(Nlat,Norb),sz2(Nlat,Norb,Norb))
-    allocate(simp(Nlat,Norb,Nspin),zimp(Nlat,Norb,Nspin))
-    !
-    dens    = 0.d0
-    dens_up = 0.d0
-    dens_dw = 0.d0
-    docc    = 0.d0
-    magz    = 0.d0
-    sz2     = 0.d0
-    simp    = 0.d0
-    zimp    = 0.d0
-    nup     = 0.d0
-    ndw     = 0.d0
-    Egs     = state_list%emin
-    gs_weight=1.d0
-    !
-    !CALCULATE OBSERAVABLE:
-    !
-    do ilat=1,Nlat
-       do iorb=1,Norb
-          sij=zero
-          sij(ilat,ilat,1,1,iorb,iorb)=1.d0
-          nup(ilat,iorb)= calculate_observable_integral()
-          !
-          sij=zero
-          sij(ilat,ilat,2,2,iorb,iorb)=1.d0
-          ndw(ilat,iorb)= calculate_observable_integral()
-          !
-          sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-          nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
-       enddo
-    enddo
-    !
-    !Get operators:
-    do ilat=1,Nlat
-      do iorb=1,Norb
-         dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
-         dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
-         dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
-         docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
-         magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
-         sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
-         do jorb=iorb+1,Norb
-            sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
-            sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
+    if(present(sij_))then
+      sij=sij_
+      if(present(userobs))then
+      userobs=calculate_observable_integral()
+      else
+      no_userobs=calculate_observable_integral()
+      write(LOGfile,"(A,10f18.12,f18.12,A)")"User requester observable = ",no_userobs
+      endif
+    else
+      !LOCAL OBSERVABLES:
+      allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
+      allocate(docc(Nlat,Norb))
+      allocate(magz(Nlat,Norb),sz2(Nlat,Norb,Norb))
+      allocate(simp(Nlat,Norb,Nspin),zimp(Nlat,Norb,Nspin))
+      !
+      dens    = 0.d0
+      dens_up = 0.d0
+      dens_dw = 0.d0
+      docc    = 0.d0
+      magz    = 0.d0
+      sz2     = 0.d0
+      simp    = 0.d0
+      zimp    = 0.d0
+      nup     = 0.d0
+      ndw     = 0.d0
+      Egs     = state_list%emin
+      gs_weight=1.d0
+      !
+      !CALCULATE OBSERAVABLE:
+      !
+      do ilat=1,Nlat
+         do iorb=1,Norb
+            sij=zero
+            sij(ilat,ilat,1,1,iorb,iorb)=1.d0
+            nup(ilat,iorb)= calculate_observable_integral()
+            !
+            sij=zero
+            sij(ilat,ilat,2,2,iorb,iorb)=1.d0
+            ndw(ilat,iorb)= calculate_observable_integral()
+            !
+            sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
+            nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
          enddo
       enddo
-      s2tot = s2tot  + (sum(sz))**2*gs_weight
-    enddo
-    !
-    if(MPIMASTER)then
-       call get_szr
-       if(iolegend)call write_legend
-       call write_observables()
-       !
-       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb)),iorb=1,Norb),sum(dens)
-       write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb)),iorb=1,Norb)
-       if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb)),iorb=1,Norb)
-       !
-       imp_dens_up = dens_up
-       imp_dens_dw = dens_dw
-       imp_dens    = dens
-       imp_docc    = docc
+      !
+      !Get operators:
+      do ilat=1,Nlat
+        do iorb=1,Norb
+           dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
+           dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
+           dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
+           docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
+           magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
+           sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
+           do jorb=iorb+1,Norb
+              sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
+              sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
+           enddo
+        enddo
+        s2tot = s2tot  + (sum(sz))**2*gs_weight
+      enddo
+      !
+      if(MPIMASTER)then
+         call get_szr
+         if(iolegend)call write_legend
+         call write_observables()
+         !
+         write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb)),iorb=1,Norb),sum(dens)
+         write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb)),iorb=1,Norb)
+         if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb)),iorb=1,Norb)
+         !
+         imp_dens_up = dens_up
+         imp_dens_dw = dens_dw
+         imp_dens    = dens
+         imp_docc    = docc
 
+      endif
+      deallocate(dens,docc,dens_up,dens_dw,magz,sz2)
+      deallocate(simp,zimp)
     endif
-    deallocate(dens,docc,dens_up,dens_dw,magz,sz2)
-    deallocate(simp,zimp)
   end subroutine vca_gf_observables
 
 

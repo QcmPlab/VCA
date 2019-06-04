@@ -33,5 +33,8 @@ MODULE VCA
        vca_init_solver,         &
        vca_solve
 
+  USE VCA_OBSERVABLES, only:    &
+       observables_lattice
+
 
 END MODULE VCA
