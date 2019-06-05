@@ -9,7 +9,7 @@ program vca_bhz_2d
   integer                                         :: Nlso
   integer                                         :: Nx,Ny
   integer                                         :: ilat,jlat
-  real(8)                                         :: ts,Mh,lambdauser
+  real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var
   real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var
   !Bath
   integer                                         :: Nb
@@ -38,6 +38,7 @@ program vca_bhz_2d
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
+    real(8),dimension(3)                      :: df
   !
   !MPI INIT
   !
@@ -53,6 +54,9 @@ program vca_bhz_2d
   call parse_input_variable(ts,"ts",finput,default=0.5d0,comment="Hopping parameter (units of epsilon)")
   call parse_input_variable(Mh,"Mh",finput,default=3d0,comment="Field splitting (units of epsilon)")
   call parse_input_variable(lambdauser,"lambda",finput,default=0.3d0,comment="Spin/orbit coupling (units of epsilon)")
+  call parse_input_variable(ts_var,"ts_Var",finput,default=0.5d0,comment="variational hopping parameter (units of epsilon)")
+  call parse_input_variable(Mh_var,"Mh_Var",finput,default=3d0,comment="variational field splitting (units of epsilon)")
+  call parse_input_variable(lambdauser_var,"lambda_var",finput,default=0.3d0,comment="variational spin/orbit coupling (units of epsilon)")
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
@@ -116,12 +120,13 @@ program vca_bhz_2d
     !
     params=[t,M,lambda]
     !
-    call minimize_parameters(params,0.2d0)
+    !call minimize_parameters(params,0.5d0)
+    call fmin_brent(params,0.2d0)
     !
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
     !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),params(1),params(2),params(3)
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
     write(*,"(A)")""
     !
     call solve_Htop_new()
@@ -145,9 +150,12 @@ program vca_bhz_2d
     !
   else
     print_observables=.true.
-    omegadummy=solve_vca_multi([ts,Mh,lambdauser])
+    omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
+    print*,"calculate gradient"
+    call fdjac_1n_func(solve_vca_multi,[ts_var,Mh_Var,lambdauser_var],df)
+    print*,"gradient is", df
     !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts,Mh,lambdauser
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts_var,Mh_Var,lambdauser_var
     !
     allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
@@ -201,9 +209,13 @@ contains
     !
     print*,""
     print*,"Variational parameters:"
-    print*,"t      = ",pars(1)
-    print*,"M      = ",pars(2)
-    print*,"lambda = ",pars(3)
+    print*,"t      = ",t_var
+    print*,"M      = ",m_var
+    print*,"lambda = ",lambda_var
+    print*,"Lattice parameters:"
+    print*,"t      = ",t
+    print*,"M      = ",m
+    print*,"lambda = ",lambda
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k)
@@ -214,6 +226,91 @@ contains
     print*,""
     !
   end function solve_vca_multi
+
+
+  function solve_vca_t(variable) result(Omega)
+    logical                      :: invert
+    real(8)                      :: Omega,variable
+    !
+    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    !
+    t_var=variable 
+    !
+    print*,""
+    print*,"Variational parameters:"
+    print*,"t      = ",t_var
+    print*,"M      = ",m_var
+    print*,"lambda = ",lambda_var
+    print*,"Lattice parameters:"
+    print*,"t      = ",t
+    print*,"M      = ",m
+    print*,"lambda = ",lambda
+    call generate_tcluster()
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
+    call vca_get_sft_potential(omega)
+    !
+    if(MULTIMAX)omega=-omega
+    !    
+    print*,""
+    !
+  end function solve_vca_t
+
+  function solve_vca_m(variable) result(Omega)
+    logical                      :: invert
+    real(8)                      :: Omega,variable
+    !
+    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    !
+    M_var=variable
+    !
+    print*,""
+    print*,"Variational parameters:"
+    print*,"t      = ",t_var
+    print*,"M      = ",m_var
+    print*,"lambda = ",lambda_var
+    print*,"Lattice parameters:"
+    print*,"t      = ",t
+    print*,"M      = ",m
+    print*,"lambda = ",lambda
+    call generate_tcluster()
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
+    call vca_get_sft_potential(omega)
+    !
+    if(MULTIMAX)omega=-omega
+    !    
+    print*,""
+    !
+  end function solve_vca_m
+
+  function solve_vca_l(variable) result(Omega)
+    logical                      :: invert
+    real(8)                      :: Omega,variable
+    !
+    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    !
+    lambda_var=variable
+    !
+    print*,""
+    print*,"Variational parameters:"
+    print*,"t      = ",t_var
+    print*,"M      = ",m_var
+    print*,"lambda = ",lambda_var
+    print*,"Lattice parameters:"
+    print*,"t      = ",t
+    print*,"M      = ",m
+    print*,"lambda = ",lambda
+    call generate_tcluster()
+    call generate_hk()
+    call vca_solve(comm,t_prime,h_k)
+    call vca_get_sft_potential(omega)
+    !
+    if(MULTIMAX)omega=-omega
+    !    
+    print*,""
+    !
+  end function solve_vca_l
 
  
   !+------------------------------------------------------------------+
@@ -250,7 +347,7 @@ contains
     !
     !FIND LOCAL MINIMA
     !
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d5,iprint=iprint_)
     !
     !RESET MINIMIZER FOR VARIABLES ON THE BORDER
     !
@@ -269,7 +366,7 @@ contains
     if (MULTIMAX) then
       write(*,"(A)")""
       write(*,"(A)")bold_red("LOOKING FOR MAXIMUMS")
-      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
+      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d5,iprint=iprint_)
       do i=1,size(v)
         if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
       enddo
@@ -281,6 +378,99 @@ contains
     deallocate(nbd,parvec,l,u,lold,uold)
     !
   end subroutine minimize_parameters
+
+
+
+  subroutine fmin_brent(v,radius)
+    real(8),dimension(3)                      :: v
+    real(8)                                   :: radius 
+    integer                                   :: i        
+    !
+    !
+    !INITIALIZE FLAGS
+    !
+    t_var=v(1)
+    M_var=v(2)
+    lambda_var=v(3)
+    mu_var=0.d0*t_var
+    MULTIMAX=.false.
+    !
+    print*,"MINIMIZE T"
+    !
+    call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius],tol=1.d-6)   
+    if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )then
+      MULTIMAX=.true.
+      call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius],tol=1.d-6)
+      if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
+    endif
+    t_var=v(1)
+    !
+    print*,"MINIMIZE M"
+    !
+    MULTIMAX=.true.
+    call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius],tol=1.d-6)   
+    if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )then
+      MULTIMAX=.false.
+      call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius],tol=1.d-6)
+      if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
+    endif
+    M_var=v(2)
+    !
+    print*,"MINIMIZE LAMBDA"
+    !
+    MULTIMAX=.true.
+    call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius],tol=1.d-6)   
+    if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )then
+      MULTIMAX=.false.
+      call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius],tol=1.d-6)
+      if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
+    endif
+    lambda_var=v(3)
+    MULTIMAX=.false.
+    call fdjac_1n_func(solve_vca_multi,v,df)
+    print*,"norm of gradient is", dot_product(df,df)
+    !
+  end subroutine fmin_brent
+
+
+  subroutine fdjac_1n_func(funcv,x,fjac,epsfcn)
+    implicit none
+    interface 
+       function funcv(x)
+         implicit none
+         real(8),dimension(:) :: x
+         real(8)              :: funcv
+       end function funcv
+    end interface
+    integer          ::  n
+    real(8)          ::  x(:)
+    real(8)          ::  fvec
+    real(8)          ::  fjac(size(x))
+    real(8),optional ::  epsfcn
+    real(8)          ::  eps,eps_
+    real(8)          ::  epsmch
+    real(8)          ::  h,temp
+    real(8)          ::  wa1
+    real(8)          ::  wa2
+    integer          :: i,j,k
+    real(8)          :: df_eps=1.d-7
+    n=size(x)
+    fjac=0.d0
+    eps_= df_eps; if(present(epsfcn))eps_=epsfcn
+    epsmch = epsilon(epsmch)
+    eps  = sqrt(max(eps_,epsmch))
+    !  Evaluate the function
+    fvec = funcv(x)
+    do j=1,n
+       temp = x(j)
+       h    = eps*abs(temp)
+       if(h==0.d0) h = eps
+       x(j) = temp + h
+       wa1  = funcv(x)
+       x(j) = temp
+       fjac(j) = (wa1 - fvec)/h
+    enddo
+  end subroutine fdjac_1n_func
 
 
   !+------------------------------------------------------------------+

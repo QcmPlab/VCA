@@ -108,7 +108,7 @@ program vca_chain1d
   !
   !
   !call get_local_gf()
-  call get_Akw()
+  !call get_Akw()
   !call get_dos()
   !
   if(allocated(wm))deallocate(wm)
