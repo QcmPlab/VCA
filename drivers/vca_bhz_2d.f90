@@ -120,8 +120,8 @@ program vca_bhz_2d
     !
     params=[t,M,lambda]
     !
-    !call minimize_parameters(params,0.5d0)
-    call fmin_brent(params,0.2d0)
+    call minimize_parameters(params,0.5d0)
+    !call fmin_brent(params,0.2d0)
     !
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
@@ -151,9 +151,9 @@ program vca_bhz_2d
   else
     print_observables=.true.
     omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
-    print*,"calculate gradient"
-    call fdjac_1n_func(solve_vca_multi,[ts_var,Mh_Var,lambdauser_var],df)
-    print*,"gradient is", df
+    !print*,"calculate gradient"
+    !call fdjac_1n_func(solve_vca_multi,[ts_var,Mh_Var,lambdauser_var],df)
+    !print*,"gradient is", df
     !
     write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts_var,Mh_Var,lambdauser_var
     !
@@ -347,7 +347,7 @@ contains
     !
     !FIND LOCAL MINIMA
     !
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d5,iprint=iprint_)
+    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
     !
     !RESET MINIMIZER FOR VARIABLES ON THE BORDER
     !
@@ -366,7 +366,7 @@ contains
     if (MULTIMAX) then
       write(*,"(A)")""
       write(*,"(A)")bold_red("LOOKING FOR MAXIMUMS")
-      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d5,iprint=iprint_)
+      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
       do i=1,size(v)
         if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
       enddo
@@ -397,10 +397,10 @@ contains
     !
     print*,"MINIMIZE T"
     !
-    call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius],tol=1.d-6)   
+    call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])   
     if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )then
       MULTIMAX=.true.
-      call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius],tol=1.d-6)
+      call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])
       if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
     endif
     t_var=v(1)
@@ -408,10 +408,10 @@ contains
     print*,"MINIMIZE M"
     !
     MULTIMAX=.true.
-    call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius],tol=1.d-6)   
+    call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])   
     if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )then
       MULTIMAX=.false.
-      call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius],tol=1.d-6)
+      call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])
       if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
     endif
     M_var=v(2)
@@ -419,10 +419,10 @@ contains
     print*,"MINIMIZE LAMBDA"
     !
     MULTIMAX=.true.
-    call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius],tol=1.d-6)   
+    call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])   
     if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )then
       MULTIMAX=.false.
-      call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius],tol=1.d-6)
+      call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])
       if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
     endif
     lambda_var=v(3)
@@ -453,7 +453,7 @@ contains
     real(8)          ::  wa1
     real(8)          ::  wa2
     integer          :: i,j,k
-    real(8)          :: df_eps=1.d-7
+    real(8)          :: df_eps=1.d-3
     n=size(x)
     fjac=0.d0
     eps_= df_eps; if(present(epsfcn))eps_=epsfcn
