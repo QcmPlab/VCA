@@ -38,7 +38,7 @@ program vca_bhz_2d
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
-    real(8),dimension(3)                      :: df
+  real(8),dimension(3)                            :: df
   !
   !MPI INIT
   !
@@ -829,13 +829,13 @@ contains
     invG0mats_lso=zero
     invGmats_lso=zero
     Smats_periodized_lso  = zero
-    energy_scale=2.d0*t_var
+    energy_scale=2.d0*t
     !
     !Get G0^-1
     do ii=1,Lmats
-        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
     enddo
     !  
     !Get Gimp^-1
@@ -868,13 +868,13 @@ contains
     if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
     invG0real_lso=zero
     invGreal_lso=zero
-    energy_scale=2.d0*t_var
+    energy_scale=2.d0*t
     !
     !Get G0^-1
     do ii=1,Lreal
-        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
     enddo
     !  
     !Get Gimp^-1
@@ -981,13 +981,13 @@ contains
     invG0mats_lso=zero
     invGmats_lso=zero
     gfmats_periodized  = zero
-    energy_scale=2.d0*t_var
+    energy_scale=2.d0*t
     !
     !Get G0^-1
     do ii=1,Lmats
-        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
     enddo
     !  
     !Get Sigma functions
@@ -1021,13 +1021,13 @@ contains
     invG0real_lso=zero
     invGreal_lso=zero
     gfreal_periodized = zero
-    energy_scale=2.d0*t_var
+    energy_scale=2.d0*t
     !
     !Get G0^-1
     do ii=1,Lreal
-        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
+        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
+                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
+                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
     enddo
     !  
     !Get Sigma functions
