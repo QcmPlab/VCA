@@ -123,6 +123,7 @@ program vca_bhz_2d
     call minimize_parameters(params,0.5d0)
     !call fmin_brent(params,0.2d0)
     !
+    print_Sigma=.true.
     print_observables=.true.
     omegadummy=solve_vca_multi(params)
     !
