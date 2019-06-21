@@ -2,6 +2,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 PROJECT(vca Fortran)
 SET(VERSION 0.0.1)
 
+MESSAGE(STATUS "OS: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION}")
 SET(BUILD_TYPE "TESTING" CACHE STRING "Build type")
 MESSAGE(STATUS "BUILD_TYPE=${BUILD_TYPE}")
 SET(CMAKE_BUILD_TYPE ${BUILD_TYPE} CACHE INTERNAL "Build type" FORCE)
@@ -15,9 +16,18 @@ IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
    MESSAGE(FATAL_ERROR "Fortran compiler does not support F90")
 ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
+IF( (${CMAKE_Fortran_COMPILER_ID} MATCHES Intel) OR (${CMAKE_Fortran_COMPILER_ID} MATCHES GNU))
+  MESSAGE(STATUS "Fortran Compiler id = ${CMAKE_Fortran_COMPILER_ID}")
+ELSEIF()
+  MESSAGE(FATAL_ERROR "Unsupported Fortran compiler (use Intel or GNU). Try export FC=<your FC compiler> ")
+ENDIF()  
+
+
+
 # Set some options the user may choose
 OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
 OPTION(VERBOSE "Build a verbose Makefile" On)
+OPTION(WITH_BLAS_LAPACK "Use internal Blas/Lapack" OFF)
 IF(VERBOSE)
   SET(CMAKE_VERBOSE_MAKEFILE OFF)
 ELSE(VERBOSE)
@@ -81,9 +91,17 @@ FILE(WRITE  ${REVISION_FILE} "character(len=41),parameter,public :: revision = \
 ############################################################
 # Look for required libraries: blas,lapack,scifor,dmft_tools
 ############################################################
-FIND_PACKAGE(BLAS REQUIRED)
+IF(NOT WITH_BLAS_LAPACK)
+  # SET(BLA_VENDOR Intel10_64lp_seq)
+  FIND_PACKAGE(BLAS REQUIRED)
+  MESSAGE(STATUS "${BLAS_LIBRARIES}")
+  FIND_PACKAGE(LAPACK REQUIRED)
+  MESSAGE(STATUS "${LAPACK_LIBRARIES}")
+ELSE()
+  MESSAGE(STATUS "Using  Blas/Lapack as in Scifor")
+ENDIF()
 
-FIND_PACKAGE(LAPACK REQUIRED)
+
 
 # Find Scifor
 FIND_PACKAGE(PkgConfig)
@@ -114,7 +132,11 @@ INCLUDE_DIRECTORIES(BEFORE ${DMFT_TOOLS_INCLUDE_DIRS})
 ############################################################
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU) # this is gfortran
   SET(CMAKE_Fortran_MODDIR_FLAG   "-J")
-  SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none -ff2c") # -mcmodel=large  this is to remove the 2Gb limit of virtual memory allocation
+  IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none") 
+  ELSE()
+    SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none -ff2c") #ff2c takes care of making MKL working in Linux env
+  ENDIF()
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 -funroll-loops")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -fbounds-check")
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ffast-math -march=native -funroll-loops")  ##-fno-protect-parens -flto
