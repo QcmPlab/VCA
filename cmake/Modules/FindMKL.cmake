@@ -56,12 +56,15 @@ else()
   if (NOT EXISTS "${MKL_LINK_TOOL}")
     message(FATAL_ERROR "cannot find MKL tool: ${MKL_LINK_TOOL}")
   endif()
-  
-  
-  set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -libs -l static)
-  set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -opts)
-  
-  
+
+IF(${CMAKE_Fortran_COMPILER_ID} MATCHES GNU)
+  set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -libs -l static)
+  set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -opts)
+ELSE()
+  set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -libs -l static)
+  set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -opts)
+ENDIF()
+
   execute_process(COMMAND  ${MKL_LINK_TOOL_LIBS}
     OUTPUT_VARIABLE MKL_LIBRARIES
     RESULT_VARIABLE COMMAND_WORKED
@@ -69,15 +72,14 @@ else()
   if (NOT ${COMMAND_WORKED} EQUAL 0)
     message(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_LIBS}.")
   endif()
-  
-  execute_process(COMMAND ${MKL_LINK_TOOL_INCS}
+ 
+ execute_process(COMMAND ${MKL_LINK_TOOL_INCS}
     OUTPUT_VARIABLE MKL_INCLUDE
     RESULT_VARIABLE COMMAND_WORKED
     TIMEOUT 2 ERROR_QUIET)
   if (NOT ${COMMAND_WORKED} EQUAL 0)
     message(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_INCS}.")
   endif()
-  
   
   
   include(FindPackageHandleStandardArgs)
@@ -87,10 +89,12 @@ else()
 
   message(STATUS "MKL found at: ${MKL_ROOT_DIR}")
 
+  string(STRIP ${MKL_LIBRARIES} MKL_LIBRARIES)
+  string(STRIP ${MKL_INCLUDE} MKL_INCLUDE)
+
   if (CMAKE_FIND_DEBUG_MODE)
     message(STATUS "Exectuted command: ${MKL_LINK_TOOL_LIBS}; ${MKL_LINK_TOOL_INCS}")
     message(STATUS "Found MKL_LIBRARIES:${MKL_LIBRARIES}")
     message(STATUS "Found MKL_INCLUDE:${MKL_INCLUDE}")
   endif()
-  
 endif()

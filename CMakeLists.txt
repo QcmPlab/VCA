@@ -140,11 +140,7 @@ INCLUDE_DIRECTORIES(BEFORE ${DMFT_TOOLS_INCLUDE_DIRS})
 ############################################################
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU) # this is gfortran
   SET(CMAKE_Fortran_MODDIR_FLAG   "-J")
-  IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none") 
-  ELSE()
-    SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none -ff2c") #ff2c takes care of making MKL working in Linux env
-  ENDIF()
+  SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none")
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 -funroll-loops")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -fbounds-check")
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ffast-math -march=native -funroll-loops")  ##-fno-protect-parens -flto
