@@ -146,7 +146,7 @@ program vca_bhz_2d
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
-    !
+    !!
   else
     print_observables=.true.
     omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
