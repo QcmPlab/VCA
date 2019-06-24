@@ -184,9 +184,12 @@ contains
 #endif
     !
     Ltau=max(int(beta),Ltau)
-    call save_input_file(INPUTunit)
-    call scifor_version()
-    call code_version(revision)
+    if(master)then
+      call print_input()
+      call save_input_file(INPUTunit)
+      call scifor_version()
+      call code_version(revision)
+    endif
   end subroutine vca_read_input
 
   subroutine substring_delete (s,sub)
