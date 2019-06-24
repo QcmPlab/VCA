@@ -21,6 +21,8 @@
 #        target_link_libraries(<YourTarget> ${MKL_LIBRARIES})
 #    endif()
 #
+#-lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm -ldl
+#-lmkl_gf_lp64 -lmkl_gf_thread -lmkl_core -lpthread -lm -ldl
 #
 # AUTHOR
 # Adriano Amaricci (adriano.amaricci.AT.sissa.it)
@@ -31,70 +33,142 @@
 
 
 
-set(CMAKE_FIND_DEBUG_MODE 1)
-
+SET(CMAKE_FIND_DEBUG_MODE 0)
 
 # Find MKL ROOT
-find_path(MKL_ROOT_DIR NAMES include/mkl.h include/mkl.fi  PATHS $ENV{MKLROOT})
+FIND_PATH(MKL_ROOT_DIR NAMES include/mkl.h include/mkl.fi  PATHS $ENV{MKLROOT})
 
 # Convert symlinks to real paths
 
-get_filename_component(MKL_ROOT_DIR ${MKL_ROOT_DIR} REALPATH)
+GET_FILENAME_COMPONENT(MKL_ROOT_DIR ${MKL_ROOT_DIR} REALPATH)
 
-if (NOT MKL_ROOT_DIR)
-  if (MKL_FIND_REQUIRED)
-    message(FATAL_ERROR "Could not find MKL: please set environment variable {MKLROOT}")
-  else()
-    unset(MKL_ROOT_DIR CACHE)
-  endif()
-
-else()
-  set(MKL_INCLUDE_DIR ${MKL_ROOT_DIR}/include)
-  
-  # set arguments to call the MKL provided tool for linking
-  set(MKL_LINK_TOOL ${MKL_ROOT_DIR}/tools/mkl_link_tool)
-  if (NOT EXISTS "${MKL_LINK_TOOL}")
-    message(FATAL_ERROR "cannot find MKL tool: ${MKL_LINK_TOOL}")
-  endif()
-
-IF(${CMAKE_Fortran_COMPILER_ID} MATCHES GNU)
-  set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -libs -l static)
-  set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -opts)
-ELSE()
-  set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -libs -l static)
-  set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -opts)
+IF (NOT MKL_ROOT_DIR)
+  IF (MKL_FIND_REQUIRED)
+    MESSAGE(FATAL_ERROR "Could not find MKL: please set environment variable {MKLROOT}")
+  ELSE()
+    UNSET(MKL_ROOT_DIR CACHE)
+  ENDIF()
+  RETURN()
 ENDIF()
+  
 
-  execute_process(COMMAND  ${MKL_LINK_TOOL_LIBS}
+SET(MKL_INCLUDE_DIR ${MKL_ROOT_DIR}/include)
+  
+# set arguments to call the MKL provided tool for linking
+SET(MKL_LINK_TOOL ${MKL_ROOT_DIR}/tools/mkl_link_tool)
+
+IF(EXISTS "${MKL_LINK_TOOL}")
+  IF(APPLE)			#do something specific for Apple
+    IF(${CMAKE_Fortran_COMPILER_ID} MATCHES GNU)
+      set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -libs -l static)
+      set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -opts)
+    ELSE()
+      set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -libs -l static)
+      set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -opts)
+    ENDIF()    
+  ELSE()			#Linux only system    
+    IF(${CMAKE_Fortran_COMPILER_ID} MATCHES GNU)
+      set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -libs -l static)
+      set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c gnu_f -opts)
+    ELSE()
+      set(MKL_LINK_TOOL_LIBS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -libs -l static)
+      set(MKL_LINK_TOOL_INCS ${MKL_LINK_TOOL} -check_mkl_presence -c intel_f -opts)
+    ENDIF()    
+  ENDIF()
+  
+  EXECUTE_PROCESS(COMMAND  ${MKL_LINK_TOOL_LIBS}
     OUTPUT_VARIABLE MKL_LIBRARIES
     RESULT_VARIABLE COMMAND_WORKED
     TIMEOUT 2 ERROR_QUIET)
   if (NOT ${COMMAND_WORKED} EQUAL 0)
-    message(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_LIBS}.")
+    MESSAGE(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_LIBS}.")
   endif()
- 
- execute_process(COMMAND ${MKL_LINK_TOOL_INCS}
+  
+  EXECUTE_PROCESS(COMMAND ${MKL_LINK_TOOL_INCS}
     OUTPUT_VARIABLE MKL_INCLUDE
     RESULT_VARIABLE COMMAND_WORKED
     TIMEOUT 2 ERROR_QUIET)
   if (NOT ${COMMAND_WORKED} EQUAL 0)
-    message(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_INCS}.")
+    MESSAGE(FATAL_ERROR "Cannot find MKL libraries. The mkl_link_tool command executed was:\n ${MKL_LINK_TOOL_INCS}.")
   endif()
-  
-  
-  include(FindPackageHandleStandardArgs)
-  find_package_handle_standard_args(MKL DEFAULT_MSG MKL_LIBRARIES MKL_INCLUDE )
-  
-  mark_as_advanced(MKL_INCLUDE MKL_LIBRARIES MKL_ROOT_DIR)
 
-  message(STATUS "MKL found at: ${MKL_ROOT_DIR}")
+  SET(MKL_LIBRARIES_ ${MKL_LIBRARIES})
+  SET(MKL_INCLUDE_ ${MKL_INCLUDE})
+  STRING(STRIP ${MKL_LIBRARIES_} MKL_LIBRARIES)
+  STRING(STRIP ${MKL_INCLUDE_} MKL_INCLUDE)
+  
 
-  string(STRIP ${MKL_LIBRARIES} MKL_LIBRARIES)
-  string(STRIP ${MKL_INCLUDE} MKL_INCLUDE)
+ELSE()
+  #ON OSX THERE IS NO SUPPORT FOR GNU_F SO THERE IS NO DISTINCTION GNU/INTEL
+  IF(APPLE)
+    SET(LP64_LIB       "libmkl_intel_lp64.a")
+    SET(SEQUENTIAL_LIB "libmkl_sequential.a")
+    SET(THREAD_LIB     "libmkl_intel_thread.a")
+    SET(CORE_LIB       "libmkl_core.a")  
+  ELSE()
+    IF(${CMAKE_Fortran_COMPILER_ID} MATCHES GNU)
+      SET(LP64_LIB       "libmkl_gf_lp64.a")
+      SET(SEQUENTIAL_LIB "libmkl_sequential.a")
+      SET(THREAD_LIB     "libmkl_gnu_thread.a")
+      SET(CORE_LIB       "libmkl_core.a")  
+    ELSEIF(${CMAKE_Fortran_COMPILER_ID} MATCHES INTEL)
+      SET(LP64_LIB       "libmkl_intel_lp64.a")
+      SET(SEQUENTIAL_LIB "libmkl_sequential.a")
+      SET(THREAD_LIB     "libmkl_intel_thread.a")
+      SET(CORE_LIB       "libmkl_core.a")
+    ELSE()
+      MESSAGE(FATAL_ERROR "${CMAKE_Fortran_COMPILER_ID} not supported in MKL")
+    ENDIF()
+  ENDIF()
 
-  if (CMAKE_FIND_DEBUG_MODE)
-    message(STATUS "Exectuted command: ${MKL_LINK_TOOL_LIBS}; ${MKL_LINK_TOOL_INCS}")
-    message(STATUS "Found MKL_LIBRARIES:${MKL_LIBRARIES}")
-    message(STATUS "Found MKL_INCLUDE:${MKL_INCLUDE}")
-  endif()
+  FIND_LIBRARY(MKL_LP64_LIBRARY
+    NAMES ${LP64_LIB}
+    PATHS ${MKL_ROOT_DIR}/lib
+    ${MKL_ROOT_DIR}/lib/intel64
+    $ENV{INTEL}/mkl/lib/intel64
+    NO_DEFAULT_PATH)
+  
+  FIND_LIBRARY(MKL_SEQUENTIAL_LIBRARY
+    NAMES ${SEQUENTIAL_LIB}
+    PATHS ${MKL_ROOT_DIR}/lib
+    ${MKL_ROOT_DIR}/lib/intel64
+    $ENV{INTEL}/mkl/lib/intel64
+    NO_DEFAULT_PATH)
+  
+  FIND_LIBRARY(MKL_THREAD_LIBRARY
+    NAMES ${THREAD_LIB}
+    PATHS ${MKL_ROOT_DIR}/lib
+    ${MKL_ROOT_DIR}/lib/intel64
+    $ENV{INTEL}/mkl/lib/intel64
+    NO_DEFAULT_PATH)
+  
+  FIND_LIBRARY(MKL_CORE_LIBRARY
+    NAMES ${CORE_LIB}
+    PATHS ${MKL_ROOT_DIR}/lib
+    ${MKL_ROOT_DIR}/lib/intel64
+    $ENV{INTEL}/mkl/lib/intel64
+    NO_DEFAULT_PATH)
+  
+  SET(MKL_INCLUDE ${MKL_INCLUDE_DIR})
+  SET(MKL_LIBRARIES "${MKL_LP64_LIBRARY} ${MKL_SEQUENTIAL_LIBRARY} ${MKL_THREAD_LIBRARY} ${MKL_CORE_LIBRARY}")
+  
+ENDIF()
+
+
+
+
+INCLUDE(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(MKL DEFAULT_MSG MKL_ROOT_DIR MKL_LIBRARIES MKL_INCLUDE )
+
+MARK_AS_ADVANCED(MKL_INCLUDE MKL_LIBRARIES MKL_ROOT_DIR)
+
+
+if (CMAKE_FIND_DEBUG_MODE)
+  # MESSAGE(STATUS "MKL FOUND AT: ${MKL_ROOT_DIR}")
+  # IF(EXISTS "${MKL_LINK_TOOL}")
+  #   MESSAGE(STATUS "Executed command: ${MKL_LINK_TOOL_LIBS}; ${MKL_LINK_TOOL_INCS}")
+  # ENDIF()
+  MESSAGE(STATUS "Found MKL_LIBRARIES:${MKL_LIBRARIES}")
+  MESSAGE(STATUS "Found MKL_INCLUDE:${MKL_INCLUDE}")
 endif()
+

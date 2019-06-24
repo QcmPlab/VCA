@@ -91,37 +91,24 @@ FILE(WRITE  ${REVISION_FILE} "character(len=41),parameter,public :: revision = \
 ############################################################
 # Look for required libraries: blas,lapack,scifor,dmft_tools
 ############################################################
-IF(NOT WITH_BLAS_LAPACK)
-  FIND_PACKAGE(MKL)
-  IF(${MKL_FOUND})
-      MESSAGE(STATUS "EXPLICIT MKL found at: ${MKL_PREFIX}")
-      MESSAGE(STATUS "${MKL_LIBRARIES}")
-  ELSE()
-      MESSAGE(STATUS "EXPLICIT MKL NOT FOUND: USING SYSTEM BLAS AND LAPACK")
-      FIND_PACKAGE(BLAS REQUIRED)
-      MESSAGE(STATUS "${BLAS_LIBRARIES}")
-      FIND_PACKAGE(LAPACK REQUIRED)
-      MESSAGE(STATUS "${LAPACK_LIBRARIES}")
-  ENDIF()
-ELSE()
-  MESSAGE(STATUS "Using  Blas/Lapack as in Scifor")
-ENDIF()
-
-
-FIND_PACKAGE(MKL)
-
-
 # Find Scifor
 FIND_PACKAGE(PkgConfig)
 PKG_SEARCH_MODULE(SCIFOR REQUIRED scifor)
 IF(${SCIFOR_FOUND})
   MESSAGE(STATUS "SCIFOR found at: ${SCIFOR_PREFIX}")
 ELSE()
-  MESSAGE( FATAL_ERROR "
+  MESSAGE(FATAL_ERROR "
 Can not find SciFortran in this system. Check SciFor installation. Try adding the provided PKG-CONFIG file to the environment:
 $ export PKG_CONFIG_PATH=<path_to_scifor_dir>/etc:$PKG_CONFIG_PATH")
 ENDIF()
+IF("${SCIFOR_LDFLAGS}" MATCHES "blas" OR "lapack")
+  FIND_PACKAGE(BLAS REQUIRED)
+  FIND_PACKAGE(LAPACK REQUIRED)
+ELSEIF("${SCIFOR_LDFLAGS}" MATCHES "mkl")
+  FIND_PACKAGE(MKL REQUIRED)
+ENDIF()
 INCLUDE_DIRECTORIES(BEFORE ${SCIFOR_INCLUDE_DIRS})
+
 
 # Find Dmft_tools
 PKG_SEARCH_MODULE(DMFT_TOOLS REQUIRED dmft_tools)
@@ -133,6 +120,7 @@ Can not find DMFT_TOOLS in this system. Check DMFT_TOOLS installation. Try addin
 $ export PKG_CONFIG_PATH=<path_to_dmft_tools_dir>/etc:$PKG_CONFIG_PATH")
 ENDIF()
 INCLUDE_DIRECTORIES(BEFORE ${DMFT_TOOLS_INCLUDE_DIRS})
+
 
 
 ############################################################
@@ -221,7 +209,7 @@ FILE(GLOB VCA_LOCAL_SRC
 SET(VCA_OBJS ${VCA_LOCAL_SRC})
 
 ADD_EXECUTABLE(vca ${DRIVERS}/${EXE}.f90 ${VCA_OBJS})
-TARGET_LINK_LIBRARIES(vca ${DMFT_TOOLS_LDFLAGS} ${SCIFOR_LDFLAGS} ${MKL_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})  
+TARGET_LINK_LIBRARIES(vca ${DMFT_TOOLS_LDFLAGS} ${SCIFOR_LDFLAGS})  
 SET_TARGET_PROPERTIES(vca PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}" OUTPUT_NAME "${EXE}${GIT_BRANCH_}")
 MESSAGE(STATUS "Executable created at: ${Yellow}${CMAKE_INSTALL_PREFIX}/${EXE}${GIT_BRANCH_}${ColourReset}")
 
