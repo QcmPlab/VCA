@@ -23,7 +23,6 @@ ELSEIF()
 ENDIF()  
 
 
-
 # Set some options the user may choose
 OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
 OPTION(VERBOSE "Build a verbose Makefile" On)
