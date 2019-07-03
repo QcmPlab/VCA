@@ -81,7 +81,9 @@ MODULE VCA_AUX_FUNX
   public :: save_gfprime
   public :: read_gfprime
   !
+  public :: vca_search_variable
   public :: search_chemical_potential
+  !
   public :: print_embedded_H_lso
 
 
@@ -770,6 +772,88 @@ end subroutine read_gfprime
   ! can be used to fix any other *var so that  *ntmp == nread
   !##################################################################
   !##################################################################
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine vca_search_variable(var,ntmp,converged)
+    real(8),intent(inout) :: var
+    real(8),intent(in)    :: ntmp
+    logical,intent(inout) :: converged
+    logical               :: bool
+    real(8),save          :: chich
+    real(8),save          :: nold
+    real(8),save          :: var_new
+    real(8),save          :: var_old
+    real(8)               :: var_sign
+    !
+    real(8)               :: ndiff
+    integer,save          :: count=0,totcount=0,i
+    integer               :: unit
+    !
+    !check actual value of the density *ntmp* with respect to goal value *nread*
+    count=count+1
+    totcount=totcount+1
+    !  
+    if(count==1)then
+       chich = ndelta        !~0.2
+       inquire(file="var_compressibility.restart",EXIST=bool)
+       if(bool)then
+          open(free_unit(unit),file="var_compressibility.restart")
+          read(unit,*)chich
+          close(unit)
+       endif
+       var_old = var
+    endif
+    !
+    ndiff=ntmp-nread
+    !
+    !Get 'charge compressibility"
+    if(count>1)chich = (ntmp-nold)/(var-var_old)
+    !
+    !Add here controls on chich: not to be too small....
+    !
+    !update chemical potential
+    var_new = var - ndiff/chich
+    !
+    !
+    !re-define variables:
+    nold    = ntmp
+    var_old = var
+    var     = var_new
+    !
+    !Print information
+    write(LOGfile,"(A9,F16.9,A,F15.9)")  "n    = ",ntmp,"| instead of",nread
+    write(LOGfile,"(A9,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nerr
+    var_sign = (var-var_old)/abs(var-var_old)
+    if(var_sign>0d0)then
+       write(LOGfile,"(A9,ES16.9,A4)")"shift = ",ndiff/chich," ==>"
+    else
+       write(LOGfile,"(A9,ES16.9,A4)")"shift = ",ndiff/chich," <=="
+    end if
+    write(LOGfile,"(A9,F16.9)")"var  = ",var
+    !
+    !Save info about search variable iteration:
+    open(free_unit(unit),file="search_variable_iteration_info"//reg(file_suffix)//".ed",position="append")
+    if(count==1)write(unit,*)"#var,ntmp,ndiff"
+    write(unit,*)var,ntmp,ndiff
+    close(unit)
+    !
+    !If density is not converged set convergence to .false.
+    if(abs(ndiff)>nerr)converged=.false.
+    !
+    write(LOGfile,"(A18,I5)")"Search var count= ",count
+    write(LOGfile,"(A19,L2)")"Converged       = ",converged
+    print*,""
+    !
+    open(free_unit(unit),file="var_compressibility.used")
+    write(unit,*)chich
+    close(unit)
+    !
+  end subroutine vca_search_variable
+
+
+
+
 
   !+------------------------------------------------------------------+
   !PURPOSE  : 
