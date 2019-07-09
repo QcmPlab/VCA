@@ -145,7 +145,7 @@ contains
     !
     t_var=1.0d0
     Vij=tij
-    Eij=Uloc(1)/2d0
+    Eij=0.d0
     mu_var=0.d0
     print*,""
     print*,"------ Doing for ",tij," ------"

@@ -30,6 +30,7 @@ MODULE VCA_INPUT_VARS
   logical              :: chiflag      !
   logical              :: Jhflag       !spin-exchange and pair-hopping flag.
   logical              :: HFmode       !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
+  logical              :: HFshift      !flag for half-filling bath local energy
   real(8)              :: cutoff       !cutoff for spectral summation
   real(8)              :: gs_threshold !Energy threshold for ground state degeneracy loop up
   real(8)              :: sb_field     !symmetry breaking field
@@ -126,6 +127,7 @@ contains
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0,comment="Inverse temperature, at T=0 it is used as a IR cut-off.")
     call parse_input_variable(xmu,"XMU",INPUTunit,default=0.d0,comment="Chemical potential. If HFMODE=T, xmu=0 indicates half-filling condition.")
     call parse_input_variable(hfmode,"HFMODE",INPUTunit,default=.true.,comment="Flag to set the Hartree form of the interaction (n-1/2). see xmu.")
+    call parse_input_variable(hfshift,"HFSHIFT",INPUTunit,default=.true.,comment="Half-filling shift of the bath local energy: if TRUE, zero is the half-filling chemical potential.")
     !
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of Real-axis frequencies.")

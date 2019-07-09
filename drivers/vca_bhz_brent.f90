@@ -139,7 +139,7 @@ program vca_bhz_2d
     allocate(ts_array_y(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
-    ts_array_x = linspace(1.0d0,3.5d0,Nloop)
+    ts_array_x = linspace(0.0d0,3.5d0,Nloop)
     ts_array_y = linspace(0.d0,Mh_var+1.d0,Nloop)
     do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_multi([ts_array_x(iloop),Mh_var,lambda])

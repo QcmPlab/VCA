@@ -132,7 +132,7 @@ contains
     print*,"----- INIT -----"
     !
     print*,"V_VAR = ",Vij
-    Eij=Uloc(1)/2.d0
+    Eij=0.d0
     call generate_tcluster()
     call generate_hk()
     !BATH VARIATIONAL SETUP

@@ -248,17 +248,17 @@ contains
     !
     ! select case(bath_type)
     ! case default
-       write(unit_,"(90(A21,1X))")((&
-            "#Ek_l"//str(iorb)//"_s"//str(ispin),"Vk_l"//str(iorb)//"_s"//str(ispin),&
-            iorb=1,Norb),ispin=1,Nspin)
-       do ilat=1,Nlat
-          do i=1,Nbath
-             write(unit_,"(90(F21.12,1X))")((&
-                  vca_bath_%e(ilat,ispin,iorb,i),&
-                  vca_bath_%v(ilat,ispin,iorb,i),&
-                  iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       enddo
+     write(unit_,"(90(A21,1X))")((&
+          "#Ek_l"//str(iorb)//"_s"//str(ispin),"Vk_l"//str(iorb)//"_s"//str(ispin),&
+          iorb=1,Norb),ispin=1,Nspin)
+     do ilat=1,Nlat
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")((&
+                vca_bath_%e(ilat,ispin,iorb,i),&
+                vca_bath_%v(ilat,ispin,iorb,i),&
+                iorb=1,Norb),ispin=1,Nspin)
+        enddo
+     enddo
        !
     ! case('hybrid')
     !    !
@@ -360,7 +360,7 @@ contains
          do iorb=1,Norb
             do ispin=1,Nspin
                do i=1,Nbath
-                  vca_bath_%e(ilat,ispin,iorb,i) = vca_bath_%e(ilat,ispin,iorb,i)-(0.5d0*Uloc(iorb)+0.5d0*Ust*(Norb-1)+0.5d0*(Ust-Jh)*(Norb-1))
+                  if( .not. hfshift) vca_bath_%e(ilat,ispin,iorb,i) = vca_bath_%e(ilat,ispin,iorb,i)-(0.5d0*Uloc(iorb)+0.5d0*Ust*(Norb-1)+0.5d0*(Ust-Jh)*(Norb-1))
                enddo
             enddo
          enddo
