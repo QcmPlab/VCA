@@ -196,8 +196,9 @@ contains
 
   function solve_vca_multi(pars) result(Omega)
     integer                      :: iy,ik
-    real(8)                      :: Vij,Eij
+    real(8)                      :: Vij,Eij,deltae
     real(8),dimension(:)         :: pars
+    real(8),dimension(Nbath)     :: evector,vvector,tmp
     logical                      :: invert
     real(8)                      :: Omega
     !
@@ -208,22 +209,33 @@ contains
     lambda_var=pars(3)
     mu_var=0.d0*t_var
     Eij=0.d0
+    deltae=0.1d0
     Vij=pars(4)
+    if(NBATH>1)then
+      tmp=linspace(0.d0,deltae,Nbath)
+    else
+      tmp=0.5d0*deltae
+    endif
     !
+    do iy=1,Nbath
+      evector(iy)=Eij+tmp(iy)-0.5d0*deltae
+      vvector(iy)=Vij
+    enddo
     do iy=1,Nspin
       do ik=1,Norb
-        call set_bath_component(bath,1,iy,ik,e_component=[Eij])
-        call set_bath_component(bath,1,iy,ik,v_component=[Vij])
+        call set_bath_component(bath,1,iy,ik,e_component=evector)
+        call set_bath_component(bath,1,iy,ik,v_component=vvector)
       enddo
     enddo
+
     !
     print*,""
     print*,"Variational parameters:"
     print*,"t      = ",t_var
     print*,"M      = ",m_var
     print*,"lambda = ",lambda_var
-    print*,"E = ",Eij
-    print*,"V = ",Vij
+    print*,"Bath E = ",Eij
+    print*,"Bath V = ",Vij
     print*,"Lattice parameters:"
     print*,"t      = ",t
     print*,"M      = ",m
@@ -555,7 +567,7 @@ contains
     character(len=64)                            :: file_
     file_ = "tlattice_matrix.dat"
     !
-    call TB_build_kgrid([Nkpts],kgrid)
+    call TB_build_kgrid([Nkpts,Nkpts],kgrid)
     !Reduced Brillouin Zone
     kgrid=kgrid/Nx 
     !
@@ -565,7 +577,7 @@ contains
     !
     do ik=1,Nkpts**ndim
         !
-        h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,1))
+        h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
   end subroutine generate_hk
