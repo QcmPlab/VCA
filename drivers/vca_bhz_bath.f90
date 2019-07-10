@@ -83,17 +83,18 @@ program vca_bhz_2d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   !
-  !SET BATH
-  !
-  Nb=vca_get_bath_dimension()
-  allocate(Bath(Nb))
   !
   !SET CLUSTER DIMENSIONS (ASSUME SQUARE CLUSTER):
   !
   Ndim=size(Nkpts)
-  Nlat=Nx**Ndim
-  Ny=Nx
+  Ny=1
+  Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
+  !
+  !SET BATH
+  !
+  Nb=vca_get_bath_dimension()
+  allocate(Bath(Nb))
   !
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
@@ -126,19 +127,19 @@ program vca_bhz_2d
     !
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
     !
-    params=[t,M,lambda]
+    !params=[t,M,lambda]
     !
-    call minimize_parameters(params,0.5d0)
+    !call minimize_parameters(params,0.5d0)
     !call fmin_brent(params,0.2d0)
     !
-    print_Sigma=.true.
-    print_observables=.true.
-    omegadummy=solve_vca_multi(params)
+    !print_Sigma=.true.
+    !print_observables=.true.
+    !omegadummy=solve_vca_multi(params)
     !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
-    write(*,"(A)")""
+    !write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
+    !write(*,"(A)")""
     !
-    call solve_Htop_new()
+    !call solve_Htop_new()
     !
   elseif(wloop)then
     !
@@ -147,11 +148,25 @@ program vca_bhz_2d
     !
     ts_array_x = linspace(0.01d0,1.0d0,Nloop)
     do iloop=1,Nloop
-        omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,ts_array_x(iloop)])
+        omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,0.d0,ts_array_x(iloop)])
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
-    !!
+    !
+    !allocate(ts_array_x(Nloop))
+    !allocate(ts_array_y(Nloop))
+    !allocate(omega_grid(Nloop,Nloop))
+    !
+    !ts_array_x = linspace(0.1d0,0.15d0,Nloop)
+    !ts_array_y = linspace(0.01d0,1.0d0,Nloop)
+    !
+    !do iloop=1,Nloop
+    !  do jloop=1,Nloop
+    !    omega_grid(iloop,jloop)=solve_vca_multi([ts_var,Mh_var,lambda,ts_array_x(iloop),ts_array_y(jloop)])
+    !  enddo
+    !enddo
+    !
+    !call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
   else
     print_observables=.true.
     omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
@@ -198,7 +213,7 @@ contains
   !+------------------------------------------------------------------+
 
   function solve_vca_multi(pars) result(Omega)
-    integer                      :: iy,ik
+    integer                      :: ix,iy,ik
     real(8)                      :: Vij,Eij,deltae
     real(8),dimension(:)         :: pars
     real(8),dimension(Nbath)     :: evector,vvector,tmp
@@ -210,10 +225,12 @@ contains
     t_var=pars(1)  
     M_var=pars(2)
     lambda_var=pars(3)
+    deltae=pars(4)
+    Vij=pars(5)
+    !
     mu_var=0.d0*t_var
     Eij=0.d0
-    deltae=0.1d0
-    Vij=pars(4)
+    !
     if(NBATH>1)then
       tmp=linspace(0.d0,deltae,Nbath)
     else
@@ -224,10 +241,12 @@ contains
       evector(iy)=Eij+tmp(iy)-0.5d0*deltae
       vvector(iy)=Vij
     enddo
-    do iy=1,Nspin
-      do ik=1,Norb
-        call set_bath_component(bath,1,iy,ik,e_component=evector)
-        call set_bath_component(bath,1,iy,ik,v_component=vvector)
+    do ix=1,Nx
+      do iy=1,Nspin
+        do ik=1,Norb
+          call set_bath_component(bath,ix,iy,ik,e_component=evector)
+          call set_bath_component(bath,ix,iy,ik,v_component=vvector)
+        enddo
       enddo
     enddo
 
@@ -237,8 +256,6 @@ contains
     print*,"t      = ",t_var
     print*,"M      = ",m_var
     print*,"lambda = ",lambda_var
-    print*,"Bath E = ",Eij
-    print*,"Bath V = ",Vij
     print*,"Lattice parameters:"
     print*,"t      = ",t
     print*,"M      = ",m
@@ -255,253 +272,8 @@ contains
   end function solve_vca_multi
 
 
-  function solve_vca_t(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    t_var=variable 
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_t
-
-  function solve_vca_m(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    M_var=variable
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_m
-
-  function solve_vca_l(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    lambda_var=variable
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_l
-
- 
   !+------------------------------------------------------------------+
-  !PURPOSE:  multidimensional finder of stationary points
-  !+------------------------------------------------------------------+
-  subroutine minimize_parameters(v,radius)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
-    integer,dimension(:),allocatable          :: nbd
-    real(8)                                   :: radius     
-    integer                                   :: i,iprint_         
-    !
-    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
-    !
-    !INITIALIZE FLAGS
-    !
-    iprint_=1
-    !if(verbose .ge. 1)iprint_=1
-    MULTIMAX=.false.
-    !
-    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
-    !
-    parvec=v
-    !
-    do i=1,size(v)
-      nbd(i) = 2
-      l(i)   = parvec(i)-radius
-      u(i)   = parvec(i)+radius
-    enddo
-    lold=l
-    uold=u
-    !
-    write(*,"(A)")""
-    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
-    !
-    !FIND LOCAL MINIMA
-    !
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
-    !
-    !RESET MINIMIZER FOR VARIABLES ON THE BORDER
-    !
-    do i=1,size(v)
-      if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
-        parvec(i)=v(i)
-      MULTIMAX=.true.
-      else
-        l(i)=parvec(i)
-        u(i)=parvec(i)
-      endif
-    enddo
-    !
-    !IF NEEDED FIND MAXIMUMS/SADDLE POINTS
-    !
-    if (MULTIMAX) then
-      write(*,"(A)")""
-      write(*,"(A)")bold_red("LOOKING FOR MAXIMUMS")
-      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
-      do i=1,size(v)
-        if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
-      enddo
-      !
-      MULTIMAX=.false.
-      v=parvec
-    endif
-    !
-    deallocate(nbd,parvec,l,u,lold,uold)
-    !
-  end subroutine minimize_parameters
-
-
-
-  subroutine fmin_brent(v,radius)
-    real(8),dimension(3)                      :: v
-    real(8)                                   :: radius 
-    integer                                   :: i        
-    !
-    !
-    !INITIALIZE FLAGS
-    !
-    t_var=v(1)
-    M_var=v(2)
-    lambda_var=v(3)
-    mu_var=0.d0*t_var
-    MULTIMAX=.false.
-    !
-    print*,"MINIMIZE T"
-    !
-    call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])   
-    if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.true.
-      call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])
-      if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    t_var=v(1)
-    !
-    print*,"MINIMIZE M"
-    !
-    MULTIMAX=.true.
-    call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])   
-    if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.false.
-      call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])
-      if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    M_var=v(2)
-    !
-    print*,"MINIMIZE LAMBDA"
-    !
-    MULTIMAX=.true.
-    call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])   
-    if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.false.
-      call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])
-      if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    lambda_var=v(3)
-    MULTIMAX=.false.
-    call fdjac_1n_func(solve_vca_multi,v,df)
-    print*,"norm of gradient is", dot_product(df,df)
-    !
-  end subroutine fmin_brent
-
-
-  subroutine fdjac_1n_func(funcv,x,fjac,epsfcn)
-    implicit none
-    interface 
-       function funcv(x)
-         implicit none
-         real(8),dimension(:) :: x
-         real(8)              :: funcv
-       end function funcv
-    end interface
-    integer          ::  n
-    real(8)          ::  x(:)
-    real(8)          ::  fvec
-    real(8)          ::  fjac(size(x))
-    real(8),optional ::  epsfcn
-    real(8)          ::  eps,eps_
-    real(8)          ::  epsmch
-    real(8)          ::  h,temp
-    real(8)          ::  wa1
-    real(8)          ::  wa2
-    integer          :: i,j,k
-    real(8)          :: df_eps=1.d-3
-    n=size(x)
-    fjac=0.d0
-    eps_= df_eps; if(present(epsfcn))eps_=epsfcn
-    epsmch = epsilon(epsmch)
-    eps  = sqrt(max(eps_,epsmch))
-    !  Evaluate the function
-    fvec = funcv(x)
-    do j=1,n
-       temp = x(j)
-       h    = eps*abs(temp)
-       if(h==0.d0) h = eps
-       x(j) = temp + h
-       wa1  = funcv(x)
-       x(j) = temp
-       fjac(j) = (wa1 - fvec)/h
-    enddo
-  end subroutine fdjac_1n_func
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : generate hopping matrices
+  !PURPOSE  : generate hopping matrices (assume Ny=1)
   !+------------------------------------------------------------------+
 
 
@@ -514,16 +286,17 @@ contains
     !
     if(allocated(t_prime))deallocate(t_prime)
     allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !
     t_prime=zero
     !
     do ispin=1,Nspin
       do ilat=1,Nlat
         t_prime(ilat,ilat,ispin,ispin,:,:)= t_m(m_var)
         if(ilat<Nx)then
-          t_prime(ilat,ilat,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+          t_prime(ilat,ilat+1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
         endif
         if(ilat>1)then
-          t_prime(ilat,ilat,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
+          t_prime(ilat,ilat-1,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
         endif
       enddo
     enddo
@@ -541,23 +314,21 @@ contains
       do ilat=1,Nx
         hopping_matrix(ilat,ilat,ispin,ispin,:,:)= t_m(m)
         if(ilat<Nx)then
-          hopping_matrix(ilat,ilat,ispin,ispin,:,:)= t_x(t,lambda,ispin)
+          hopping_matrix(ilat,ilat+1,ispin,ispin,:,:)= t_x(t,lambda,ispin)
         endif
         if(ilat>1)then
-          hopping_matrix(ilat,ilat,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
+          hopping_matrix(ilat,ilat-1,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
         endif
       enddo
     enddo
     !
     !
     do ispin=1,Nspin
-      do ilat=1,Nx
-        hopping_matrix(ilat,ilat,ispin,ispin,:,:)=hopping_matrix(ilat,ilat,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
-        hopping_matrix(ilat,ilat,ispin,ispin,:,:)=hopping_matrix(ilat,ilat,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
-        !
-        hopping_matrix(ilat,ilat,ispin,ispin,:,:)=hopping_matrix(ilat,ilat,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
-        hopping_matrix(ilat,ilat,ispin,ispin,:,:)=hopping_matrix(ilat,ilat,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
-      enddo
+      hopping_matrix(1,Nx,ispin,ispin,:,:)=hopping_matrix(1,Nx,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
+      hopping_matrix(Nx,1,ispin,ispin,:,:)=hopping_matrix(Nx,1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
+      !
+      hopping_matrix(1,Ny,ispin,ispin,:,:)=hopping_matrix(1,Ny,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
+      hopping_matrix(Ny,1,ispin,ispin,:,:)=hopping_matrix(Ny,1,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
     enddo
     !
     ! 
@@ -565,14 +336,15 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
     character(len=64)                            :: file_
     file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone
-    kgrid=kgrid/Nx 
+    kgrid(:,1)=kgrid(:,1)/Nx 
+    kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 

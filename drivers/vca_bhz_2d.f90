@@ -495,7 +495,7 @@ contains
     !
     do ispin=1,Nspin
       do ilat=1,Nx
-        do jlat=1,Nx
+        do jlat=1,Ny
           ind1=indices2N([ilat,jlat])
           t_prime(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
           if(ilat<Nx)then
@@ -506,7 +506,7 @@ contains
             ind2=indices2N([ilat-1,jlat])
             t_prime(ind1,ind2,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
           endif
-          if(jlat<Nx)then
+          if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
             t_prime(ind1,ind2,ispin,ispin,:,:)= t_y(t_var,lambda_var)
           endif
@@ -541,7 +541,7 @@ contains
     !
     do ispin=1,Nspin
       do ilat=1,Nx
-        do jlat=1,Nx
+        do jlat=1,Ny
           ind1=indices2N([ilat,jlat])
           hopping_matrix(ind1,ind1,ispin,ispin,:,:)= t_m(m)
           if(ilat<Nx)then
@@ -552,7 +552,7 @@ contains
             ind2=indices2N([ilat-1,jlat])
             hopping_matrix(ind1,ind2,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
           endif
-          if(jlat<Nx)then
+          if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
             hopping_matrix(ind1,ind2,ispin,ispin,:,:)= t_y(t,lambda)
           endif
@@ -571,7 +571,8 @@ contains
         ind2=indices2N([Nx,ilat])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
         hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
-        !
+      enddo
+      do ilat =1,Ny
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
