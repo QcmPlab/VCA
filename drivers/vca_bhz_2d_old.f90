@@ -5,7 +5,8 @@ program vca_bhz_2d
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso,Nsys,Ndim
+  integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
   integer                                         :: iloop,jloop
   integer                                         :: ix,iy,ik
@@ -56,6 +57,7 @@ program vca_bhz_2d
   !
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_cmd_variable(SAMPLING,"SAMPLING",default=100)
+  call parse_input_variable(Nkpts,"Nkpts",finput,default=[10,10],comment="Number of k-points along each direction")
   call parse_input_variable(ts,"ts",finput,default=1d0)
   call parse_input_variable(Mh,"Mh",finput,default=3d0)
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
@@ -80,6 +82,7 @@ program vca_bhz_2d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   !
+  Ndim=size(Nkpts)
   Nlat=Nx**Ndim
   Ny=Nx
   Nlso = Nlat*Norb*Nspin
@@ -323,18 +326,18 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(Nkpts**Ndim,Ndim)          :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
     character(len=64)                            :: file_
     file_ = "tlattice_matrix.dat"
     !
-    call TB_build_kgrid([Nkpts,Nkpts],kgrid)
+    call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
     if(allocated(h_k))deallocate(h_k)
-    allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim)) 
+    allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
     h_k=zero
     !
-    do ik=1,Nkpts**ndim
+    do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
@@ -712,20 +715,20 @@ contains
       gfmats_local=zero
       smats_local=zero
       !
-      allocate(kgrid_test(Nkpts**ndim,Ndim)) 
-      call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
+      allocate(kgrid_test(product(Nkpts),Ndim)) 
+      call TB_build_kgrid(Nkpts,kgrid_test)
       !
       print*,"Calculating Gloc and Sigma ",scheme," scheme"  
       !
       call start_timer
       !
-      do ik=1,Nkpts**ndim
+      do ik=1,product(Nkpts)
         call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
         do ix=1,Lmats
-          gfmats_local(:,:,:,:,ix)=gfmats_local(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
-          smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+vca_so2nn_reshape(Smats_periodized_lso(:,:,ix),Nspin,Norb)/(Nkpts**Ndim)
+          gfmats_local(:,:,:,:,ix)=gfmats_local(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(product(Nkpts))
+          smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+vca_so2nn_reshape(Smats_periodized_lso(:,:,ix),Nspin,Norb)/(product(Nkpts))
         enddo
-        call eta(ik,Nkpts**ndim)
+        call eta(ik,product(Nkpts))
       enddo
       !
       call stop_timer
@@ -787,19 +790,19 @@ contains
     if(.not.allocated(Smats_local))allocate(Smats_local(Nspin,Nspin,Norb,Norb,Lmats))
     smats_local=zero
     !
-    allocate(kgrid_test(Nkpts**ndim,Ndim)) 
-    call TB_build_kgrid([Nkpts,Nkpts],kgrid_test)
+    allocate(kgrid_test(product(Nkpts),Ndim)) 
+    call TB_build_kgrid(Nkpts,kgrid_test)
     !
     print*,"Calculating SigmaLoc sigma scheme"  
     !
     call start_timer
     !
-    do ik=1,Nkpts**ndim
+    do ik=1,product(Nkpts)
       call periodize_sigma_scheme(kgrid_test(ik,:))
       do ix=1,Lmats
-        smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(Nkpts**Ndim)
+        smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(product(Nkpts))
       enddo
-      call eta(ik,Nkpts**ndim)
+      call eta(ik,product(Nkpts))
     enddo
     !
     call stop_timer

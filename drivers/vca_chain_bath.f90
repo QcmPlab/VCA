@@ -5,7 +5,8 @@ program vca_chain1d
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso,Nsys,Ndim
+  integer,dimension(1)                            :: Nkpts
   integer                                         :: ilat,jlat
   integer                                         :: iloop
   logical                                         :: converged
@@ -45,6 +46,7 @@ program vca_chain1d
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_cmd_variable(SAMPLING,"SAMPLING",default=100)
   call parse_input_variable(ts,"ts",finput,default=1d0)
+  call parse_input_variable(Nkpts,"Nkpts",finput,default=[10],comment="Number of k-points along each direction")
   call parse_input_variable(wloop,"wloop",finput,default=.false.,comment="T: includes loop over ts")
   call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(nloop,"NLOOP",finput,default=5)
@@ -69,6 +71,7 @@ program vca_chain1d
  
   if(Norb/=1)stop "Norb != 1"
   Nlso=Nlat*Nspin*Norb
+  Ndim=size(Nkpts)
   !
   ! FIXME: 
   t_var=1.d0
@@ -198,7 +201,7 @@ contains
     character(len=64)                   :: file_
     file_ = "tlattice_matrix.dat"
     !
-    call TB_build_kgrid([Nkpts],kgrid)
+    call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nlat !!!!!DIVIDI OGNI K PER NUMERO SITI, RBZ
     !
     if(allocated(h_k))deallocate(h_k)

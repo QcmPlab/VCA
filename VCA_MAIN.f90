@@ -128,7 +128,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine vca_solve_serial(Hloc,Hk,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
-    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim]
+    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
     real(8),intent(inout),dimension(:),optional    :: bath
     !
     integer                                        :: Lk,Nsites
@@ -143,8 +143,10 @@ contains
     !
     write(LOGfile,"(A)")"SOLVING VCA"
     !
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc") 
-    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk") 
+    if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
+    if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
+    !    
+    Nktot=size(Hk(1,1,1,1,1,1,:))
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -153,6 +155,7 @@ contains
        call vca_write_bath(vca_bath,LOGfile)
        call vca_save_bath(vca_bath,used=.true.)
     endif
+    !
     !
     select case(vca_sparse_H)
       case (.true.)
@@ -166,10 +169,12 @@ contains
     !
     !GENERATE THE CLUSTER HAMILTONIAN AND THE HOPPING MATRIX FOR THE LATTICE
     !
+    allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+    impHloc=zero
+    impHk=zero
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
-    !call embed_hcluster(Hloc)
-    !call embed_hk(Hk)
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !
@@ -213,6 +218,8 @@ contains
     write(unit,*)sft_potential
     close(unit)
     !
+    deallocate(impHloc)
+    deallocate(impHk)
     if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     !
   end subroutine vca_solve_serial
@@ -222,7 +229,7 @@ contains
 
   subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
-    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim]
+    complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
     real(8),intent(inout),dimension(:),optional    :: bath
     !
     integer                                        :: Lk,Nsites
@@ -239,10 +246,11 @@ contains
     !
     MPI_MASTER = get_Master_MPI(MpiComm)
     !
-    if(MPI_MASTER)write(LOGfile,"(A)")"SOLVING VCA"
+    if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
+    if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
+    !    
+    Nktot=size(Hk(1,1,1,1,1,1,:))
     !
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb],"vca_solve","Hloc")
-    call assert_shape(Hk,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**Ndim],"vca_solve","Hk")
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -265,10 +273,13 @@ contains
     !
     !GENERATE THE CLUSTER HAMILTONIAN AND THE HOPPING MATRIX FOR THE LATTICE
     !
+    allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+    impHloc=zero
+    impHk=zero
     call vca_set_Hcluster(Hloc)
     call vca_set_Hk(Hk)
-    !call embed_hcluster(Hloc)
-    !call embed_hk(Hk)
+
     !
     !GET CLUSTER GREEN'S FUNCTION AND GROUND STATE ENERGY
     !
@@ -313,6 +324,8 @@ contains
     call es_delete_espace(state_list)
     nullify(spHtimesV_p)
     !
+    deallocate(impHloc)
+    deallocate(impHk)
     if(vca_bath%status)call vca_deallocate_bath(vca_bath)
     call vca_del_MpiComm()
     !

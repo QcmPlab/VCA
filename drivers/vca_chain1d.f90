@@ -5,7 +5,8 @@ program vca_chain1d
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso,Nsys,Ndim
+  integer,dimension(1)                            :: Nkpts
   integer                                         :: ilat,jlat
   integer                                         :: iloop
   integer                                         :: ix,iy
@@ -42,6 +43,7 @@ program vca_chain1d
   master = get_Master_MPI(comm)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
+  call parse_input_variable(Nkpts,"Nkpts",finput,default=[10],comment="Number of k-points along each direction")
   call parse_cmd_variable(SAMPLING,"SAMPLING",default=100)
   call parse_input_variable(ts,"ts",finput,default=1d0)
   call parse_input_variable(wloop,"wloop",finput,default=.false.,comment="T: includes loop over ts")
@@ -66,7 +68,8 @@ program vca_chain1d
   if(Norb/=1)stop "Norb != 1"
   if(Nspin/=1)stop "Nspin != 1"
   !
-  ! FIXME: 
+  ! FIXME:
+  Ndim=size(Nkpts) 
   t_var=1.531105953d0
   t=1.0d0
   mu=0.d0
@@ -180,7 +183,7 @@ contains
     integer                             :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(Nkpts,1)          :: kgrid
     !
-    call TB_build_kgrid([Nkpts],kgrid)
+    call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nlat !!!!!DIVIDI OGNI K PER NUMERO SITI, RBZ
     !
     if(allocated(h_k))deallocate(h_k)

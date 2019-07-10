@@ -238,7 +238,7 @@ contains
 
   subroutine set_Hk_nnn(hloc)
     complex(8),dimension(:,:,:,:,:,:,:) :: Hloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nk]
-    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim],"set_Hk_nnn","Hloc") 
+    call assert_shape(Hloc,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot],"set_Hk_nnn","Hloc") 
     !
     impHk = Hloc
     !
@@ -247,11 +247,11 @@ contains
   end subroutine set_Hk_nnn
 
   subroutine set_Hk_lso(hloc)
-    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nkpts**Ndim][Nk]
+    complex(8),dimension(:,:,:) :: Hloc ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nktot][Nk]
     integer                     :: i
-    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nkpts**ndim],"set_Hk_lso","Hloc") 
+    call assert_shape(Hloc,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nktot],"set_Hk_lso","Hloc") 
     !
-    do i=1,Nkpts**Ndim 
+    do i=1,Nktot 
         impHk(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(Hloc(:,:,i),Nlat,Nspin,Norb)
     enddo
     !
@@ -305,14 +305,14 @@ contains
 
 
    subroutine embed_hk(hk)
-     complex(8),dimension(:,:,:,:,:,:,:)                           :: Hk     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nkpts**ndim]
+     complex(8),dimension(:,:,:,:,:,:,:)                           :: Hk     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nktot]
      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)         :: tmpmat ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
      integer                                                       :: i,j,ispin,iorb,ilat,ibath,iup,ido,bid_up,bid_dw,ik
      !
      embeddedHk=zero
      tmpmat=zero
      !
-     do ik=1,Nkpts**Ndim 
+     do ik=1,Nktot 
        tmpmat=vca_nnn2lso_reshape(Hk(:,:,:,:,:,:,ik),Nlat,Nspin,Norb)
        ! 1. fill the top-left quadrant with the cluster hopping matrix
        do i=1,Nlat*Nspin*Norb

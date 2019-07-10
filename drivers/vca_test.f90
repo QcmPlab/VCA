@@ -7,7 +7,8 @@ program vca_test
   USE VCA_VARS_GLOBAL   
   !
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso,Nsys,Ndim
+  integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
   integer                                         :: iloop
   integer                                         :: ix,iy,stride,i,iorb
@@ -41,6 +42,7 @@ program vca_test
 
   call parse_cmd_variable(finput,"FINPUT",default='inputVCA.conf')
   call parse_input_variable(ts,"ts",finput,default=1d0)
+  call parse_input_variable(Nkpts,"Nkpts",finput,default=[10,10],comment="Number of k-points along each direction")
   call parse_input_variable(Rx,"Rx",finput,default=1,comment="Ratio L/Lc=Rx along X-directions, aka # of copies along X")
   call parse_input_variable(Ry,"Ry",finput,default=1,comment="Ratio L/Lc=Ry along Y-directions, aka # of copies along Y")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
@@ -54,7 +56,7 @@ program vca_test
   !
   Nx=2
   Ny=2
-  Ndim=2
+  Ndim=size(Nkpts)
   Lx   = Rx*Nx
   Ly   = Ry*Ny
   !
@@ -215,7 +217,7 @@ contains
     real(8),dimension(Nkpts**2,2)   :: kgrid
     !
     file_ = "Hk_matrix.dat"
-    call TB_build_kgrid([Nkpts,Nkpts],kgrid)
+    call TB_build_kgrid(Nkpts,kgrid)
     ! 
     kgrid=kgrid/2.d0 !!!!!DIVIDI PER NUMERO SITI, RBZ
     if(allocated(t_k))deallocate(t_k)

@@ -5,7 +5,8 @@ program vca_square_bath
   USE VCA
   !
   implicit none
-  integer                                         :: Nlso,Nsys
+  integer                                         :: Nlso,Nsys,Ndim
+  integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
   integer                                         :: iloop
   integer                                         :: ix,iy,ik
@@ -51,6 +52,7 @@ program vca_square_bath
   call parse_input_variable(ts,"ts",finput,default=1d0)
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
+  call parse_input_variable(Nkpts,"Nkpts",finput,default=[10,10],comment="Number of k-points along each direction")
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
   call parse_input_variable(scheme,"SCHEME",finput,default="g")
@@ -59,6 +61,7 @@ program vca_square_bath
   call vca_read_input(trim(finput),comm)
   !
   !
+  Ndim=size(Nkpts)
   Nlso = (Nx**Ndim)*Norb*Nspin
   Nlat=Nx**Ndim
   Ny=Nx
@@ -87,6 +90,7 @@ program vca_square_bath
     
 
   if(wloop)then
+    print_observables=.false.
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
     ts_array = linspace(0.05d0,0.7d0,Nloop)
@@ -224,18 +228,18 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(Nkpts**Ndim,Ndim)          :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
     character(len=64)                            :: file_
     file_ = "tlattice_matrix.dat"
     !
-    call TB_build_kgrid([Nkpts,Nkpts],kgrid)
+    call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
     if(allocated(h_k))deallocate(h_k)
-    allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts**ndim)) 
+    allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
     h_k=zero
     !
-    do ik=1,Nkpts**ndim
+    do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
