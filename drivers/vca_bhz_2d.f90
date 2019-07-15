@@ -701,22 +701,28 @@ contains
     endif
     allocate(colors(Nlat*Nspin*Norb))
     colors = gray99
-    colors(1) = red1
-    colors(5) = red1
-    colors(9) = red1
-    colors(13) = red1
-    colors(2) = blue1
-    colors(6) = blue1
-    colors(10) = blue1
-    colors(14) = blue1
-    colors(3) = red1
-    colors(7) = red1
-    colors(11) = red1
-    colors(15) = red1
-    colors(4) = blue1
-    colors(8) = blue1
-    colors(12) = blue1
-    colors(16) = blue1
+    !colors(1) = red1
+    !colors(5) = red1
+    !colors(9) = red1
+    !colors(13) = red1
+    !colors(2) = blue1
+    !colors(6) = blue1
+    !colors(10) = blue1
+    !colors(14) = blue1
+    !colors(3) = red1
+    !colors(7) = red1
+    !colors(11) = red1
+    !colors(15) = red1
+    !colors(4) = blue1
+    !colors(8) = blue1
+    !colors(12) = blue1
+    !colors(16) = blue1
+    do i=0,Nlat-1
+      colors(1+i*Nspin*Norb) = red1
+      colors(2+i*Nspin*Norb) = blue1
+      colors(3+i*Nspin*Norb) = red1
+      colors(4+i*Nspin*Norb) = blue1
+    enddo
    !
    file="Eig_Htop_clusterbase.nint"
    if(master) call TB_Solve_model(hk_bhz_clusterbase,Nlat*Nspin*Norb,kpath,Nkpath,&   

@@ -155,7 +155,7 @@ program vca_bhz_2d
     allocate(ts_array_x(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
-    ts_array_x = linspace(0.01d0,0.1d0,Nloop)
+    ts_array_x = linspace(0.01d0,1d0,Nloop)
     do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,0.d0,ts_array_x(iloop)])
     enddo
@@ -178,31 +178,31 @@ program vca_bhz_2d
     !call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
   else
     print_observables=.true.
-    omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
+    !omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
     !print*,"calculate gradient"
     !call fdjac_1n_func(solve_vca_multi,[ts_var,Mh_Var,lambdauser_var],df)
     !print*,"gradient is", df
     !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts_var,Mh_Var,lambdauser_var
+    !write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts_var,Mh_Var,lambdauser_var
     !
-    allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    !allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
     !SET OBSERVABLE MATRIX: AS AN EXAMPLE, THE TWO ORBITAL OCCUPATIONS
     !
-    observable_matrix=zero
-    do iii=1,Nlat
-          observable_matrix(iii,iii,1,1,1,1)=1.d0
-          observable_matrix(iii,iii,2,2,1,1)=1.d0
-    enddo
-    call observables_lattice(observable_matrix,observable_dummy)
-    print*,"User-requested observable with value store is ",observable_dummy
+    !observable_matrix=zero
+    !do iii=1,Nlat
+    !      observable_matrix(iii,iii,1,1,1,1)=1.d0
+    !      observable_matrix(iii,iii,2,2,1,1)=1.d0
+    !enddo
+    !call observables_lattice(observable_matrix,observable_dummy)
+    !print*,"User-requested observable with value store is ",observable_dummy
     !
-    observable_matrix=zero
-    do iii=1,Nlat
-          observable_matrix(iii,iii,1,1,2,2)=1.d0
-          observable_matrix(iii,iii,2,2,2,2)=1.d0
-    enddo
-    call observables_lattice(observable_matrix)
+    !observable_matrix=zero
+    !do iii=1,Nlat
+    !      observable_matrix(iii,iii,1,1,2,2)=1.d0
+    !      observable_matrix(iii,iii,2,2,2,2)=1.d0
+    !enddo
+    !call observables_lattice(observable_matrix)
   endif
   !
   !PRINT LOCAL GF AND SIGMA
@@ -381,13 +381,13 @@ contains
     !
     !
     do ispin=1,Nspin
-      do ilat=1,Nx
+      do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
         hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
       enddo
-      do ilat =1,Ny
+      do ilat =1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
@@ -516,10 +516,13 @@ contains
     endif
     allocate(colors(Nlat*Nspin*Norb))
     colors = gray99
-    colors(1) = red1
-    colors(2) = blue1
-    colors(3) = red1
-    colors(4) = blue1
+    !
+    do i=0,Nlat-1
+      colors(1+i*Nspin*Norb) = red1
+      colors(2+i*Nspin*Norb) = blue1
+      colors(3+i*Nspin*Norb) = red1
+      colors(4+i*Nspin*Norb) = blue1
+    enddo
    !
    file="Eig_Htop_clusterbase.nint"
    if(master) call TB_Solve_model(hk_bhz_clusterbase,Nlat*Nspin*Norb,kpath,Nkpath,&   
