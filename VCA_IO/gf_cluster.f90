@@ -9,15 +9,9 @@
     integer                                                             :: ichan,Nchannel,istate,Nstates
     integer                                                             :: i,is,js
     complex(8)                                                          :: weight,de
-    real(8)                                                             :: chan4
     !
     if(.not.allocated(impGmatrix))stop "vca_gf_cluster ERROR: impGmatrix not allocated!"
     !
-    if(vca_gf_symmetric)then
-      chan4=0.d0
-    else
-      chan4=1.d0
-    endif
     gf = zero
     !
     do ilat=1,Nlat
@@ -54,7 +48,7 @@
              do jlat=1,Nlat
                 if(ilat==jlat .and. iorb==jorb)cycle
                 gf(ilat,jlat,ispin,ispin,iorb,jorb) = 0.5d0*(gf(ilat,jlat,ispin,ispin,iorb,jorb) &
-                     - (one-chan4*xi)*gf(ilat,ilat,ispin,ispin,iorb,iorb) - (one-chan4*xi)*gf(jlat,jlat,ispin,ispin,jorb,jorb))  
+                     - gf(ilat,ilat,ispin,ispin,iorb,iorb) - gf(jlat,jlat,ispin,ispin,jorb,jorb))  
              enddo
            enddo
          enddo

@@ -46,8 +46,8 @@ MODULE VCA_VARS_GLOBAL
   !note that we use a single Qmatrix here which must be intended as
   !component corresponding to the poles. 
   type GFspectrum
-     complex(8),dimension(:),allocatable :: weight
-     complex(8),dimension(:),allocatable :: poles
+     real(8),dimension(:),allocatable :: weight
+     real(8),dimension(:),allocatable :: poles
   end type GFspectrum
   type GFchannel
      type(GFspectrum),dimension(:),allocatable :: channel !N_channel = 2 (c,cdag), 4 (c,cdag,c pm cdag)
@@ -68,11 +68,11 @@ MODULE VCA_VARS_GLOBAL
   !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
   !dbleMat*dbleVec
   abstract interface
-     subroutine cc_sparse_HxV(Nloc,v,Hv)
+     subroutine dd_sparse_HxV(Nloc,v,Hv)
        integer                    :: Nloc
-       complex(8),dimension(Nloc) :: v
-       complex(8),dimension(Nloc) :: Hv
-     end subroutine cc_sparse_HxV
+       real(8),dimension(Nloc) :: v
+       real(8),dimension(Nloc) :: Hv
+     end subroutine dd_sparse_HxV
   end interface
 
 
@@ -125,7 +125,7 @@ MODULE VCA_VARS_GLOBAL
   type(sparse_matrix_csr)                            :: spH0d !diagonal part
   type(sparse_matrix_csr)                            :: spH0nd !non-diagonal part
   type(sparse_matrix_csr),dimension(:),allocatable   :: spH0ups,spH0dws !reduced UP and DW parts
-  procedure(cc_sparse_HxV),pointer                   :: spHtimesV_p=>null()
+  procedure(dd_sparse_HxV),pointer                   :: spHtimesV_p=>null()
 
 
 

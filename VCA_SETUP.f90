@@ -539,8 +539,8 @@ contains
   !! Scatter V into the arrays Vloc on each thread: sum_threads(size(Vloc)) must be equal to size(v)
   subroutine scatter_vector_MPI(MpiComm,v,vloc)
     integer                          :: MpiComm
-    complex(8),dimension(:)          :: v    !size[N]
-    complex(8),dimension(:)          :: vloc !size[Nloc]
+    real(8),dimension(:)          :: v    !size[N]
+    real(8),dimension(:)          :: vloc !size[Nloc]
     integer                          :: i,irank,Nloc,N
     integer,dimension(:),allocatable :: Counts,Offset
     integer                          :: MpiSize,MpiIerr
@@ -569,7 +569,7 @@ contains
     enddo
     !
     Vloc=0
-    call MPI_Scatterv(V,Counts,Offset,MPI_DOUBLE_COMPLEX,Vloc,Nloc,MPI_DOUBLE_COMPLEX,0,MpiComm,MpiIerr)
+    call MPI_Scatterv(V,Counts,Offset,MPI_DOUBLE_PRECISION,Vloc,Nloc,MPI_DOUBLE_PRECISION,0,MpiComm,MpiIerr)
     !
     return
   end subroutine scatter_vector_MPI
@@ -577,8 +577,8 @@ contains
 
   subroutine scatter_basis_MPI(MpiComm,v,vloc)
     integer                   :: MpiComm
-    complex(8),dimension(:,:) :: v    !size[N,N]
-    complex(8),dimension(:,:) :: vloc !size[Nloc,Neigen]
+    real(8),dimension(:,:) :: v    !size[N,N]
+    real(8),dimension(:,:) :: vloc !size[Nloc,Neigen]
     integer                   :: N,Nloc,Neigen,i
     N      = size(v,1)
     Nloc   = size(vloc,1)
@@ -595,8 +595,8 @@ contains
   !! AllGather Vloc on each thread into the array V: sum_threads(size(Vloc)) must be equal to size(v)
   subroutine gather_vector_MPI(MpiComm,vloc,v)
     integer                          :: MpiComm
-    complex(8),dimension(:)          :: vloc !size[Nloc]
-    complex(8),dimension(:)          :: v    !size[N]
+    real(8),dimension(:)          :: vloc !size[Nloc]
+    real(8),dimension(:)          :: v    !size[N]
     integer                          :: i,irank,Nloc,N
     integer,dimension(:),allocatable :: Counts,Offset
     integer                          :: MpiSize,MpiIerr
@@ -624,7 +624,7 @@ contains
        Offset(i) = Offset(i-1) + Counts(i-1)
     enddo
     !
-    call MPI_Gatherv(Vloc,Nloc,MPI_DOUBLE_COMPLEX,V,Counts,Offset,MPI_DOUBLE_COMPLEX,0,MpiComm,MpiIerr)
+    call MPI_Gatherv(Vloc,Nloc,MPI_DOUBLE_PRECISION,V,Counts,Offset,MPI_DOUBLE_PRECISION,0,MpiComm,MpiIerr)
     !
     return
   end subroutine gather_vector_MPI
@@ -633,8 +633,8 @@ contains
   !! AllGather Vloc on each thread into the array V: sum_threads(size(Vloc)) must be equal to size(v)
   subroutine allgather_vector_MPI(MpiComm,vloc,v)
     integer                          :: MpiComm
-    complex(8),dimension(:)          :: vloc !size[Nloc]
-    complex(8),dimension(:)          :: v    !size[N]
+    real(8),dimension(:)          :: vloc !size[Nloc]
+    real(8),dimension(:)          :: v    !size[N]
     integer                          :: i,irank,Nloc,N
     integer,dimension(:),allocatable :: Counts,Offset
     integer                          :: MpiSize,MpiIerr
@@ -662,7 +662,7 @@ contains
        Offset(i) = Offset(i-1) + Counts(i-1)
     enddo
     !
-    call MPI_AllGatherv(Vloc,Nloc,MPI_DOUBLE_COMPLEX,V,Counts,Offset,MPI_DOUBLE_COMPLEX,MpiComm,MpiIerr)
+    call MPI_AllGatherv(Vloc,Nloc,MPI_DOUBLE_PRECISION,V,Counts,Offset,MPI_DOUBLE_PRECISION,MpiComm,MpiIerr)
     !
     return
   end subroutine Allgather_vector_MPI

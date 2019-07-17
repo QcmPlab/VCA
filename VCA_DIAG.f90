@@ -32,7 +32,7 @@ contains
   !+-------------------------------------------------------------------+
   subroutine diagonalize_cluster
     call vca_pre_diag
-    call vca_diag_c
+    call vca_diag_d
     !call vca_post_diag(.true.)
   end subroutine diagonalize_cluster
 
@@ -46,7 +46,7 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : diagonalize the Hamiltonian in each sector 
   !+------------------------------------------------------------------+
-  subroutine vca_diag_c
+  subroutine vca_diag_d
     integer                     :: nup,ndw,isector,dim
     integer                     :: DimUps(Ns_Ud),DimUp
     integer                     :: DimDws(Ns_Ud),DimDw
@@ -58,7 +58,7 @@ contains
     integer                     :: iter_spectrum
     real(8)                     :: oldzero,enemin,Ei,neigen_sector_error
     real(8),allocatable         :: eig_values(:)
-    complex(8),allocatable      :: eig_basis(:,:),eig_basis_tmp(:,:)
+    real(8),allocatable      :: eig_basis(:,:),eig_basis_tmp(:,:)
     logical                     :: lanc_solve,Tflag,lanc_verbose,bool,converged_spectrum
     !
     if(state_list%status)call es_delete_espace(state_list)
@@ -242,7 +242,7 @@ contains
     !
     close(unit)
     !
-  end subroutine vca_diag_c
+  end subroutine vca_diag_d
 
  !###################################################################################################
   !

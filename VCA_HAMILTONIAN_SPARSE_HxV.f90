@@ -32,7 +32,7 @@ MODULE VCA_HAMILTONIAN_SPARSE_HxV
   integer                                :: kp,k1,k2,k3,k4
   integer                                :: ialfa,ibeta,indx
   real(8)                                :: sg1,sg2,sg3,sg4
-  complex(8)                             :: htmp,htmpup,htmpdw
+  real(8)                             :: htmp,htmpup,htmpdw
   logical                                :: Jcondition
   integer                                :: Nfoo,Nfoo2
   real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
@@ -47,8 +47,8 @@ contains
   !####################################################################
   subroutine vca_buildh_main(isector,Hmat)
     integer                               :: isector
-    complex(8),dimension(:,:),optional    :: Hmat
-    complex(8),dimension(:,:),allocatable :: Htmp_up,Htmp_dw,Hrdx
+    real(8),dimension(:,:),optional    :: Hmat
+    real(8),dimension(:,:),allocatable :: Htmp_up,Htmp_dw,Hrdx
     integer,dimension(Ns)                 :: ibup,ibdw
     integer,dimension(2*Ns_Ud)            :: Indices    ![2-2*Norb] 
     integer,dimension(Ns_Ud,Ns_Orb)       :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath] 
@@ -116,8 +116,8 @@ contains
 #endif
        call sp_dump_matrix(spH0ups(1),Htmp_up)
        call sp_dump_matrix(spH0dws(1),Htmp_dw)
-       Hmat = Hmat + kronecker_product(Htmp_dw,one*eye(DimUp)) ! kron(Htmp_dw,eye(DimUp))
-       Hmat = Hmat + kronecker_product(one*eye(DimDw),Htmp_up) ! kron(eye(DimDw),Htmp_up)
+       Hmat = Hmat + kronecker_product(Htmp_dw,eye(DimUp)) ! kron(Htmp_dw,eye(DimUp))
+       Hmat = Hmat + kronecker_product(eye(DimDw),Htmp_up) ! kron(eye(DimDw),Htmp_up)
        !
        deallocate(Htmp_up,Htmp_dw)
     endif
@@ -151,9 +151,9 @@ contains
   !+------------------------------------------------------------------+
   subroutine spMatVec_main(Nloc,v,Hv)
     integer                         :: Nloc
-    complex(8),dimension(Nloc)      :: v
-    complex(8),dimension(Nloc)      :: Hv
-    complex(8)                      :: val
+    real(8),dimension(Nloc)      :: v
+    real(8),dimension(Nloc)      :: Hv
+    real(8)                      :: val
     integer                         :: i,iup,idw,j,jup,jdw,jj
     !
     !
@@ -214,12 +214,12 @@ contains
 #ifdef _MPI
   subroutine spMatVec_mpi_main(Nloc,v,Hv)
     integer                             :: Nloc
-    complex(8),dimension(Nloc)          :: v
-    complex(8),dimension(Nloc)          :: Hv
+    real(8),dimension(Nloc)          :: v
+    real(8),dimension(Nloc)          :: Hv
     !
     integer                             :: N
-    complex(8),dimension(:),allocatable :: vt,Hvt
-    complex(8)                          :: val
+    real(8),dimension(:),allocatable :: vt,Hvt
+    real(8)                          :: val
     integer                             :: i,iup,idw,j,jup,jdw,jj
     !local MPI
     integer                             :: irank

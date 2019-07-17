@@ -17,7 +17,7 @@ MODULE VCA_HAMILTONIAN_DIRECT_HxV
   integer                              :: kp,k1,k2,k3,k4
   integer                              :: ialfa,ibeta
   real(8)                              :: sg1,sg2,sg3,sg4
-  complex(8)                           :: htmp,htmpup,htmpdw
+  real(8)                           :: htmp,htmpup,htmpdw
   logical                              :: Jcondition
   integer                              :: Nfoo,Nfoo2
   real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
@@ -42,9 +42,9 @@ contains
 
   subroutine directMatVec_main(Nloc,vin,Hv)
     integer                             :: Nloc
-    complex(8),dimension(Nloc)          :: vin
-    complex(8),dimension(Nloc)          :: Hv
-    complex(8),dimension(:),allocatable :: vt,Hvt
+    real(8),dimension(Nloc)          :: vin
+    real(8),dimension(Nloc)          :: Hv
+    real(8),dimension(:),allocatable :: vt,Hvt
     integer,dimension(Ns)               :: ibup,ibdw
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
     integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath] 
@@ -81,9 +81,9 @@ contains
 #ifdef _MPI
   subroutine directMatVec_MPI_main(Nloc,vin,Hv)
     integer                             :: Nloc
-    complex(8),dimension(Nloc)          :: Vin
-    complex(8),dimension(Nloc)          :: Hv
-    complex(8),dimension(:),allocatable :: vt,Hvt
+    real(8),dimension(Nloc)          :: Vin
+    real(8),dimension(Nloc)          :: Hv
+    real(8),dimension(:),allocatable :: vt,Hvt
     integer,dimension(Ns)               :: ibup,ibdw
     integer,dimension(2*Ns_Ud)          :: Indices,Jndices ![2-2*Norb]
     integer,dimension(Ns_Ud,Ns_Orb)     :: Nups,Ndws       ![1,Ns]-[Norb,1+Nbath]

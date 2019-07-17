@@ -7,7 +7,7 @@ module VCA_EIGENSPACE
   type sparse_estate
      integer                         :: sector        !index of the sector
      real(8)                         :: e             !energy of the eigen-state
-     complex(8),dimension(:),pointer :: cvec=>null()  !double precision eigen-vector
+     real(8),dimension(:),pointer :: cvec=>null()  !double precision eigen-vector
      logical                         :: itwin=.false. !twin sector label
      type(sparse_estate),pointer     :: twin=>null()  !link to twin box 
      type(sparse_estate),pointer     :: next=>null()  !link to next box (chain)
@@ -134,7 +134,7 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_add_state_c(espace,e,cvec,sector,twin,size,verbose)
     type(sparse_espace),intent(inout)    :: espace
     real(8),intent(in)                   :: e
-    complex(8),dimension(:),intent(in)   :: cvec
+    real(8),dimension(:),intent(in)     :: cvec
     integer,intent(in)                   :: sector
     integer,intent(in),optional          :: size
     logical,intent(in),optional          :: verbose
@@ -165,7 +165,7 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_insert_state_c(space,e,vec,sector,twin)
     type(sparse_espace),intent(inout)    :: space
     real(8),intent(in)                   :: e
-    complex(8),dimension(:),intent(in)   :: vec
+    real(8),dimension(:),intent(in)   :: vec
     integer,intent(in)                   :: sector
     logical                              :: twin
     type(sparse_estate),pointer          :: p,c
@@ -410,7 +410,7 @@ contains        !some routine to perform simple operation on the lists
   function es_return_cvector_default(space,n) result(vector)
     type(sparse_espace),intent(in)   :: space
     integer,optional,intent(in)      :: n
-    complex(8),dimension(:),pointer  :: vector
+    real(8),dimension(:),pointer  :: vector
     type(sparse_estate),pointer      :: c
     integer                          :: i,pos
     integer                          :: dim
@@ -446,8 +446,8 @@ contains        !some routine to perform simple operation on the lists
     integer                          :: MpiComm
     type(sparse_espace),intent(in)   :: space
     integer,optional,intent(in)      :: n
-    complex(8),dimension(:),pointer  :: vtmp
-    complex(8),dimension(:),pointer  :: vector
+    real(8),dimension(:),pointer  :: vtmp
+    real(8),dimension(:),pointer  :: vector
     type(sparse_estate),pointer      :: c
     integer                          :: i,pos,Nloc,Ndims
     integer                          :: dim,ierr

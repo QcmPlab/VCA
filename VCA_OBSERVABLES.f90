@@ -49,7 +49,7 @@ MODULE VCA_OBSERVABLES
   integer                                                  :: idim,idimUP,idimDW
   complex(8),allocatable,dimension(:,:,:,:,:,:)            :: sij
   !
-  complex(8),dimension(:),pointer                          :: state_cvec
+  real(8),dimension(:),pointer                          :: state_cvec
   logical                                                  :: Jcondition
 
 
@@ -109,7 +109,7 @@ contains
     real(8)                             :: peso
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer     :: state_cvec
+    real(8),dimension(:),pointer     :: state_cvec
     type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:

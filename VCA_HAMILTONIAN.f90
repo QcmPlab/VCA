@@ -37,7 +37,7 @@ contains
   !####################################################################
   subroutine build_Hv_sector(isector,Hmat)
     integer                            :: isector,SectorDim
-    complex(8),dimension(:,:),optional :: Hmat   
+    real(8),dimension(:,:),optional :: Hmat   
     integer                            :: irank,ierr
     integer                            :: i,iup,idw
     integer                            :: j,jup,jdw

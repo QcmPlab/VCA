@@ -18,7 +18,7 @@ MODULE VCA_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY COMPLX ELEMENT: (HERMITIAN
 
   type sparse_row_csr
      integer                                   :: size !actual 
-     complex(8),dimension(:),allocatable          :: vals
+     real(8),dimension(:),allocatable          :: vals
      integer,dimension(:),allocatable          :: cols
   end type sparse_row_csr
 
@@ -235,7 +235,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine sp_insert_element_csr(sparse,value,i,j)
     type(sparse_matrix_csr),intent(inout) :: sparse
-    complex(8),intent(in)                    :: value
+    real(8),intent(in)                    :: value
     integer,intent(in)                    :: i,j
     !
     type(sparse_row_csr),pointer          :: row
@@ -271,7 +271,7 @@ contains
   subroutine mpi_sp_insert_element_csr(MpiComm,sparse,value,i,j)
     integer                               :: MpiComm
     type(sparse_matrix_csr),intent(inout) :: sparse
-    complex(8),intent(in)                    :: value
+    real(8),intent(in)                    :: value
     integer,intent(in)                    :: i,j
     type(sparse_row_csr),pointer          :: row
     integer                               :: column,pos
@@ -311,7 +311,7 @@ contains
   !PURPOSE: load a regular matrix (2dim array) into a sparse matrix
   !+------------------------------------------------------------------+
   subroutine sp_load_matrix_csr(matrix,sparse)
-    complex(8),dimension(:,:),intent(in) :: matrix
+    real(8),dimension(:,:),intent(in) :: matrix
     type(sparse_matrix_csr),intent(inout) :: sparse    
     integer                           :: i,j,Ndim1,Ndim2
     !
@@ -331,7 +331,7 @@ contains
 #ifdef _MPI
   subroutine mpi_sp_load_matrix_csr(MpiComm,matrix,sparse)
     integer                               :: MpiComm
-    complex(8),dimension(:,:),intent(in)     :: matrix
+    real(8),dimension(:,:),intent(in)     :: matrix
     type(sparse_matrix_csr),intent(inout) :: sparse    
     integer                               :: i,j,Ndim1,Ndim2
     !
@@ -361,7 +361,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine sp_dump_matrix_csr(sparse,matrix)
     type(sparse_matrix_csr),intent(in)      :: sparse
-    complex(8),dimension(:,:),intent(inout) :: matrix
+    real(8),dimension(:,:),intent(inout) :: matrix
     integer                                 :: i,j,Ndim1,Ndim2
     !
     Ndim1=size(matrix,1)
@@ -382,8 +382,8 @@ contains
   subroutine mpi_sp_dump_matrix_csr(MpiComm,sparse,matrix)
     integer                                 :: MpiComm
     type(sparse_matrix_csr),intent(in)      :: sparse
-    complex(8),dimension(:,:),intent(inout) :: matrix
-    complex(8),dimension(:,:),allocatable   :: matrix_tmp
+    real(8),dimension(:,:),intent(inout) :: matrix
+    real(8),dimension(:,:),allocatable   :: matrix_tmp
     integer                                 :: i,impi,j,N1_,N2_,Ndim1,Ndim2,Nrow,Ncol
     !
     if(MpiComm==Mpi_Comm_Null)return
