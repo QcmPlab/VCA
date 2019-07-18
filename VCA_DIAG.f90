@@ -95,9 +95,16 @@ contains
           !
           Dim      = getdim(isector)
           !
-          Neigen   = min(dim,neigen_sector(isector))
-          Nitermax = min(dim,lanc_niter)
-          Nblock   = min(dim,lanc_ncv_factor*max(Neigen,lanc_nstates_sector) + lanc_ncv_add)
+          select case (lanc_method)
+          case default       !use P-ARPACK
+            Neigen   = min(dim,neigen_sector(isector))
+            Nitermax = min(dim,lanc_niter)
+            Nblock   = min(dim,lanc_ncv_factor*max(Neigen,lanc_nstates_sector) + lanc_ncv_add)
+          case ("lanczos")
+            Neigen   = 1
+            Nitermax = min(dim,lanc_niter)
+            Nblock   = 1
+          end select
           !
           lanc_solve  = .true.
           if(Neigen==dim)lanc_solve=.false.
@@ -106,7 +113,7 @@ contains
           if(MPIMASTER)then
           call get_DimUp(isector,DimUps) ; DimUp = product(DimUps)
           call get_DimDw(isector,DimDws) ; DimDw = product(DimDws)
-          if(verbose==3)then
+          if(verbose>=3)then
              if(lanc_solve)then
                 write(LOGfile,"(1X,I4,A,I4,A6,"&
                      //str(Ns_Ud)//"I3,A6,"&
@@ -139,29 +146,46 @@ contains
              allocate(eig_basis(vecDim,Neigen))
              eig_basis=zero
              !
+             select case (lanc_method)
+             case default       !use P-ARPACK
 #ifdef _MPI
-             if(MpiStatus)then
-                call sp_eigh(MpiComm,spHtimesV_p,eig_values,eig_basis,&
+                if(MpiStatus)then
+                  call sp_eigh(MpiComm,spHtimesV_p,eig_values,eig_basis,&
                      Nblock,&
                      Nitermax,&
                      tol=lanc_tolerance,&
                      iverbose=(verbose>3))
-             else
-                call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
+                else
+                  call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
                      Nblock,&
                      Nitermax,&
                      tol=lanc_tolerance,&
                      iverbose=(verbose>3))
-             endif
+                endif
 #else
-                call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
-                  Nblock,&
-                  Nitermax,&
-                  tol=lanc_tolerance,&
-                  iverbose=(verbose>=3))
+                  call sp_eigh(spHtimesV_p,eig_values,eig_basis,&
+                    Nblock,&
+                    Nitermax,&
+                    tol=lanc_tolerance,&
+                    iverbose=(verbose>=3))
 #endif
-             if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
-             call delete_Hv_sector()
+            case ("lanczos")   !use Simple Lanczos
+#ifdef _MPI
+              if(MpiStatus)then
+                call sp_lanc_eigh(MpiComm,spHtimesV_p,eig_values(1),eig_basis(:,1),Nitermax,&
+                     iverbose=(verbose>3),threshold=lanc_tolerance)
+              else
+                call sp_lanc_eigh(spHtimesV_p,eig_values(1),eig_basis(:,1),Nitermax,&
+                     iverbose=(verbose>3),threshold=lanc_tolerance)
+              endif
+#else
+              call sp_lanc_eigh(spHtimesV_p,eig_values(1),eig_basis(:,1),Nitermax,&
+                  iverbose=(verbose>3),threshold=lanc_tolerance)
+#endif
+            end select
+             ! 
+              if(MpiMaster.AND.verbose>3)write(LOGfile,*)""
+              call delete_Hv_sector()
           else
              allocate(eig_values(Dim)) ; eig_values=0d0
              !

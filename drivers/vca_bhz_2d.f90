@@ -566,13 +566,13 @@ contains
     !
     !
     do ispin=1,Nspin
-      do ilat=1,Nx
+      do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
         hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
       enddo
-      do ilat =1,Ny
+      do ilat =1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
         hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)

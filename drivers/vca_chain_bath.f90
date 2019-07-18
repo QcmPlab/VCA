@@ -69,7 +69,6 @@ program vca_chain1d
   allocate(Bath(Nb))
   call vca_init_solver(comm,bath)
  
-  if(Norb/=1)stop "Norb != 1"
   Nlso=Nlat*Nspin*Norb
   Ndim=size(Nkpts)
   !
@@ -78,6 +77,7 @@ program vca_chain1d
   t=1.0d0
   mu=0.d0
   mu_var=0.d0
+  print_observables=.false.
 
   if(.not.allocated(wm))allocate(wm(Lmats))
   if(.not.allocated(wr))allocate(wr(Lreal))
@@ -162,10 +162,10 @@ contains
 
 
 
-  subroutine generate_tcluster()
-    integer                          :: ii,ispin,iorb,i,j,jj
+   subroutine generate_tcluster()
+    integer                          :: ii,ispin,iorb,i,j
     character(len=64)                :: file_
-    real(8),dimension(Nlso,Nlso)     :: H0
+    complex(8),dimension(Nlso,Nlso)  :: H0
     integer                          :: unit
     file_ = "tcluster_matrix.dat"
     !
@@ -173,20 +173,22 @@ contains
     allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     t_prime=zero
     !
-    do ispin=1,Nspin
     do ii=1,Nlat
-          t_prime(ii,ii,ispin,ispin,1,1)= -mu_var
+      do ispin=1,Nspin
+        do iorb=1,Norb
+          t_prime(ii,ii,1,1,iorb,iorb)= -mu_var
           !
-          if(ii>1)t_prime(ii,ii-1,ispin,ispin,1,1)= -t_var
-          if(ii<Nlat)t_prime(ii,ii+1,ispin,ispin,1,1)= -t_var
+          if(ii>1)t_prime(ii,ii-1,ispin,ispin,iorb,iorb)= -t_var
+          if(ii<Nlat)t_prime(ii,ii+1,ispin,ispin,iorb,iorb)= -t_var
+        enddo
       enddo
     enddo
     !
     H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
     !
     open(free_unit(unit),file=trim(file_))
-    do ii=1,Nlso
-       write(unit,"(5000(F5.2,1x))")(H0(ii,jj),jj=1,Nlso)
+    do i=1,Nlat*Norb*Nspin
+       write(unit,"(5000(F5.2,1x))")(real(H0(i,j)),j=1,Nlat*Norb)
     enddo
     close(unit)
   end subroutine generate_tcluster
@@ -195,11 +197,8 @@ contains
 
 
   subroutine generate_hk()
-    integer                             :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(Nkpts,1)          :: kgrid
-    real(8),dimension(Nlso,Nlso)        :: H0
-    character(len=64)                   :: file_
-    file_ = "tlattice_matrix.dat"
+    integer                                      :: ik,ii,ispin,iorb,unit,jj
+    real(8),dimension(product(Nkpts),1)          :: kgrid
     !
     call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nlat !!!!!DIVIDI OGNI K PER NUMERO SITI, RBZ
@@ -213,13 +212,7 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,1))
         !
     enddo
-    H0=vca_nnn2lso_reshape(tk([0.3d0,0.6d0]),Nlat,Nspin,Norb)
-    !
-    open(free_unit(unit),file=trim(file_))
-    do ii=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(H0(ii,jj),jj=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)    
+    !    
   end subroutine generate_hk
 
 
@@ -228,17 +221,22 @@ contains
     real(8),dimension(Ndim),intent(in)                                    :: kpoint
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                 :: hopping_matrix
     !
-    hopping_matrix=zero
     do ispin=1,Nspin
-      do ilat=1,Nlat
-          hopping_matrix(ilat,ilat,ispin,ispin,1,1)= -mu
+      do iorb=1,Norb
+        do ilat=1,Nlat
+          hopping_matrix(ilat,ilat,1,1,iorb,iorb)= -mu
           !
-          if(ilat>1)hopping_matrix(ilat,ilat-1,ispin,ispin,1,1)= -t
-          if(ilat<Nlat)hopping_matrix(ilat,ilat+1,ispin,ispin,1,1)= -t
+          if(ilat>1)hopping_matrix(ilat,ilat-1,ispin,ispin,iorb,iorb)= -t
+          if(ilat<Nlat)hopping_matrix(ilat,ilat+1,ispin,ispin,iorb,iorb)= -t
+        enddo
       enddo
+    enddo
       !
-      hopping_matrix(1,Nlat,ispin,ispin,1,1)=hopping_matrix(1,Nlat,ispin,ispin,1,1)-t*exp(xi*kpoint(1)*Nlat)
-      hopping_matrix(Nlat,1,ispin,ispin,1,1)=hopping_matrix(Nlat,1,ispin,ispin,1,1)-t*exp(-xi*kpoint(1)*Nlat)
+    do ispin=1,Nspin
+      do iorb=1,Norb  
+        hopping_matrix(1,Nlat,ispin,ispin,iorb,iorb)=hopping_matrix(1,Nlat,ispin,ispin,iorb,iorb)-t*exp(xi*kpoint(1)*Nlat)
+        hopping_matrix(Nlat,1,ispin,ispin,iorb,iorb)=hopping_matrix(Nlat,1,ispin,ispin,iorb,iorb)-t*exp(-xi*kpoint(1)*Nlat)
+      enddo
     enddo
     ! 
   end function tk

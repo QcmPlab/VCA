@@ -460,8 +460,8 @@ contains
   end function c_nnn2nlso_scalar
 
   function d_nso2nn(Hso,Nspin,Norb) result(Hnn)
-    real(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     integer                                  :: Nspin,Norb
+    real(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     integer                                  :: iorb,ispin,is
     integer                                  :: jorb,jspin,js
@@ -479,8 +479,8 @@ contains
     enddo
   end function d_nso2nn
   function c_nso2nn(Hso,Nspin,Norb) result(Hnn)
-    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     integer                                     :: iorb,ispin,is
     integer                                     :: jorb,jspin,js
@@ -499,8 +499,8 @@ contains
   end function c_nso2nn
 
  function d_nn2nso(Hnn,Nspin,Norb) result(Hso)
-    real(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     integer                                  :: Nspin,Norb
+    real(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     real(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     integer                                  :: iorb,ispin,is
     integer                                  :: jorb,jspin,js
@@ -519,8 +519,8 @@ contains
   end function d_nn2nso
 
   function c_nn2nso(Hnn,Nspin,Norb) result(Hso)
-    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
     integer                                     :: iorb,ispin,is
     integer                                     :: jorb,jspin,js

@@ -305,19 +305,21 @@ contains
       !
       !CALCULATE OBSERAVABLE:
       !
-      do ilat=1,Nlat
-         do iorb=1,Norb
-            sij=zero
-            sij(ilat,ilat,1,1,iorb,iorb)=1.d0
-            nup(ilat,iorb)= calculate_observable_integral()
-            !
-            sij=zero
-            sij(ilat,ilat,2,2,iorb,iorb)=1.d0
-            ndw(ilat,iorb)= calculate_observable_integral()
-            !
-            sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-            nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
-         enddo
+      do ispin=2,Nspin
+        do ilat=1,Nlat
+           do iorb=1,Norb
+              sij=zero
+              sij(ilat,ilat,1,1,iorb,iorb)=1.d0
+              nup(ilat,iorb)= calculate_observable_integral()
+              !
+              sij=zero
+              sij(ilat,ilat,Nspin,Nspin,iorb,iorb)=1.d0
+              ndw(ilat,iorb)= calculate_observable_integral()
+              !
+              sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
+              nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
+           enddo
+        enddo
       enddo
       !
       !Get operators:

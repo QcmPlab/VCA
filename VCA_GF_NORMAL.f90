@@ -1063,7 +1063,7 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)
+                   impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)    
                    impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0real(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
                 enddo
              enddo
@@ -1084,6 +1084,11 @@ contains
        impG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
     enddo
     !
+    deallocate(invG0mats)
+    deallocate(invG0real)
+    deallocate(invGmats)
+    deallocate(invGreal)
+    deallocate(invTmpMat_lso)
     !
   end subroutine build_sigma_normal
 

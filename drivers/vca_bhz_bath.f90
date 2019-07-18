@@ -127,7 +127,7 @@ program vca_bhz_2d
     !
     bath_v=0.5
     print*,"Guess:",bath_v
-    call  brent(solve_vca_single,bath_v,[0.01d0,1d0])
+    call  brent(solve_vca_single,bath_v,[0.1d0,0.7d0])
     print*,"Result ts : ",bath_v
     print_impG=.true.
     print_impG0=.true.
@@ -155,7 +155,7 @@ program vca_bhz_2d
     allocate(ts_array_x(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
-    ts_array_x = linspace(0.01d0,1d0,Nloop)
+    ts_array_x = linspace(0.05d0,1d0,Nloop)
     do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,0.d0,ts_array_x(iloop)])
     enddo

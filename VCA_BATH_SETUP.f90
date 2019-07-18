@@ -238,6 +238,7 @@ contains
     integer,optional     :: unit
     integer              :: unit_
     integer              :: i
+    character(len=7)     :: sitestring
     integer              :: io,jo,ispin,iorb,ilat
     complex(8)           :: hybr_aux
     complex(8)           :: hrep_aux(Nspin*Norb,Nspin*Norb)
@@ -248,6 +249,23 @@ contains
     !
     ! select case(bath_type)
     ! case default
+    if(unit_==LOGfile) then
+     write(unit_, "(A7)", advance="no") ""
+     write(unit_,"(90(A21,1X))")((&
+          "#Ek_l"//str(iorb)//"_s"//str(ispin),"Vk_l"//str(iorb)//"_s"//str(ispin),&
+          iorb=1,Norb),ispin=1,Nspin)
+     do ilat=1,Nlat
+        sitestring="Site "//str(ilat,2)
+        do i=1,Nbath
+           write(unit_, "(A7)", advance="no") sitestring
+           write(unit_,"(90(F21.12,1X))")((&
+                vca_bath_%e(ilat,ispin,iorb,i),&
+                vca_bath_%v(ilat,ispin,iorb,i),&
+                iorb=1,Norb),ispin=1,Nspin)
+                sitestring=""
+        enddo
+     enddo
+    else
      write(unit_,"(90(A21,1X))")((&
           "#Ek_l"//str(iorb)//"_s"//str(ispin),"Vk_l"//str(iorb)//"_s"//str(ispin),&
           iorb=1,Norb),ispin=1,Nspin)
@@ -259,6 +277,8 @@ contains
                 iorb=1,Norb),ispin=1,Nspin)
         enddo
      enddo
+
+    endif
        !
     ! case('hybrid')
     !    !
