@@ -41,7 +41,6 @@ MODULE VCA_INPUT_VARS
   integer              :: vca_sectors_shift    !shift to the vca_sectors scan
   ! character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)  !FIXME: MAYBE ADD HYBRID
   !
-  character(len=6)     :: vca_method          !flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)
   !
   character(len=12)    :: lanc_method         !select the lanczos method to be used in the determination of the spectrum. ARPACK (default), LANCZOS (T=0 only) 
   real(8)              :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
@@ -139,7 +138,6 @@ contains
     call parse_input_variable(print_observables,"PRINT_OBSERVABLES",INPUTunit,default=.true.,comment="Flag to calculate and print observables")
     ! call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     !
-    call parse_input_variable(vca_method,"VCA_METHOD",INPUTunit,default="lanc",comment="flag to set ED method: full (full Diagonalization) OR lanc (Lanczos based T=0/T>0 diagonalization)")
     !
     call parse_input_variable(vca_twin,"VCA_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
     !
