@@ -30,7 +30,7 @@
        ! dm in her diagonal basis
        if(present(dm_eig_).and.present(dm_rot_))then
           dm_rot_=dm_
-          call eigh(dm_rot_,dm_eig_,'V','U')
+          call eigh(dm_rot_,dm_eig_,jobz='V',uplo='U')
        endif
        !
        ! dm in the basis defined by custom_rot
@@ -45,7 +45,7 @@
        ! dm in her diagonal basis
        if(present(dm_eig_).and.present(dm_rot_))then
           dm_rot_=dm_
-          call eigh(dm_rot_,dm_eig_,'V','U')
+          call eigh(dm_rot_,dm_eig_,jobz='V',uplo='U')
        endif
        !
     endif
@@ -101,7 +101,7 @@
           ! dm in her diagonal basis
           if(present(dm_eig_).and.present(dm_rot_))then
              dm_rot_(ilat,:,:)=dm_(ilat,:,:)
-             call eigh(dm_rot_(ilat,:,:),dm_eig_(ilat,:),'V','U')
+             call eigh(dm_rot_(ilat,:,:),dm_eig_(ilat,:),jobz='V',uplo='U')
           endif
           !
           ! dm in the basis defined by custom_rot
@@ -116,7 +116,7 @@
           ! dm in her diagonal basis
           if(present(dm_eig_).and.present(dm_rot_))then
              dm_rot_(ilat,:,:)=dm_(ilat,:,:)
-             call eigh(dm_rot_(ilat,:,:),dm_eig_(ilat,:),'V','U')
+             call eigh(dm_rot_(ilat,:,:),dm_eig_(ilat,:),jobz='V',uplo='U')
           endif
           !
        endif
