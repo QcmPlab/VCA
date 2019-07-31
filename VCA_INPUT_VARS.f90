@@ -42,7 +42,7 @@ MODULE VCA_INPUT_VARS
   ! character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)  !FIXME: MAYBE ADD HYBRID
   !
   !
-  character(len=12)    :: lanc_method         !select the lanczos method to be used in the determination of the spectrum. ARPACK (default), LANCZOS (T=0 only) 
+  character(len=12)    :: lanc_method         !select the lanczos method to be used in the determination of the spectrum. ARPACK (default), LANCZOS (T=0 only), DVDSON (no MPI)
   real(8)              :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
   integer              :: lanc_niter          !Max number of Lanczos iterations
   integer              :: lanc_niter_spectrum !Max number of iterations in the spectrum annealing

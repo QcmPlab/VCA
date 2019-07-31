@@ -25,7 +25,6 @@ program vca_bhz_2d
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_local,gfreal_periodized     ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Sreal_local,Sreal_periodized       ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso,Sreal_periodized_lso    
   !Utility variables:
   integer                                         :: unit
   integer                                         :: comm,rank
@@ -125,9 +124,9 @@ program vca_bhz_2d
   if(wmin)then
     !
     !
-    bath_v=0.5
+    bath_v=0.4
     print*,"Guess:",bath_v
-    call  brent(solve_vca_single,bath_v,[0.1d0,0.7d0])
+    call  brent_(solve_vca_single,bath_v,[0.05d0,0.6d0])
     print*,"Result ts : ",bath_v
     print_impG=.true.
     print_impG0=.true.
@@ -157,7 +156,7 @@ program vca_bhz_2d
     !
     ts_array_x = linspace(0.05d0,1d0,Nloop)
     do iloop=1,Nloop
-        omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,0.d0,ts_array_x(iloop)])
+        omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,2*Mh_var,ts_array_x(iloop)])
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
@@ -208,6 +207,7 @@ program vca_bhz_2d
   !PRINT LOCAL GF AND SIGMA
   !
   call solve_Htop_new()
+  call get_local_gf()
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -225,7 +225,7 @@ contains
   function solve_vca_single(x) result(Omega_)
     real(8)                   :: x,Omega_
     !
-    Omega_=solve_vca_multi([t,M,lambda,0.d0,x])
+    Omega_=solve_vca_multi([t,M,lambda,2*M,x])
     !
   end function solve_vca_single
 
@@ -248,14 +248,15 @@ contains
     mu_var=0.d0*t_var
     Eij=0.d0
     !
-    if(NBATH>1)then
-      tmp=linspace(0.d0,deltae,Nbath)
-    else
-      tmp=0.5d0*deltae
-    endif
+    !if(NBATH>1)then
+    !  tmp=linspace(0.d0,deltae,Nbath)
+    !else
+    !  tmp=0.5d0*deltae
+    !endif
     !
     do iy=1,Nbath
-      evector(iy)=Eij+tmp(iy)-0.5d0*deltae
+      !evector(iy)=Eij+tmp(iy)-0.5d0*deltae
+      evector(iy)=Eij
       vvector(iy)=Vij
     enddo
     do ix=1,Nx
@@ -263,7 +264,7 @@ contains
         iz=indices2N([ix,iq])
         do iy=1,Nspin
           do ik=1,Norb
-            call set_bath_component(bath,iz,iy,ik,e_component=evector)
+            call set_bath_component(bath,iz,iy,ik,e_component=evector*((-1)**(ik+2)))
             call set_bath_component(bath,iz,iy,ik,v_component=vvector)
           enddo
         enddo
@@ -532,6 +533,197 @@ contains
   end subroutine solve_Htop_new
 
 
+  !+------------------------------------------------------------------+
+  !Periodization functions G-SCHEME
+  !+------------------------------------------------------------------+
+
+ subroutine periodize_g_scheme(kpoint)
+    integer                                                     :: ilat,jlat,ispin,iorb,ii
+    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
+    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+
+    complex(8),allocatable,dimension(:,:)                       :: gfprime_lso ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    !
+    !
+    allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    gfmats_unperiodized=zero
+    gfreal_unperiodized=zero
+    gfprime=zero
+    gfprime_lso=zero
+    Vk_lso=zero
+    gfmats_periodized=zero
+    gfreal_periodized=zero
+    !
+    !
+    !
+    do ii=1,Lmats
+      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(xi*wm(ii),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)    
+      call vca_gf_cluster(xi*wm(ii),gfprime)
+      gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+      call inv(gfprime_lso)
+      gfprime_lso=gfprime_lso-Vk_lso
+      call inv(gfprime_lso)
+      gfmats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+    enddo
+    !
+    do ii=1,Lreal  
+      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(dcmplx(wr(ii),eps),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)      
+      call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
+      gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+      call inv(gfprime_lso)
+      gfprime_lso=gfprime_lso-Vk_lso
+      call inv(gfprime_lso)
+      gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+    enddo
+    !
+    do ii=1,Lmats
+      do ilat=1,Nlat
+        ind1=N2indices(ilat)        
+        do jlat=1,Nlat
+          ind2=N2indices(jlat)
+          gfmats_periodized(:,:,:,:,ii)=gfmats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gfmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+        enddo
+      enddo
+    enddo
+    !
+    do ii=1,Lreal   
+      do ilat=1,Nlat
+        ind1=N2indices(ilat)        
+        do jlat=1,Nlat
+          ind2=N2indices(jlat)
+          gfreal_periodized(:,:,:,:,ii)=gfreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gfreal_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+        enddo
+      enddo
+    enddo
+    !
+    deallocate(gfmats_unperiodized)
+    deallocate(gfreal_unperiodized)
+    deallocate(gfprime)
+    deallocate(gfprime_lso)
+    deallocate(Vk_lso)
+    !   
+  end subroutine periodize_g_scheme
+
+
+
+ subroutine build_sigma_g_scheme(kpoint)
+    integer                                                     :: i,ispin,iorb,ii,Nlat_,Nx_,Ny_
+    real(8),dimension(2)                                     :: kpoint
+    complex(8),dimension(:,:,:,:,:,:),allocatable               :: h0
+    complex(8),dimension(:,:),allocatable                       :: invG0,invG
+    !
+    !
+    if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(invG0))allocate(invG0(Nspin*Norb,Nspin*Norb))
+    if(.not.allocated(invG))allocate(invG(Nspin*Norb,Nspin*Norb))
+    if(.not.allocated(h0))allocate(h0(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+    invG0 = zero
+    invG  = zero
+    Smats_periodized  = zero
+    Sreal_periodized  = zero
+    !
+    Nlat_=Nlat
+    Nx_=Nx
+    Ny_=Ny
+    Nlat=1
+    Nx=1
+    Ny=1
+    !
+    h0=tk(kpoint)
+    !
+    Nlat=Nlat_
+    Nx=Nx_
+    Ny=Ny_
+    !
+    call periodize_g_scheme(kpoint)
+    Smats_periodized=zero
+    Sreal_periodized=zero
+    !
+    do ii=1,Lmats
+        invG0 = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  - vca_nn2so_reshape(h0(1,1,:,:,:,:),Nspin,Norb)             
+        invG  = vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
+        call inv(invG)
+        Smats_periodized(:,:,:,:,ii) = vca_so2nn_reshape(invG0 - invG,Nspin,Norb)
+    enddo
+    !
+    do ii=1,Lreal
+        invG0 = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)   - vca_nn2so_reshape(h0(1,1,:,:,:,:),Nspin,Norb)               
+        invG  = vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
+        call inv(invG)
+        Sreal_periodized(:,:,:,:,ii) = vca_so2nn_reshape(invG0 - invG,Nspin,Norb)
+    enddo
+    !
+    !
+    deallocate(invG0)
+    deallocate(invG)
+    deallocate(h0)
+    !
+  end subroutine build_sigma_g_scheme
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: GET local GF
+  !---------------------------------------------------------------------
+  subroutine get_local_gf()
+    integer                                         :: ix,ik,ispin,iorb
+    character(len=30)                               :: suffix
+    complex(8),allocatable,dimension(:,:,:,:,:)     :: gtest_mats,gtest_real,sigmatest_mats,sigmatest_real
+    !
+    if(master)then
+    !
+      allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+      allocate(sigmatest_mats(Nspin,Nspin,Norb,Norb,Lmats))
+      gtest_mats=zero
+      sigmatest_mats=zero
+      gtest_real=zero
+      sigmatest_real=zero
+      !
+      allocate(kgrid_test(product(Nkpts),Ndim)) 
+      call TB_build_kgrid(Nkpts,kgrid_test)
+      print*,"Calculating Gloc and Sigma ",scheme," scheme"  
+      call start_timer
+      do ik=1,product(Nkpts)
+            call build_sigma_g_scheme(kgrid_test(ik,:))  !also periodizes g
+          do ix=1,Lmats
+              gtest_mats(:,:,:,:,ix)=gtest_mats(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(product(Nkpts))
+              sigmatest_mats(:,:,:,:,ix)=sigmatest_mats(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(product(Nkpts))
+          enddo
+          do ix=1,Lreal
+              gtest_real(:,:,:,:,ix)=gtest_real(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(product(Nkpts))
+              sigmatest_real(:,:,:,:,ix)=sigmatest_real(:,:,:,:,ix)+Sreal_periodized(:,:,:,:,ix)/(product(Nkpts))
+          enddo
+          call eta(ik,product(Nkpts))
+      enddo
+      call stop_timer
+      gfmats_periodized=gtest_mats
+      Smats_periodized=sigmatest_mats
+      gfreal_periodized=gtest_real
+      Sreal_periodized=sigmatest_real
+      do iorb=1,Norb
+       do ispin=1,Nspin
+          suffix="_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//"_"//str(scheme)//"_scheme"
+          call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_periodized(ispin,ispin,iorb,iorb,:))
+          call splot("perG"//reg(suffix)//"_realw.vca",wr,gfreal_periodized(ispin,ispin,iorb,iorb,:))
+          call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,Smats_periodized(ispin,ispin,iorb,iorb,:))
+          call splot("perSigma"//reg(suffix)//"_realw.vca",wr,Sreal_periodized(ispin,ispin,iorb,iorb,:))
+        enddo
+      enddo
+    endif
+  !
+end subroutine get_local_gf
 
   !+------------------------------------------------------------------+
   !Auxilliary functions
@@ -562,7 +754,7 @@ contains
   end function set_delta
 
   function indices2N(indices) result(N)
-    integer,dimension(Ndim)      :: indices
+    integer,dimension(2)      :: indices
     integer                      :: N,i
     !
     !
@@ -571,7 +763,7 @@ contains
   end function indices2N
 
   function N2indices(N_) result(indices)
-    integer,dimension(Ndim)      :: indices
+    integer,dimension(2)      :: indices
     integer                      :: N,i,N_
     !
     N=N_-1
@@ -580,6 +772,140 @@ contains
   end function N2indices
 
 
+  subroutine brent_(func,xmin,brack,tol,niter)
+    interface
+       function func(x)
+         real(8) :: x
+         real(8) :: func
+       end function func
+    end interface
+    real(8),intent(inout)         :: xmin
+    real(8),dimension(:),optional :: brack
+    real(8),optional              :: tol
+    integer,optional              :: niter
+    real(8)                       :: tol_
+    integer                       :: niter_
+    integer                       :: iter
+    real(8)                       :: ax,xx,bx,fa,fx,fb,fret
+    !
+    tol_=1d-9;if(present(tol))tol_=tol
+    Niter_=200;if(present(Niter))Niter_=Niter
+    !
+    if(present(brack))then
+       select case(size(brack))
+       case(1)
+          stop "Brent error: calling brent with size(brack)==1. None or two points are necessary."
+       case(2)
+          ax = brack(1)
+          xx = brack(2)
+       case (3)
+          ax = brack(1)
+          xx = brack(2)
+          bx = brack(3)
+       end select
+    else
+       ax=0d0
+       xx=1d0
+    endif
+    fret=brent_optimize(ax,xx,bx,func,tol_,niter_,xmin)
+  end subroutine brent_
+  !
+
+
+
+  function brent_optimize(ax,bx,cx,func,tol,itmax,xmin)
+    real(8), intent(in)  :: ax,bx,cx,tol
+    real(8), intent(out) :: xmin
+    real(8)              :: brent_optimize
+    integer              :: itmax
+    real(8), parameter   :: cgold=0.3819660d0,zeps=1.0d-3*epsilon(ax)
+    integer              :: iter
+    real(8)              :: a,b,d,e,etemp,fu,fv,fw,fx,p,q,r,tol1,tol2,u,v,w,x,xm
+    interface
+       function func(x)
+         real(8) :: x
+         real(8) :: func
+       end function func
+    end interface
+    a=min(ax,cx)
+    b=max(ax,cx)
+    v=bx
+    w=v
+    x=v
+    e=0.d0
+    fx=func(x)
+    fv=fx
+    fw=fx
+    do iter=1,itmax
+       xm=0.5d0*(a+b)
+       tol1=tol*abs(x)+zeps
+       tol2=2.0*tol1
+       if (abs(x-xm) <= (tol2-0.5d0*(b-a))) then
+          xmin=x
+          brent_optimize=fx
+          return
+       end if
+       if (abs(e) > tol1) then
+          r=(x-w)*(fx-fv)
+          q=(x-v)*(fx-fw)
+          p=(x-v)*q-(x-w)*r
+          q=2.d0*(q-r)
+          if (q > 0.d0) p=-p
+          q=abs(q)
+          etemp=e
+          e=d
+          if (abs(p) >= abs(0.5d0*q*etemp) .or. &
+               p <= q*(a-x) .or. p >= q*(b-x)) then
+             e=merge(a-x,b-x, x >= xm )
+             d=cgold*e
+          else
+             d=p/q
+             u=x+d
+             if (u-a < tol2 .or. b-u < tol2) d=sign(tol1,xm-x)
+          end if
+       else
+          e=merge(a-x,b-x, x >= xm )
+          d=cgold*e
+       end if
+       u=merge(x+d,x+sign(tol1,d), abs(d) >= tol1 )
+       fu=func(u)
+       if (fu <= fx) then
+          if (u >= x) then
+             a=x
+          else
+             b=x
+          end if
+          call shft(v,w,x,u)
+          call shft(fv,fw,fx,fu)
+       else
+          if (u < x) then
+             a=u
+          else
+             b=u
+          end if
+          if (fu <= fw .or. w == x) then
+             v=w
+             fv=fw
+             w=u
+             fw=fu
+          else if (fu <= fv .or. v == x .or. v == w) then
+             v=u
+             fv=fu
+          end if
+       end if
+    end do
+    !pause 'brent: exceed maximum iterations'
+
+  end function brent_optimize
+
+    subroutine shft(a,b,c,d)
+      real(8), intent(out) :: a
+      real(8), intent(inout) :: b,c
+      real(8), intent(in) :: d
+      a=b
+      b=c
+      c=d
+    end subroutine shft
 
 end program vca_bhz_2d
 

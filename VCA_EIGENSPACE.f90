@@ -80,6 +80,8 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_delete_espace(space)
     type(sparse_espace),intent(inout) :: space
     type(sparse_estate),pointer       :: p,c
+    !
+    if(.not.space%status)return
     do
        p => space%root
        c => p%next
