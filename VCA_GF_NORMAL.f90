@@ -1031,7 +1031,7 @@ contains
     if(.not.allocated(InvGmats))allocate(invGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invGmats=zero
     if(.not.allocated(InvGreal))allocate(invGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invGreal=zero
     if(.not.allocated(invTmpMat_lso))allocate(invTmpMat_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb));invTmpMat_lso=zero
-    if(allocated(deltamat))deallocate(deltamat); deltamat=zero
+    if(.not.allocated(deltamat))allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb));deltamat=zero
     !
     !
     !Get G0^-1
