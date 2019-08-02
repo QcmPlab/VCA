@@ -1023,6 +1023,7 @@ contains
     complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0mats,invGmats
     complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0real,invGreal
     complex(8),dimension(:,:),allocatable                       :: invTmpMat_lso
+    complex(8),dimension(:,:,:,:,:,:),allocatable               :: deltamat 
     !
     !
     if(.not.allocated(InvG0mats))allocate(invG0mats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invG0mats=zero
@@ -1030,16 +1031,23 @@ contains
     if(.not.allocated(InvGmats))allocate(invGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invGmats=zero
     if(.not.allocated(InvGreal))allocate(invGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invGreal=zero
     if(.not.allocated(invTmpMat_lso))allocate(invTmpMat_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb));invTmpMat_lso=zero
+    if(allocated(deltamat))deallocate(deltamat); deltamat=zero
     !
     !
     !Get G0^-1
-    !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
-    !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
+    !
+    !
     do ii=1,Lmats
-       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc -delta_bath_freq(xi*wm(ii),vca_bath)
+        if(Nbath>0)then
+          deltamat=delta_bath_freq(xi*wm(ii),vca_bath)
+        endif   
+       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc - deltamat
     enddo
     do ii=1,Lreal
-       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc -delta_bath_freq(dcmplx(wr(ii),eps),vca_bath)
+        if(Nbath>0)then
+          deltamat=delta_bath_freq(dcmplx(wr(ii),eps),vca_bath)
+        endif   
+       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc - deltamat
     enddo
     !
     !
@@ -1080,6 +1088,7 @@ contains
     deallocate(invGmats)
     deallocate(invGreal)
     deallocate(invTmpMat_lso)
+    deallocate(deltamat)
     !
   end subroutine build_sigma_normal
 
