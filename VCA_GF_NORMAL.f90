@@ -1036,10 +1036,10 @@ contains
     !invG0mats = invg0_bath_mats(dcmplx(0d0,wm(:)),vca_bath)
     !invG0real = invg0_bath_real(dcmplx(wr(:),eps),vca_bath)
     do ii=1,Lmats
-       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc
+       invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc -delta_bath_freq(xi*wm(ii),vca_bath)
     enddo
     do ii=1,Lreal
-       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc
+       invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc -delta_bath_freq(dcmplx(wr(ii),eps),vca_bath)
     enddo
     !
     !
@@ -1058,21 +1058,12 @@ contains
     !Get Sigma functions: Sigma= G0^-1 - G^-1
     impSmats=zero
     impSreal=zero
-    do ilat=1,Nlat
-       do jlat=1,Nlat
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0mats(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGmats(ilat,jlat,ispin,ispin,iorb,jorb,:)    
-                   impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:) = invG0real(ilat,jlat,ispin,ispin,iorb,jorb,:) - invGreal(ilat,jlat,ispin,ispin,iorb,jorb,:)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
+    !
+    impSmats = invG0mats - invGmats
+    impSreal = invG0real - invGreal
     !
     !
-    !Get G0and:
+    !Get G0:
     do ii=1,Lmats
        invTmpMat_lso=vca_nnn2lso_reshape(invG0mats(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
        call inv(invTmpMat_lso)
