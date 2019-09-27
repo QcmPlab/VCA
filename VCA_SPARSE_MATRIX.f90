@@ -369,7 +369,6 @@ contains
     !
     if(sparse%Nrow/=Ndim1 .OR. sparse%Ncol/=Ndim2)stop "Warning SPARSE/dump_matrix: dimensions error"
     !
-    matrix=zero
     do i=1,Ndim1
        do j=1,sparse%row(i)%Size
           matrix(i,sparse%row(i)%cols(j)) = matrix(i,sparse%row(i)%cols(j)) + sparse%row(i)%vals(j)

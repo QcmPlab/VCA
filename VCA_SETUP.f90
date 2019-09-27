@@ -121,7 +121,7 @@ contains
     write(LOGfile,"(A)")"Summary:"
     write(LOGfile,"(A)")"--------------------------------------------"
     write(LOGfile,"(A,I15)") '# of levels/spin      = ',Ns
-    write(LOGfile,"(A,I15)") 'Total size            = ',2**Ns
+    write(LOGfile,"(A,I15)") 'Total size            = ',2*Ns
     write(LOGfile,"(A,I15)") '# of sites            = ',Nlat
     write(LOGfile,"(A,I15)") '# of orbitals         = ',Norb
     write(LOGfile,"(A,I15)")'# of bath              = ',Nbath

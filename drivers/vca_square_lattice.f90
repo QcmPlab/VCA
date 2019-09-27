@@ -23,7 +23,7 @@ program vca_test
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: t_k
   character(len=16)                               :: finput
-  real(8)                                         :: ts
+  real(8)                                         :: ts,omegadummy
   integer                                         :: Nx,Ny,Lx,Ly,Rx,Ry
   integer                                         :: unit
   integer                                         :: comm,rank
@@ -113,7 +113,6 @@ program vca_test
      print*,"Result ts : ",ts
      t_var=ts
   endif
-
   !allocate(gtest_real(Nspin,Nspin,Norb,Norb,Lmats))
   !allocate(sigmatest_real(Nspin,Nspin,Norb,Norb,Lmats))
   !allocate(gtest_mats(Nspin,Nspin,Norb,Norb,Lmats))
