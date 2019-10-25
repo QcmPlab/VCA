@@ -90,6 +90,7 @@ program vca_bhz_2d
   Ny=Nx
   Nlso = Nlat*Norb*Nspin
   !
+  call naming_convention()
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
   t=ts
@@ -1234,6 +1235,23 @@ contains
     indices(1)=N/Nx+1
   end function N2indices
 
+   subroutine naming_convention()
+      integer                       :: i,j
+      integer,dimension(Nx,Ny)      :: matrix
+      !
+      do i=1,Nx
+         do j=1,Ny
+            matrix(i,j)=indices2N([j,i])
+         enddo
+      enddo
+      !
+      write(LOGfile,"(A)")"The unique index of each site (on the cartesian plane) is as follows:"
+      write(LOGfile,"(A)")" "
+      do j=1,Ny
+         write(LOGfile,"(20(I2,2x))")(matrix(Ny+1-j,i),i =1,Nx)
+      enddo
+      write(LOGfile,"(A)")" "
+   end subroutine naming_convention
 
 end program vca_bhz_2d
 

@@ -1,7 +1,7 @@
 MODULE VCA
 
   USE VCA_INPUT_VARS
-
+  
 
   USE VCA_AUX_FUNX, only:       &
        vca_lso2nnn_reshape,     &
