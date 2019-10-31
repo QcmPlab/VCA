@@ -86,10 +86,11 @@ program vca_test
   call vca_init_solver(comm)
     
   !
-  !call generate_tcluster()
-  !call generate_hk()
-  !call vca_solve(comm,t_prime,h_k)
+  call generate_tcluster()
+  call generate_hk()
+  call vca_solve(comm,t_prime,h_k)
 
+  STOP
 
   if(wloop)then
     allocate(ts_array(Nloop))
