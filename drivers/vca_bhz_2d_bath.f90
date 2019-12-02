@@ -147,7 +147,7 @@ program vca_bhz_2d_bath
     !
     ts_array_x = linspace(0.05d0,1d0,Nloop)
     do iloop=1,Nloop
-        omega_grid(iloop,1)=solve_vca_single([ts_array_x(iloop)])
+        omega_grid(iloop,1)=solve_vca_single(ts_array_x(iloop))
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
