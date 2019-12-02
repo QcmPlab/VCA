@@ -118,10 +118,6 @@ program vca_bhz_2d_bath
   !INITIALIZE SOLVER:
   !
   call vca_init_solver(comm,bath)
-  print_impG=.false.
-  print_impG0=.false.
-  print_Sigma=.false.
-  print_observables=.false.
   MULTIMAX=.false.
   !
   !SOLVE INTERACTING PROBLEM:
