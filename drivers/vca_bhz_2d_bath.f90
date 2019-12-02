@@ -92,7 +92,6 @@ program vca_bhz_2d_bath
   !SET CLUSTER DIMENSIONS (ASSUME SQUARE CLUSTER):
   !
   Ndim=size(Nkpts)
-[  517.936142] wlp2s0: associate with 00:1b:2b:72:ca:44 (try 1/3)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
   !
