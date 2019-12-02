@@ -128,10 +128,6 @@ program vca_bhz_2d_bath
     print*,"Guess:",bath_v
     call  brent_(solve_vca_single,bath_v,[0.05d0,1d0])
     print*,"Result ts : ",bath_v
-    print_impG=.true.
-    print_impG0=.true.
-    print_Sigma=.true.
-    print_observables=.true.
     omegadummy=solve_vca_single(bath_v)
     write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
     !
@@ -217,15 +213,17 @@ contains
     enddo
 
     !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
+    if(master)then
+       print*,""
+       print*,"Variational parameters:"
+       print*,"t      = ",t_var
+       print*,"M      = ",m_var
+       print*,"lambda = ",lambda_var
+       print*,"Lattice parameters:"
+       print*,"t      = ",t
+       print*,"M      = ",m
+       print*,"lambda = ",lambda
+    endif
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath)

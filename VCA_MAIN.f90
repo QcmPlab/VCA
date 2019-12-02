@@ -295,28 +295,28 @@ contains
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
     !
-    omegaprime=0.d0
-    omega_integral=0.d0
-    !
-    if(finiteT)then
-      do i=1,state_list%size
-        omegaprime=omegaprime+exp(-beta*(es_return_energy(state_list,i)-state_list%emin))
-      enddo
-      omegaprime=state_list%emin-(1.d0/beta)*log(omegaprime)
-      omega_integral=frequency_integration_finite_t()
-    else
-      omegaprime=state_list%emin
-      omega_integral=frequency_integration()
-    endif
-    !
-    sft_potential = omegaprime-omega_integral
-    !
     if(MPI_MASTER) then
-        write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
-        write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(omegaprime-omega_integral)/NLAT
-        open(free_unit(unit),file="SFT_potential.vca",position='append')
-        write(unit,*)sft_potential,omegaprime,-omega_integral
-        close(unit)
+       omegaprime=0.d0
+       omega_integral=0.d0
+       !
+       if(finiteT)then
+         do i=1,state_list%size
+           omegaprime=omegaprime+exp(-beta*(es_return_energy(state_list,i)-state_list%emin))
+         enddo
+         omegaprime=state_list%emin-(1.d0/beta)*log(omegaprime)
+         omega_integral=frequency_integration_finite_t()
+       else
+         omegaprime=state_list%emin
+         omega_integral=frequency_integration()
+       endif
+       !
+       sft_potential = omegaprime-omega_integral
+       !
+       write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
+       write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(omegaprime-omega_integral)/NLAT
+       open(free_unit(unit),file="SFT_potential.vca",position='append')
+       write(unit,*)sft_potential,omegaprime,-omega_integral
+       close(unit)
     endif
     !
     !CLEAN UP
