@@ -1,4 +1,9 @@
-program vca_bhz_2d
+!--------------------------------------------------------------
+!Solve the 2d BHZ model with N bath sites, the only variational
+!parameter is currently V.
+!______________________________________________________________
+
+program vca_bhz_2d_bath
   USE SCIFOR
   USE DMFT_TOOLS
   USE MPI
@@ -126,7 +131,7 @@ program vca_bhz_2d
     !
     bath_v=0.4
     print*,"Guess:",bath_v
-    call  brent_(solve_vca_single,bath_v,[0.05d0,0.8d0])
+    call  brent_(solve_vca_single,bath_v,[0.05d0,1d0])
     print*,"Result ts : ",bath_v
     print_impG=.true.
     print_impG0=.true.
@@ -140,9 +145,9 @@ program vca_bhz_2d
     allocate(ts_array_x(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
-    ts_array_x = linspace(0.05d0,6d0,Nloop)
+    ts_array_x = linspace(0.05d0,1d0,Nloop)
     do iloop=1,Nloop
-        omega_grid(iloop,1)=solve_vca_multi([ts_var,Mh_var,lambda,2*Mh_var,ts_array_x(iloop)])
+        omega_grid(iloop,1)=solve_vca_single([ts_array_x(iloop)])
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
@@ -525,6 +530,8 @@ contains
   end function N2indices
 
 
+  !BRENT MINIMIZING FUNCTION
+
   subroutine brent_(func,xmin,brack,tol,niter)
     interface
        function func(x)
@@ -660,7 +667,7 @@ contains
       c=d
     end subroutine shft
 
-end program vca_bhz_2d
+end program vca_bhz_2d_bath
 
 
 
