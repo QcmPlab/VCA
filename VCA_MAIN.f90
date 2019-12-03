@@ -83,12 +83,8 @@ contains
     logical                                     :: check 
     logical,save                                :: isetup=.true.
     integer                                     :: i
-    logical                                     :: MPI_MASTER=.true.
-    integer                                     :: MPI_RANK
-    integer                                     :: MPI_ERR
     !
-    MPI_RANK   = get_Rank_MPI(MpiComm)
-    MPI_MASTER = get_Master_MPI(MpiComm)
+    call vca_set_mpicomm(MpiComm)
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
@@ -115,7 +111,7 @@ contains
     !
     isetup=.false.
     !
-    call MPI_Barrier(MpiComm,MPI_ERR)
+    call vca_del_MpiComm()
     !
   end subroutine vca_init_solver_mpi
 #endif
@@ -242,9 +238,10 @@ contains
     integer                                        :: unit
     integer                                        :: MpiComm
     logical                                        :: check
-    logical                                        :: MPI_MASTER=.true.
     !
-    MPI_MASTER = get_Master_MPI(MpiComm)
+    !SET THE LOCAL MPI COMMUNICATOR :
+    !
+    call vca_set_MpiComm(MpiComm)
     !
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
@@ -259,8 +256,6 @@ contains
        call vca_write_bath(vca_bath,LOGfile)
        call vca_save_bath(vca_bath,used=.true.)
     endif
-    !SET THE LOCAL MPI COMMUNICATOR :
-    call vca_set_MpiComm(MpiComm)
     !
     select case(vca_sparse_H)
       case (.true.)
@@ -303,15 +298,15 @@ contains
         omegaprime=omegaprime+exp(-beta*(es_return_energy(state_list,i)-state_list%emin))
       enddo
       omegaprime=state_list%emin-(1.d0/beta)*log(omegaprime)
-      if(MPI_MASTER) omega_integral=frequency_integration_finite_t()
+      if(MPIMASTER) omega_integral=frequency_integration_finite_t()
     else
       omegaprime=state_list%emin
-      if(MPI_MASTER) omega_integral=frequency_integration()
+      if(MPIMASTER) omega_integral=frequency_integration()
     endif
     !
-    if(MPI_MASTER) sft_potential = omegaprime-omega_integral
+    if(MPIMASTER) sft_potential = omegaprime-omega_integral
     !
-    if(MPI_MASTER)then
+    if(MPIMASTER)then
       write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
       write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(omegaprime-omega_integral)/NLAT
       open(free_unit(unit),file="SFT_potential.vca",position='append')
