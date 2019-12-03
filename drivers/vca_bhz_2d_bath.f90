@@ -541,7 +541,7 @@ contains
     integer                       :: iter
     real(8)                       :: ax,xx,bx,fa,fx,fb,fret
     !
-    tol_=1d-9;if(present(tol))tol_=tol
+    tol_=1d-6;if(present(tol))tol_=tol
     Niter_=200;if(present(Niter))Niter_=Niter
     !
     if(present(brack))then
