@@ -314,6 +314,8 @@ contains
       close(unit)
     endif
     !
+    call barrier_mpi(MpiComm)
+    !
     !CLEAN UP
     !
     call es_delete_espace(state_list)
