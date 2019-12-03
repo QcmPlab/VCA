@@ -305,6 +305,7 @@ contains
     endif
     !
     if(MPIMASTER) sft_potential = omegaprime-omega_integral
+    call Bcast_MPI(MpiComm,sft_potential)
     !
     if(MPIMASTER)then
       write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
@@ -315,7 +316,6 @@ contains
     endif
     !
     call barrier_mpi(MpiComm)
-    call Bcast_MPI(MpiComm,sft_potential)
     !
     !CLEAN UP
     !
