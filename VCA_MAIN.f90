@@ -311,7 +311,7 @@ contains
     !
     if(MPI_MASTER) sft_potential = omegaprime-omega_integral
     !
-    if(MPI_MASTER)
+    if(MPI_MASTER)then
       write(LOGfile,"(A,10f18.12,A)")"EGS PER SITE",omegaprime/NLAT
       write(LOGfile,"(A,10f18.12,A)")"OMEGA POTENTIAL PER SITE=",(omegaprime-omega_integral)/NLAT
       open(free_unit(unit),file="SFT_potential.vca",position='append')
