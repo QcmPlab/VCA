@@ -315,6 +315,7 @@ contains
     endif
     !
     call barrier_mpi(MpiComm)
+    call Bcast_MPI(MpiComm,sft_potential)
     !
     !CLEAN UP
     !
