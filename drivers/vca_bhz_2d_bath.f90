@@ -125,18 +125,18 @@ program vca_bhz_2d_bath
   if(wmin)then
     !
     bath_v=0.4
-    print*,"Guess:",bath_v
-    call  brent_(solve_vca_single,bath_v,[0.05d0,1d0])
-    print*,"Result ts : ",bath_v
+    if(master)print*,"Guess:",bath_v
+    call  brent_(solve_vca_single,bath_v,[0.05d0,2d0])
+    if(master)print*,"Result ts : ",bath_v
     omegadummy=solve_vca_single(bath_v)
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
+    if(master)write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT V = "),bath_v
     !
   elseif(wloop)then
     !
     allocate(ts_array_x(Nloop))
     allocate(omega_grid(Nloop,Nloop))
     !
-    ts_array_x = linspace(0.05d0,1d0,Nloop)
+    ts_array_x = linspace(0.05d0,2d0,Nloop)
     do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_single(ts_array_x(iloop))
     enddo

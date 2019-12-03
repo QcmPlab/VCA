@@ -65,7 +65,7 @@ contains
              call lanc_build_gf_normal_main(isite,iorb,ispin)
              !
              counter=counter+1
-             if(verbose .eq. 1)call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
+             if(MPIMASTER .and. (verbose .eq. 1))call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
              !site-off-diagonal:
              do jsite=1,Nlat
                 do jorb=1,Norb
@@ -78,7 +78,7 @@ contains
                    else
                       call lanc_build_gf_normal_mix_chan4(isite,jsite,iorb,jorb,ispin)
                       counter=counter+1
-                      if(verbose .eq. 1)call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
+                      if(MPIMASTER .AND. (verbose .eq. 1))call eta(counter,Nlat*Nlat*Nspin*Norb*Norb)
                    endif
                 enddo
              enddo
@@ -985,7 +985,8 @@ contains
     Z                = eye(Nlanc)
     diag(1:Nlanc)    = alanc(1:Nlanc)
     subdiag(2:Nlanc) = blanc(2:Nlanc)
-    call tql2(Nlanc,diag,subdiag,Z,ierr)
+    !
+    call eigh(diag(1:Nlanc),subdiag(2:Nlanc),Ev=Z(:Nlanc,:Nlanc))
     !
     call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb),istate=istate,ichan=ichan,Nexc=Nlanc)
     !

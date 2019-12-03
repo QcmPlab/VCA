@@ -11,6 +11,19 @@ MODULE VCA_VARS_GLOBAL
 #endif
   implicit none
 
+  !-------------------- CUSTOM OBSERVABLE STRUCTURE ----------------------!
+  type observable
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable :: sij
+    character(len=32)                               :: o_name
+    real(8)                                         :: o_value
+  end type observable
+
+  type custom_observables
+     type(observable),dimension(:),allocatable               :: item
+     integer                                                 :: N_asked
+     integer                                                 :: N_filled
+     logical                                                 :: init=.false.
+  end type custom_observables
 
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
@@ -173,6 +186,9 @@ MODULE VCA_VARS_GLOBAL
   real(8),dimension(:,:),allocatable                ::  imp_docc    ![Nlat][Norb]
 
 
+  !Custom observables:
+  !=========================================================
+  type(custom_observables)                             ::  custom_o
 
   !Suffix string attached to the output files.
   !=========================================================

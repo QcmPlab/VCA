@@ -182,7 +182,7 @@ contains
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     if(print_observables)then
       call observables_cluster()    !obtain impurity observables as thermal averages.
-      call observables_lattice()    !obtain impurity observables as thermal averages.
+      call get_custom_observables()    !obtain impurity observables as thermal averages.
     endif
     !
     !CALCULATE THE VARIATIONAL GRAND POTENTIAL
@@ -286,8 +286,8 @@ contains
     call diagonalize_cluster()    !find target states by digonalization of Hamiltonian
     call build_gf_cluster()       !build the one-particle Green's functions and Self-Energies
     if(print_observables)then
-      call observables_cluster()    !obtain impurity observables as thermal averages.
-      call observables_lattice()    !obtain impurity observables as thermal averages.
+      call observables_cluster()       !obtain impurity observables as thermal averages.
+      call get_custom_observables()    !obtain impurity observables as thermal averages.
     endif
     !call save_gfprime("gfprime",use_formatted=.true.)
     !call read_gfprime("gfprime",use_formatted=.true.)

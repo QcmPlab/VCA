@@ -18,10 +18,16 @@ MODULE VCA_OBSERVABLES
   implicit none
   private
   !
+  interface add_custom_observable
+     module procedure :: add_custom_observable_local
+     module procedure :: add_custom_observable_kdep
+  end interface add_custom_observable
+  
   public :: observables_cluster
-  public :: observables_lattice
-
-
+  public :: init_custom_observables
+  public :: add_custom_observable
+  public :: get_custom_observables
+  public :: clear_custom_observables
 
   logical,save                                             :: iolegend=.true.
   real(8),dimension(:,:),allocatable                       :: dens,dens_up,dens_dw
@@ -47,7 +53,7 @@ MODULE VCA_OBSERVABLES
   integer                                                  :: i,j,ii
   integer                                                  :: isector,jsector
   integer                                                  :: idim,idimUP,idimDW
-  complex(8),allocatable,dimension(:,:,:,:,:,:)            :: sij
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:)          :: sij
   !
   complex(8),dimension(:),pointer                          :: state_cvec
   logical                                                  :: Jcondition
@@ -66,26 +72,110 @@ contains
     call vca_lanc_observables
   end subroutine observables_cluster
 
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : Evaluate and print out many interesting physical qties for the lattice
-  !+-------------------------------------------------------------------+
-
-  subroutine observables_lattice(sij_,userobs_)
-    complex(8),allocatable,dimension(:,:,:,:,:,:),optional        :: sij_
-    real(8),optional                                              :: userobs_
+  subroutine init_custom_observables(N)
+    integer                      :: N
     !
-    if(present(sij_))then
-      if(present(userobs_))then
-        call vca_gf_observables(sij_,userobs_)
-      else
-        call vca_gf_observables(sij_)
-      endif
-    else
-      write(LOGfile,"(A)")"Get lattice observables:"
-      call vca_gf_observables()
+    if(MpiMaster)then
+      custom_o%N_filled=0
+      custom_o%N_asked=N
+      allocate(custom_o%item(N))
+      custom_o%init=.true.
     endif
+    !
+  end subroutine init_custom_observables
+    
+  subroutine add_custom_observable_local(o_name,sij)
+    integer                               :: i
+    complex(8),dimension(:,:,:,:,:,:)   :: sij
+    character(len=*)                      :: o_name
+    !
+    if(MpiMaster .and. custom_o%init)then
+      if(custom_o%N_filled .gt. custom_o%N_asked)then
+        STOP "add_custom_observable: too many observables given"
+        call clear_custom_observables
+      endif
+      !
+      custom_o%N_filled=custom_o%N_filled+1
+      custom_o%item(custom_o%N_filled)%o_name=o_name
+      custom_o%item(custom_o%N_filled)%o_value=0.d0
+      !
+      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      do i=1,size(custom_o%item(custom_o%N_filled)%sij,7)
+        custom_o%item(custom_o%N_filled)%sij(:,:,:,:,:,:,i)=sij
+      enddo
+    else
+      STOP "add_custom_observable: custom observables not initialized"
+    endif
+  end subroutine add_custom_observable_local
 
-  end subroutine observables_lattice
+
+  subroutine add_custom_observable_kdep(o_name,sijk)
+    integer                               :: i
+    complex(8),dimension(:,:,:,:,:,:,:)   :: sijk
+    character(len=*)                      :: o_name
+    !
+    if(MpiMaster .and. custom_o%init)then
+      if(custom_o%N_filled .gt. custom_o%N_asked)then
+        STOP "add_custom_observable: too many observables given"
+        call clear_custom_observables
+      endif
+      !
+      custom_o%N_filled=custom_o%N_filled+1
+      custom_o%item(custom_o%N_filled)%o_name=o_name
+      custom_o%item(custom_o%N_filled)%o_value=0.d0
+      !
+      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      custom_o%item(custom_o%N_filled)%sij=sijk
+    else
+      STOP "add_custom_observable: custom observables not initialized"
+    endif
+  end subroutine add_custom_observable_kdep
+
+
+  subroutine get_custom_observables()
+    integer            :: i
+    !
+    if(MpiMaster .and. custom_o%init)then
+      if(custom_o%N_filled .eq. 0)then
+        write(Logfile,*)"WARNING! Custom observables initialized but none given."
+        RETURN
+      endif
+      !
+      write(LOGfile,*)"Calculating custom observables"
+      !
+      allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      sij=zero
+      !
+      do i=1,custom_o%N_filled
+        sij=custom_o%item(i)%sij
+        if(finiteT) then
+          custom_o%item(i)%o_value=calculate_observable_integral_finite_t()
+        else
+          custom_o%item(i)%o_value=calculate_observable_integral_zero_t()
+        endif
+        write(LOGfile,"(A,10f18.12,A)")reg(custom_o%item(i)%o_name)//" = ",custom_o%item(i)%o_value
+      enddo
+      call write_custom_legend()
+      call write_custom_observables()
+      deallocate(sij)
+    endif
+    !
+  end subroutine get_custom_observables
+  
+
+  subroutine clear_custom_observables()
+    integer                       :: i
+    if(MpiMaster .and. custom_o%init)then 
+      do i=1,custom_o%N_filled
+        deallocate(custom_o%item(i)%sij)
+        custom_o%item(i)%o_name=""
+        custom_o%item(i)%o_value=0.d0
+      enddo
+      custom_o%N_asked=0
+      custom_o%N_filled=0
+      custom_o%init=.false.
+    endif
+  end subroutine clear_custom_observables
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : Evaluate and print out many interesting physical qties for the cluster
@@ -241,139 +331,8 @@ contains
 
 
 !+---------------------------------------------------------------------------------+
-!PURPOSE  : Evaluate and print out many interesting physical qties for the lattice
+!PURPOSE  : Evaluate and print out custom observable
 !+---------------------------------------------------------------------------------+
-
-
- subroutine vca_gf_observables(sij_,userobs)
-    integer,dimension(Ns)                                    :: IbUp,IbDw  ![Ns]
-    integer,dimension(Ns_Ud,Ns_Orb)                          :: Nups,Ndws  ![1,Ns]-[Norb,1+Nbath]
-    integer,dimension(2*Ns_Ud)                               :: Indices,Jndices
-    integer,dimension(Ns_Ud)                                 :: iDimUps,iDimDws
-    integer                                                  :: i,j,ii
-    integer                                                  :: istate
-    integer                                                  :: isector,jsector
-    integer                                                  :: idim,jdim,ilat
-    integer                                                  :: isz,jsz
-    integer                                                  :: iorb,jorb,ispin,jspin,isite,jsite,ibath
-    integer                                                  :: numstates
-    integer                                                  :: r,m,k
-    real(8)                                                  :: sgn,sgn1,sgn2
-    real(8)                                                  :: weight
-    real(8)                                                  :: Ei
-    real(8)                                                  :: peso
-    real(8)                                                  :: norm,no_userobs
-    real(8),dimension(Nlat,Norb)                             :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer                          :: state_cvec
-    complex(8),allocatable,dimension(:,:,:,:,:,:),optional   :: sij_
-    real(8),optional                                         :: userobs
-    type(sector_map)                                         :: Hi(2*Ns_Ud)
-    !
-    !OBSERVABLE MATRIX:
-    !
-    if(allocated(sij))deallocate(sij)
-    allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    sij=zero
-    !
-    if(present(sij_))then
-      sij=sij_
-      if(present(userobs))then
-      userobs=calculate_observable_integral()
-      else
-      no_userobs=calculate_observable_integral()
-      write(LOGfile,"(A,10f18.12,f18.12,A)")"User requester observable = ",no_userobs
-      endif
-    else
-      !LOCAL OBSERVABLES:
-      allocate(dens(Nlat,Norb),dens_up(Nlat,Norb),dens_dw(Nlat,Norb))
-      allocate(docc(Nlat,Norb))
-      allocate(magz(Nlat,Norb),sz2(Nlat,Norb,Norb))
-      allocate(simp(Nlat,Norb,Nspin),zimp(Nlat,Norb,Nspin))
-      !
-      dens    = 0.d0
-      dens_up = 0.d0
-      dens_dw = 0.d0
-      docc    = 0.d0
-      magz    = 0.d0
-      sz2     = 0.d0
-      simp    = 0.d0
-      zimp    = 0.d0
-      nup     = 0.d0
-      ndw     = 0.d0
-      Egs     = state_list%emin
-      gs_weight=1.d0
-      !
-      !CALCULATE OBSERAVABLE:
-      !
-      do ispin=2,Nspin
-        do ilat=1,Nlat
-           do iorb=1,Norb
-              sij=zero
-              sij(ilat,ilat,1,1,iorb,iorb)=1.d0
-              nup(ilat,iorb)= calculate_observable_integral()
-              !
-              sij=zero
-              sij(ilat,ilat,Nspin,Nspin,iorb,iorb)=1.d0
-              ndw(ilat,iorb)= calculate_observable_integral()
-              !
-              sz(ilat,iorb) = (nup(ilat,iorb) - ndw(ilat,iorb))/2d0
-              nt(ilat,iorb) =  nup(ilat,iorb) + ndw(ilat,iorb)
-           enddo
-        enddo
-      enddo
-      !
-      !Get operators:
-      do ilat=1,Nlat
-        do iorb=1,Norb
-           dens(ilat,iorb)     = dens(ilat,iorb)      +  nt(ilat,iorb)*gs_weight
-           dens_up(ilat,iorb)  = dens_up(ilat,iorb)   +  nup(ilat,iorb)*gs_weight
-           dens_dw(ilat,iorb)  = dens_dw(ilat,iorb)   +  ndw(ilat,iorb)*gs_weight
-           docc(ilat,iorb)     = docc(ilat,iorb)      +  nup(ilat,iorb)*ndw(ilat,iorb)*gs_weight
-           magz(ilat,iorb)     = magz(ilat,iorb)      +  (nup(ilat,iorb)-ndw(ilat,iorb))*gs_weight
-           sz2(ilat,iorb,iorb) = sz2(ilat,iorb,iorb)  +  (sz(ilat,iorb)*sz(ilat,iorb))*gs_weight
-           do jorb=iorb+1,Norb
-              sz2(ilat,iorb,jorb) = sz2(ilat,iorb,jorb)  +  (sz(ilat,iorb)*sz(ilat,jorb))*gs_weight
-              sz2(ilat,jorb,iorb) = sz2(ilat,jorb,iorb)  +  (sz(ilat,jorb)*sz(ilat,iorb))*gs_weight
-           enddo
-        enddo
-        s2tot = s2tot  + (sum(sz))**2*gs_weight
-      enddo
-      !
-      if(MPIMASTER)then
-         call get_szr
-         if(iolegend)call write_legend
-         call write_observables()
-         !
-         write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb)),iorb=1,Norb),sum(dens)
-         write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb)),iorb=1,Norb)
-         if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb)),iorb=1,Norb)
-         !
-         imp_dens_up = dens_up
-         imp_dens_dw = dens_dw
-         imp_dens    = dens
-         imp_docc    = docc
-
-      endif
-      deallocate(dens,docc,dens_up,dens_dw,magz,sz2)
-      deallocate(simp,zimp)
-    endif
-  end subroutine vca_gf_observables
-
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : Frequency integral
-  !+-------------------------------------------------------------------+
-
-   function calculate_observable_integral() result(out_3)
-     real(8)                                            :: out_3
-     !
-     if(finiteT) then
-       out_3=calculate_observable_integral_finite_t()
-     else
-       out_3=calculate_observable_integral_zero_t()
-     endif
-   end function calculate_observable_integral
   
   !T=0
   function calculate_observable_integral_zero_t() result(out_2)
@@ -381,10 +340,9 @@ contains
     real(8)                                                   :: out_2,spin_multiplicity
     !
     out_2=0.d0
-    spin_multiplicity=3.d0-Nspin   !FIXME: NEEDED?
+    spin_multiplicity=3.d0-Nspin
     !
-    !
-    call quad(sum_observable_kmesh,a=0.0d0,inf=1,verbose=(verbose>=3),result=out_2,strict=.false.)
+    call quad(sum_observable_kmesh,a=0.0d0,inf=1,verbose=(VERBOSE>=3),result=out_2,strict=.false.)
     !
     out_2=spin_multiplicity*out_2/pi 
     return
@@ -404,8 +362,6 @@ contains
       nmax=(nmax+1)/2
     endif
     integrationR=2*(nmax+1)*pi/beta
-    !print*,"NMAX=",nmax
-    !print*,"INTEGRATION R=",integrationR
     !2) Evaluate discrete sum
     !
     out_2=0.d0
@@ -414,18 +370,16 @@ contains
     enddo
     !
     out_2=2.d0*(1/beta)*out_2
-    !print*,"SUM PART = ",out_2
     !
     !3) Evaluate integral part
     integralpart=0.d0
-    call quad(integral_contour,a=-pi,b=pi,verbose=(verbose>=3),key=6,result=integralpart,strict=.false.)
+    call quad(integral_contour,a=-pi,b=pi,verbose=(VERBOSE>=3),key=6,result=integralpart,strict=.false.)
     !
-    !print*,"INTEGRAL PART = ",integralpart
     !4) Sum all
     out_2=out_2+integralpart
     !5) Spin trick
     spin_multiplicity=3.d0-Nspin 
-    out_2=spin_multiplicity*out_2
+    out_2=spin_multiplicity*out_2/Nlat
     return
   end function calculate_observable_integral_finite_t
 
@@ -442,9 +396,7 @@ contains
     endif
     !
     f=dreal((1.d0/pi)*w*fermi*sum_observable_kmesh_complex(w))
-    !print*,zeta,f,fermi,sum_kmesh(w)
  end function integral_contour
-
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : sum on k-vectors
@@ -485,7 +437,8 @@ contains
        Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
        Gk_lso=gfprime_lso-Gk_lso
        call inv(Gk_lso)
-       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb),Gk_lso))-trace(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb))/(xi*omega-1.1d0))  !!FIXME: CHECK
+       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),Gk_lso))-&
+         trace(vca_nnn2lso_reshape(sij(:,:,:,:,:,:,ii),Nlat,Nspin,Norb))/(xi*omega-1.1d0))
     enddo
     out_1=out_1/(size(impHk,7))
     !
@@ -529,7 +482,7 @@ contains
        Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
        Gk_lso=gfprime_lso-Gk_lso
        call inv(Gk_lso)
-       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij,Nlat,Nspin,Norb),Gk_lso)))  !!FIXME: CHECK
+       out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),Gk_lso)))  !!FIXME: CHECK
     enddo
     out_1=out_1/(size(impHk,7))
     !
@@ -538,7 +491,6 @@ contains
     return
     !
   end function sum_observable_kmesh_complex
-
 
 
   !####################################################################
@@ -595,6 +547,14 @@ contains
   end subroutine write_legend
 
 
+  subroutine write_custom_legend()
+    integer :: unit,i
+    unit = free_unit()
+    open(unit,file="custom_observables_info.vca")
+    write(unit,"(A1,90(A10,6X))")"#",(reg(txtfy(i))//reg(custom_o%item(i)%o_name),i=1,custom_o%N_filled)
+    close(unit)
+  end subroutine write_custom_legend
+
   !+-------------------------------------------------------------------+
   !PURPOSE  : write observables to file
   !+-------------------------------------------------------------------+
@@ -623,6 +583,22 @@ contains
     enddo
   end subroutine write_observables
 
+  subroutine write_custom_observables()
+    integer :: i
+    integer :: unit
+    unit = free_unit()
+    open(unit,file="custom_observables_all.vca",position='append')
+    write(unit,"(90(F15.9,1X))")&
+         (custom_o%item(i)%o_value,i=1,custom_o%N_filled)
+    close(unit)
+    !
+    unit = free_unit()
+    open(unit,file="custom_observables_last.vca")
+    write(unit,"(90(F15.9,1X))")&
+         (custom_o%item(i)%o_value,i=1,custom_o%N_filled)
+    close(unit)
+    !
+  end subroutine write_custom_observables
 
 END MODULE VCA_OBSERVABLES
 
