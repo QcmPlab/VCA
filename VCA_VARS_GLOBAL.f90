@@ -199,8 +199,8 @@ MODULE VCA_VARS_GLOBAL
   !This is the internal Mpi Communicator and variables.
   !=========================================================
 #ifdef _MPI
-  integer                                            :: MpiComm_Global=MPI_UNDEFINED
-  integer                                            :: MpiComm=MPI_UNDEFINED
+  integer                                            :: MpiComm_Global=MPI_COMM_NULL
+  integer                                            :: MpiComm=MPI_COMM_NULL
 #endif
   integer                                            :: MpiGroup_Global=MPI_GROUP_NULL
   integer                                            :: MpiGroup=MPI_GROUP_NULL
