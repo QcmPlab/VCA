@@ -21,6 +21,7 @@ MODULE VCA
        vca_get_mag                              ,&
        vca_get_docc                             ,&
        vca_get_sft_potential                    ,&
+       vca_read_impsigma                        ,&
        vca_gf_cluster
 
 

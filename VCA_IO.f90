@@ -54,6 +54,8 @@ MODULE VCA_IO
   public :: vca_print_impG
   public :: vca_print_impG0
   !
+  public :: vca_read_impSigma
+  !
   public :: vca_get_dens
   public :: vca_get_mag
   public :: vca_get_docc
@@ -202,10 +204,40 @@ contains
     !
   end subroutine vca_print_impG0
 
+   ! PURPOSE: Read self-energy function(s) - also for inequivalent sites.
+   !+-----------------------------------------------------------------------------+!
+   subroutine vca_read_impSigma
+     integer                                           :: i,ispin,isign,unit(2),iorb,jorb,ilat,jlat
+     character(len=30)                                 :: suffix
+     !
+     if(.not.allocated(wm))allocate(wm(Lmats))
+     if(.not.allocated(wr))allocate(wr(Lreal))
+     wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+     wr     = linspace(wini,wfin,Lreal)
+     !
+     !!
+     !Print the impurity functions:
+     do ispin=1,Nspin
+      do ilat=1,Nlat
+        do jlat=1,Nlat
+          do iorb=1,Norb
+            do jorb=1,Norb
+                suffix="_Isite"//str(ilat,4)//"_Jsite"//str(jlat,4)//"_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+                call sread("impSigma"//reg(suffix)//"_iw"//reg(file_suffix)//".vca"   ,wm,impSmats(ilat,jlat,ispin,ispin,iorb,jorb,:))
+                call sread("impSigma"//reg(suffix)//"_realw"//reg(file_suffix)//".vca",wr,impSreal(ilat,jlat,ispin,ispin,iorb,jorb,:))
+            enddo
+          enddo
+        enddo
+      enddo
+     enddo
+     !
+     if(allocated(wm))deallocate(wm)
+     if(allocated(wr))deallocate(wr)
+     !
+   end subroutine vca_read_impSigma
 
 END MODULE VCA_IO
 
 
-!!  TODO: add read_impSigma
 
 

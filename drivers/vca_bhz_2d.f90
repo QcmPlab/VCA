@@ -115,6 +115,9 @@ program vca_bhz_2d
   print_observables=.false.
   MULTIMAX=.false.
   !
+  call solve_Htop_new()
+  stop
+  !
   !SOLVE INTERACTING PROBLEM:
   ! 
   if(wmin)then
@@ -666,8 +669,8 @@ contains
     hopping_matrix_big=zero
     !
     !
-    call vca_get_sigma_matsubara(tmpSigmaMat)
-    hopping_matrix_big=tk(kpoint)+DREAL(TmpSigmaMat(:,:,:,:,:,:,1))
+    !call vca_get_sigma_matsubara(tmpSigmaMat)
+    hopping_matrix_big=tk(kpoint)!+DREAL(TmpSigmaMat(:,:,:,:,:,:,1))
     !
     !
     hopping_matrix_lso=vca_nnn2lso_reshape(Hopping_matrix_big,Nlat,Nspin,Norb)
@@ -694,11 +697,11 @@ contains
     else
        if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
        Npts = 4
-       allocate(kpath(Npts,2))
-       kpath(1,:)=[0.d0,0.d0]
-       kpath(2,:)=[pi/Nx,pi/Nx]
-       kpath(3,:)=[pi/Nx,0.d0]
-       kpath(4,:)=[0.d0,0.d0]
+       allocate(kpath(Npts,3))
+       kpath(1,:)=[0.d0,0.d0,0.d0]
+       kpath(2,:)=[1.d0/Nx,1.d0/Nx,0.d0]
+       kpath(3,:)=[1.d0/Nx,0.d0,0.d0]
+       kpath(4,:)=[0.d0,0.d0,0.d0]
     endif
     allocate(colors(Nlat*Nspin*Norb))
     colors = gray99
@@ -725,6 +728,7 @@ contains
       colors(4+i*Nspin*Norb) = blue1
     enddo
    !
+   call TB_set_bk([pi2/Nx,0d0,0d0],[0d0,pi2/Ny,0d0],[0d0,0d0,pi2])
    file="Eig_Htop_clusterbase.nint"
    if(master) call TB_Solve_model(hk_bhz_clusterbase,Nlat*Nspin*Norb,kpath,Nkpath,&   
          colors_name=colors,&
