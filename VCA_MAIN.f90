@@ -141,8 +141,6 @@ contains
     !
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
-    !    
-    Nktot=size(Hk(1,1,1,1,1,1,:))
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -166,7 +164,7 @@ contains
     !GENERATE THE CLUSTER HAMILTONIAN AND THE HOPPING MATRIX FOR THE LATTICE
     !
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(Hk,7)))
     impHloc=zero
     impHk=zero
     call vca_set_Hcluster(Hloc)
@@ -243,7 +241,6 @@ contains
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
     !    
-    Nktot=size(Hk(1,1,1,1,1,1,:))
     !
     !
     if(present(Bath))then
@@ -266,7 +263,7 @@ contains
     !GENERATE THE CLUSTER HAMILTONIAN AND THE HOPPING MATRIX FOR THE LATTICE
     !
     allocate(impHloc(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+    allocate(impHk(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(Hk,7)))
     impHloc=zero
     impHk=zero
     call vca_set_Hcluster(Hloc)

@@ -8,7 +8,7 @@ program vca_square_bath
   integer                                         :: Nlso,Nsys,Ndim
   integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
-  integer                                         :: iloop
+  integer                                         :: iloop,jloop
   integer                                         :: ix,iy,ik
   logical                                         :: converged
   real(8)                                         :: wband
@@ -32,8 +32,10 @@ program vca_square_bath
   integer                                         :: nloop
   character(len=6)                                :: scheme
    !FIX!!!!!!!!!!!!!!!
-  real(8)                                         :: mu,t,t_var,mu_var
+  real(8)                                         :: mu,t,t_var,mu_var,omegadummy
   real(8),dimension(:),allocatable                :: ts_array,omega_array
+  real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
+  real(8),dimension(:,:),allocatable              :: omega_grid
   integer,dimension(1)                            :: min_loc
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_periodized ![Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_periodized ![Nspin][Nspin][Norb][Norb][Lreal]
@@ -62,9 +64,9 @@ program vca_square_bath
   !
   !
   Ndim=size(Nkpts)
-  Nlso = (Nx**Ndim)*Norb*Nspin
-  Nlat=Nx**Ndim
-  Ny=Nx
+  Nlat=Nx*Ny
+  Nlso = Nlat*Norb*Nspin
+  call naming_convention()
   !
   t_var=1.0d0
   t=1.0d0
@@ -90,43 +92,32 @@ program vca_square_bath
     
 
   if(wloop)then
-    print_observables=.false.
-    allocate(ts_array(Nloop))
-    allocate(omega_array(Nloop))
-    ts_array = linspace(0.05d0,0.7d0,Nloop)
+    allocate(ts_array_x(Nloop))
+    allocate(ts_array_y(Nloop))
+    allocate(omega_grid(Nloop,Nloop))
     !
+    ts_array_x = linspace(-1d0,1d0,Nloop)
+    ts_array_y = linspace(0.1d0,1.5d0,Nloop)
     do iloop=1,Nloop
-       omega_array(iloop)=solve_vca_square(ts_array(iloop))
-    enddo
-    !
-    call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
-    min_loc = minloc(omega_array)
-    write(800,*)min_loc,ts_array(min_loc(1)),omega_array(min_loc(1))
-  else
-    do ix=1,Nlat
-      do iy=1,Nspin
-        do ik=1,Norb
-          call set_bath_component(bath,ix,iy,ik,e_component=[Uloc(1)/2.d0])
-          call set_bath_component(bath,ix,iy,ik,v_component=[TS])
-        enddo
+      do jloop=1,Nloop
+        omega_grid(iloop,jloop)=solve_vca_square([ts_array_x(iloop),ts_array_y(jloop)])
       enddo
     enddo
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k,bath)
+    !
+    call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
+    !
+  elseif(wmin)then
+    params=[0.d0,0.7d0]
+    !
+    call minimize_parameters(params,0.7d0)
+    !
+    print_Sigma=.true.
+    print_observables=.true.
+    omegadummy=solve_vca_square(params)
+    !
+    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),params
+    write(*,"(A)")""
   endif
-
-  !MINIMIZATION:
-
-  if(wmin)then
-     print*,"Guess:",ts
-     call  brent(solve_vca_square,ts,[0.5d0,3d0])
-     print*,"Result ts : ",ts
-     t_var=ts
-  endif
-
-
-
   call finalize_MPI()
 
 
@@ -141,26 +132,27 @@ contains
 
 
 
-  function solve_vca_square(tij) result(Omega)
-    real(8)                      :: tij
-    real(8)                      :: Vij,Eij
+  function solve_vca_square(params) result(Omega)
+    real(8),dimension(:)         :: params
+    real(8)                      :: Vij,Eij,deltae
     real(8)                      :: Omega
     !
     !
     t_var=1.0d0
-    Vij=tij
+    deltae=params(1)
+    Vij=params(2)
     Eij=0.d0
     mu_var=0.d0
     print*,""
-    print*,"------ Doing for ",tij," ------"
+    print*,"------ Doing for ",params," ------"
     call generate_tcluster()
     call generate_hk()
     !BATH VARIATIONAL SETUP
     do ix=1,Nlat
       do iy=1,Nspin
         do ik=1,Norb       
-          call set_bath_component(bath,ix,iy,ik,e_component=[Eij])
-          call set_bath_component(bath,ix,iy,ik,v_component=[Vij])
+          call set_bath_component(bath,ix,iy,ik,e_component=[Eij+deltae,Eij-deltae])
+          call set_bath_component(bath,ix,iy,ik,v_component=[Vij,Vij])
         enddo
       enddo
     enddo
@@ -172,6 +164,41 @@ contains
     !
   end function solve_vca_square
 
+  !+------------------------------------------------------------------+
+  !PURPOSE:  multidimensional finder of stationary points
+  !+------------------------------------------------------------------+
+  subroutine minimize_parameters(v,radius)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    real(8)                                   :: radius     
+    integer                                   :: i,iprint_         
+    !
+    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
+    !
+    !INITIALIZE FLAGS
+    !
+    iprint_=1
+    !
+    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
+    !
+    parvec=v
+    !
+    do i=1,size(v)
+      nbd(i) = 2
+      l(i)   = parvec(i)-radius
+      u(i)   = parvec(i)+radius
+    enddo
+    lold=l
+    uold=u
+    !
+    write(*,"(A)")""
+    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
+    !
+    !FIND LOCAL MINIMA
+    !
+    call fmin_bfgs(solve_vca_square,parvec,l,u,nbd,factr=1.d3,iprint=iprint_,nloop=Nloop)
+    !
+  end subroutine minimize_parameters
 
   !+------------------------------------------------------------------+
   !PURPOSE  : generate test hopping matrices
@@ -179,10 +206,6 @@ contains
 
   subroutine generate_tcluster()
     integer                                      :: ilat,jlat,ispin,iorb,ind1,ind2
-    real(8),dimension(Nlso,Nlso)                 :: H0
-    character(len=64)                            :: file_
-    integer                                      :: unit
-    file_ = "tcluster_matrix.dat"
     !
     if(allocated(t_prime))deallocate(t_prime)
     allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -190,7 +213,7 @@ contains
     !
     do ispin=1,Nspin
       do ilat=1,Nx
-        do jlat=1,Nx
+        do jlat=1,Ny
           ind1=indices2N([ilat,jlat])
           t_prime(ind1,ind1,ispin,ispin,1,1)= -mu_var
           if(ilat<Nx)then
@@ -201,10 +224,9 @@ contains
             ind2=indices2N([ilat-1,jlat])
             t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
           endif
-          if(jlat<Nx)then
+          if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
             t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
-
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
@@ -214,13 +236,6 @@ contains
       enddo
     enddo
     !
-    H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
-    !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)
   end subroutine generate_tcluster
 
 
@@ -228,13 +243,13 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
-    character(len=64)                            :: file_
-    file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid(Nkpts,kgrid)
-    kgrid=kgrid/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
+    kgrid(:,1)=kgrid(:,1)/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
+    kgrid(:,2)=kgrid(:,2)/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
+    !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
     h_k=zero
@@ -244,13 +259,6 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
-    H0=vca_nnn2lso_reshape(tk([0.3d0,0.6d0]),Nlat,Nspin,Norb)
-    !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)    
   end subroutine generate_hk
 
 
@@ -286,13 +294,14 @@ contains
       enddo
     enddo
     !
-    do ilat=1,Nx
-      do ispin=1,Nspin
+    do ispin=1,Nspin
+      do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
         hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(xi*kpoint(2)*Nx)
         hopping_matrix(ind2,ind1,ispin,ispin,1,1)=hopping_matrix(ind2,ind1,ispin,ispin,1,1) -t*exp(-xi*kpoint(2)*Nx)
-        !
+      enddo
+      do ilat=1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
         hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(xi*kpoint(1)*Ny)
@@ -308,23 +317,44 @@ contains
   !Auxilliary functions
   !+------------------------------------------------------------------+
 
-  function indices2N(indices) result(N)
-    integer,dimension(Ndim)      :: indices
-    integer                      :: N,i
-    !
-    !
-    N=1
-    N=N+(indices(1)-1)*Nx+(indices(2)-1)
-  end function indices2N
+   function indices2N(indices) result(N)
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      !
+      N=Nx*(indices(2)-1)+indices(1)
+   end function indices2N
 
-  function N2indices(N_) result(indices) ! FIXME: only for 2d
-    integer,dimension(Ndim)      :: indices
-    integer                      :: N,i,N_
-    !
-    N=N_-1
-    indices(2)=mod(N,Nx)+1
-    indices(1)=N/Nx+1
-  end function N2indices
+   function N2indices(N) result(indices) 
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      indices(1)=mod(N,Nx)
+      if(indices(1)==0)then
+         indices(1)=Nx
+         indices(2)=(N-Nx)/Nx+1
+      else
+         indices(2)=N/Nx+1
+      endif
+   end function N2indices
+
+   subroutine naming_convention()
+      integer                       :: i,j
+      integer,dimension(Nx,Ny)      :: matrix
+      !
+      do j=1,Ny
+         do i=1,Nx
+            matrix(i,j)=indices2N([i,j])
+         enddo
+      enddo
+      !
+      write(LOGfile,"(A)")"The unique index of each site (on the cartesian plane) is as follows:"
+      write(LOGfile,"(A)")" "
+      do j=1,Ny
+         write(LOGfile,"(20(I2,2x))")(matrix(i,Ny+1-j),i =1,Nx)
+      enddo
+      write(LOGfile,"(A)")" "
+   end subroutine naming_convention
 
 end program vca_square_bath
 

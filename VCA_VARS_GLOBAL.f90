@@ -99,7 +99,6 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                       :: Nsectors !Number of sectors
   integer,save                                       :: Ns_orb
   integer,save                                       :: Ns_ud
-  integer,save                                       :: Nktot    !Total number of k-points
 
 
   !non-interacting cluster Hamiltonian and full system hopping matrix

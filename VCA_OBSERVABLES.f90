@@ -1,5 +1,6 @@
 MODULE VCA_OBSERVABLES
   USE VCA_INPUT_VARS
+  USE VCA_BATH_FUNCTIONS
   USE VCA_VARS_GLOBAL
   USE VCA_SETUP
   USE VCA_DIAG
@@ -40,7 +41,7 @@ MODULE VCA_OBSERVABLES
   real(8)                                                  :: Ei
   real(8)                                                  :: integrationR
   !
-  integer                                                  :: r,m,k,k1,k2
+  integer                                                  :: r,m,k,k1,k2,Nkpts
   integer                                                  :: iup,idw
   integer                                                  :: jup,jdw
   integer                                                  :: mup,mdw
@@ -72,21 +73,22 @@ contains
     call vca_lanc_observables
   end subroutine observables_cluster
 
-  subroutine init_custom_observables(N)
-    integer                      :: N
+  subroutine init_custom_observables(N,Nktot_)
+    integer                      :: N,Nktot_
     !
     if(MpiMaster)then
       custom_o%N_filled=0
       custom_o%N_asked=N
       allocate(custom_o%item(N))
       custom_o%init=.true.
+      Nkpts=Nktot_
     endif
     !
   end subroutine init_custom_observables
     
   subroutine add_custom_observable_local(o_name,sij)
     integer                               :: i
-    complex(8),dimension(:,:,:,:,:,:)   :: sij
+    complex(8),dimension(:,:,:,:,:,:)     :: sij
     character(len=*)                      :: o_name
     !
     if(MpiMaster .and. custom_o%init)then
@@ -99,7 +101,7 @@ contains
       custom_o%item(custom_o%N_filled)%o_name=o_name
       custom_o%item(custom_o%N_filled)%o_value=0.d0
       !
-      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts))
       do i=1,size(custom_o%item(custom_o%N_filled)%sij,7)
         custom_o%item(custom_o%N_filled)%sij(:,:,:,:,:,:,i)=sij
       enddo
@@ -124,7 +126,7 @@ contains
       custom_o%item(custom_o%N_filled)%o_name=o_name
       custom_o%item(custom_o%N_filled)%o_value=0.d0
       !
-      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      allocate(custom_o%item(custom_o%N_filled)%sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts))
       custom_o%item(custom_o%N_filled)%sij=sijk
     else
       STOP "add_custom_observable: custom observables not initialized"
@@ -143,7 +145,7 @@ contains
       !
       write(LOGfile,*)"Calculating custom observables"
       !
-      allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot))
+      allocate(sij(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nkpts))
       sij=zero
       !
       do i=1,custom_o%N_filled
@@ -344,7 +346,7 @@ contains
     !
     call quad(sum_observable_kmesh,a=0.0d0,inf=1,verbose=(VERBOSE>=3),result=out_2,strict=.false.)
     !
-    out_2=spin_multiplicity*out_2/pi 
+    out_2=spin_multiplicity*out_2/(pi)
     return
   end function calculate_observable_integral_zero_t
 
@@ -379,7 +381,7 @@ contains
     out_2=out_2+integralpart
     !5) Spin trick
     spin_multiplicity=3.d0-Nspin 
-    out_2=spin_multiplicity*out_2/Nlat
+    out_2=spin_multiplicity*out_2
     return
   end function calculate_observable_integral_finite_t
 
@@ -411,6 +413,7 @@ contains
     complex(8),allocatable,dimension(:,:,:,:,:,:)            :: gfprime
     complex(8),allocatable,dimension(:,:)                    :: gfprime_lso
     complex(8),allocatable,dimension(:,:)                    :: Gk_lso
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: deltamat 
     !
     out_1=0.d0
     !
@@ -422,6 +425,7 @@ contains
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
     allocate(Gk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
     tmp_mat=zero
     gfprime=zero
@@ -433,8 +437,12 @@ contains
     gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
     call inv(gfprime_lso)
     !
+    if(Nbath>0)then
+      deltamat=delta_bath_freq(xi*omega,vca_bath)
+    endif
+    !
     do ii=1,size(impHk,7)
-       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
+       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc-deltamat,Nlat,Nspin,Norb)    
        Gk_lso=gfprime_lso-Gk_lso
        call inv(Gk_lso)
        out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),Gk_lso))-&
@@ -456,6 +464,7 @@ contains
     complex(8),allocatable,dimension(:,:,:,:,:,:)            :: gfprime
     complex(8),allocatable,dimension(:,:)                    :: gfprime_lso
     complex(8),allocatable,dimension(:,:)                    :: Gk_lso
+    complex(8),allocatable,dimension(:,:,:,:,:,:)            :: deltamat 
     !
     out_1=0.d0
     !
@@ -467,6 +476,7 @@ contains
     allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     allocate(gfprime_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
     allocate(Gk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
+    allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     !
     tmp_mat=zero
     gfprime=zero
@@ -478,8 +488,12 @@ contains
     gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
     call inv(gfprime_lso)
     !
+    if(Nbath>0)then
+      deltamat=delta_bath_freq(omega,vca_bath)
+    endif
+    !
     do ii=1,size(impHk,7)
-       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc,Nlat,Nspin,Norb)    
+       Gk_lso=vca_nnn2lso_reshape(impHk(:,:,:,:,:,:,ii)-impHloc-deltamat,Nlat,Nspin,Norb)    
        Gk_lso=gfprime_lso-Gk_lso
        call inv(Gk_lso)
        out_1=out_1+DREAL(trace(matmul(vca_nnn2lso_reshape(sij(:,:,:,:,:,:,ii),Nlat,Nspin,Norb),Gk_lso)))  !!FIXME: CHECK

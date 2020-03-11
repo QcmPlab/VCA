@@ -263,25 +263,31 @@ contains
   !+------------------------------------------------------------------+
 
    function hk_periodized(kpoint,N) result(Hk)
-      real(8),dimension(:)                              :: kpoint
-      integer                                           :: Nlat_,Nx_,Ny_,N
-      complex(8),dimension(N,N)                         :: Hk
-      complex(8),dimension(1,1,Nspin,Nspin,Norb,Norb)   :: tmpmat
+      real(8),dimension(:)                                    :: kpoint
+      integer                                                 :: Nlat_,Nx_,Ny_,N
+      complex(8),dimension(N,N)                               :: Hk
+      complex(8),dimension(Nspin,Nspin,Norb,Norb)             :: tmpmat
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)   :: tmpmat_lso
       !
-      tmpmat=periodize_sigma(kpoint)
-      !
-      Nlat_=Nlat
-      Nx_=Nx
-      Ny_=Ny
-      Nlat=1
-      Nx=1
-      Ny=1
-      !
-      Hk=nnn2lso(tk(kpoint)+tmpmat)
-      !
-      Nlat=Nlat_
-      Nx=Nx_
-      Ny=Ny_
+      if(scheme=="g")then
+         tmpmat=periodize_g(kpoint)
+         Hk=nn2so(tmpmat)
+      else
+         tmpmat=periodize_sigma(kpoint)
+         Nlat_=Nlat
+         Nx_=Nx
+         Ny_=Ny
+         Nlat=1
+         Nx=1
+         Ny=1
+         !
+         tmpmat_lso=tk(kpoint)
+         Hk=nn2so(tmpmat_lso(1,1,:,:,:,:)+tmpmat)
+         !
+         Nlat=Nlat_
+         Nx=Nx_
+         Ny=Ny_
+      endif
       !
    end function hk_periodized
    
@@ -292,7 +298,7 @@ contains
       real(8),dimension(:)                                        :: kpoint
       integer,dimension(:),allocatable                            :: ind1,ind2
       complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: smats_periodized
-      complex(8),dimension(1,1,Nspin,Nspin,Norb,Norb)             :: smats_periodized_omegazero
+      complex(8),dimension(Nspin,Nspin,Norb,Norb)                 :: smats_periodized_omegazero
       !
       !
       if(.not.allocated(ind1))allocate(ind1(size(kpoint)))
@@ -310,42 +316,87 @@ contains
          enddo
       enddo
       !
-      smats_periodized_omegazero(1,1,:,:,:,:)=smats_periodized(:,:,:,:,1)
+      smats_periodized_omegazero(:,:,:,:)=smats_periodized(:,:,:,:,1)
       !
-      end function periodize_sigma
+   end function periodize_sigma
+   
+
+   function periodize_g(kpoint) result(smats_periodized_omegazero)
+      integer                                                     :: ilat,jlat,ispin,iorb,ii
+      integer                                                     :: Nlat_,Nx_,Ny_,N
+      real(8),dimension(:)                                        :: kpoint
+      integer,dimension(:),allocatable                            :: ind1,ind2
+      complex(8),dimension(Nspin*Norb,Nspin*Norb,Lmats)           :: invG0mats,invGmats
+      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)       :: tmpmat,Hk_unper
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: gmats_unperiodized![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+      complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)           :: smats_periodized,gmats_periodized
+      complex(8),dimension(Nspin,Nspin,Norb,Norb)                 :: smats_periodized_omegazero
       !
-      subroutine print_hk_topological_path()
-       integer                                :: i,j,Lk,Nkpath
-       integer                                :: Npts
-       real(8),dimension(:,:),allocatable     :: kpath
-       complex(8),dimension(:,:,:),allocatable:: Hk
-       character(len=64)                      :: file
-       !This routine build the H(k) along the GXMG path in BZ,
-       !Hk(k) is constructed along this path.
-          if(master)write(LOGfile,*)"Build H(k) haldane_square along the path GXMG:"
-          Npts = 7
-          Nkpath=500
-          Lk=(Npts-1)*Nkpath
-          allocate(kpath(Npts,2))
-          kpath(1,:)=-kpoint_X2(1:2)
-          kpath(2,:)=kpoint_Gamma(1:2)
-          kpath(3,:)=kpoint_X2(1:2)
-          kpath(4,:)=kpoint_M1(1:2)
-          kpath(5,:)=kpoint_X1(1:2)
-          kpath(6,:)=kpoint_Gamma(1:2)
-          kpath(7,:)=-kpoint_X1(1:2)
-          file="Eigenbands.nint"
-          !
-          if(allocated(Hk))deallocate(Hk)
-          allocate(Hk(Nspin*Norb,Nspin*Norb,Lk))
-          !
-          call TB_set_bk([pi2,0d0],[0d0,pi2])
-          if(master)  call TB_Solve_model(hk_periodized,Nspin*Norb,kpath,Nkpath,&
-            colors_name=[red1,blue1,red1,blue1],&
-            points_name=[character(len=20) :: '-Y', 'G', 'Y', 'M', 'X', 'G', '-X'],&
-            file=reg(file))
-         !
-      end subroutine print_hk_topological_path
+      !
+      if(.not.allocated(ind1))allocate(ind1(size(kpoint)))
+      if(.not.allocated(ind2))allocate(ind2(size(kpoint)))
+      !
+      gmats_unperiodized=zero
+      gmats_periodized=zero
+      tmpmat=zero
+      !
+      do ii=1,1!Lmats
+         tmpmat=(xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb) - nnn2lso(tk(kpoint)) - nnn2lso(Smats(:,:,:,:,:,:,ii))
+         call inv(tmpmat)
+         gmats_unperiodized(:,:,:,:,:,:,ii)=lso2nnn(tmpmat)
+      enddo
+      !
+      do ii=1,1!Lmats
+         do ilat=1,Nlat
+            ind1=N2indices(ilat)        
+            do jlat=1,Nlat
+               ind2=N2indices(jlat)
+               gmats_periodized(:,:,:,:,ii)=gmats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*gmats_unperiodized(ilat,jlat,:,:,:,:,ii)/Nlat
+            enddo
+         enddo
+      enddo
+      !
+      do ii=1,1!Lmats
+         invGmats(:,:,ii) = nn2so(gmats_periodized(:,:,:,:,ii))
+         call inv(invGmats(:,:,ii))
+      enddo
+      !
+      smats_periodized_omegazero=so2nn(-invGmats(:,:,1))
+      !   
+   end function periodize_g
+      !
+   subroutine print_hk_topological_path()
+    integer                                :: i,j,Lk,Nkpath
+    integer                                :: Npts
+    real(8),dimension(:,:),allocatable     :: kpath
+    complex(8),dimension(:,:,:),allocatable:: Hk
+    character(len=64)                      :: file
+    !This routine build the H(k) along the GXMG path in BZ,
+    !Hk(k) is constructed along this path.
+       if(master)write(LOGfile,*)"Build H(k) haldane_square along the path GXMG:"
+       Npts = 7
+       Nkpath=500
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,2))
+       kpath(1,:)=-kpoint_X2(1:2)
+       kpath(2,:)=kpoint_Gamma(1:2)
+       kpath(3,:)=kpoint_X2(1:2)
+       kpath(4,:)=kpoint_M1(1:2)
+       kpath(5,:)=kpoint_X1(1:2)
+       kpath(6,:)=kpoint_Gamma(1:2)
+       kpath(7,:)=-kpoint_X1(1:2)
+       file="Eigenbands.nint"
+       !
+       if(allocated(Hk))deallocate(Hk)
+       allocate(Hk(Nspin*Norb,Nspin*Norb,Lk))
+       !
+       call TB_set_bk([pi2,0d0],[0d0,pi2])
+       if(master)  call TB_Solve_model(hk_periodized,Nspin*Norb,kpath,Nkpath,&
+         colors_name=[red1,blue1,red1,blue1],&
+         points_name=[character(len=20) :: '-Y', 'G', 'Y', 'M', 'X', 'G', '-X'],&
+         file=reg(file))
+      !
+   end subroutine print_hk_topological_path
       !   
 
 
@@ -403,6 +454,44 @@ contains
          enddo
       enddo
    end function nnn2lso
+   
+   function so2nn(Hso) result(Hnn)
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hnn=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                  is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hnn(ispin,jspin,iorb,jorb) = Hso(is,js)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function so2nn
+   !
+   function nn2so(Hnn) result(Hso)
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hso=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hso(is,js) = Hnn(ispin,jspin,iorb,jorb)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function nn2so
  
   !SET THE BATH DELTA FUNCTION
 

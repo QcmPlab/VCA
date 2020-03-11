@@ -65,13 +65,10 @@ program vca_bhz_2d
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
   call parse_input_variable(wmin,"WMIN",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(scheme,"SCHEME",finput,default="g")
-  call parse_input_variable(print_mats,"PRINT_MATS",finput,default=.true.)
-  call parse_input_variable(print_real,"PRINT_REAL",finput,default=.true.)
-  call parse_input_variable(scheme,"SCHEME",finput,default="g")
-  call parse_input_variable(usez,"USEZ",finput,default=.false.)
   !
   call vca_read_input(trim(finput),comm)
   !
+  call naming_convention()
   !
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
@@ -86,11 +83,9 @@ program vca_bhz_2d
   !SET CLUSTER DIMENSIONS (ASSUME SQUARE CLUSTER):
   !
   Ndim=size(Nkpts)
-  Nlat=Nx**Ndim
-  Ny=Nx
+  Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
   !
-  call naming_convention()
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
   t=ts
@@ -112,11 +107,15 @@ program vca_bhz_2d
   print_impG=.false.
   print_impG0=.false.
   print_Sigma=.false.
-  print_observables=.false.
-  MULTIMAX=.false.
   !
-  call solve_Htop_new()
-  stop
+  !CUSTOM OBSERVABLE: KINETIC ENERGY
+  allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  observable_matrix=zero
+  observable_matrix(1,1,1,1,1,1)=one
+  observable_matrix(1,1,2,2,1,1)=one
+  call init_custom_observables(1,product(Nkpts))
+  call add_custom_observable("test",observable_matrix)
+  !
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
@@ -125,20 +124,17 @@ program vca_bhz_2d
     !
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
     !
-    params=[t,M,lambda]
+    !params=[ts_var,Mh_var,lambdauser_var]
+    params=[ts_var,lambdauser_var]
     !
     call minimize_parameters(params,0.5d0)
-    !call fmin_brent(params,0.2d0)
     !
     print_Sigma=.true.
     print_observables=.true.
-    omegadummy=solve_vca_multi(params)
+    omegadummy=solve_vca(params)
     !
     write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
     write(*,"(A)")""
-    !
-    call solve_Htop_new()
-    call build_z2_indices() 
     !
   elseif(wloop)then
     !
@@ -147,49 +143,16 @@ program vca_bhz_2d
     allocate(omega_grid(Nloop,Nloop))
     !
     ts_array_x = linspace(ts_var-0.2d0,ts_var+0.2d0,Nloop)
-    ts_array_y = linspace(Mh_var-0.2d0,Mh_var+0.2d0,Nloop)
+    ts_array_y = linspace(lambdauser_var-0.2d0,lambdauser_var+0.2d0,Nloop)
     do iloop=1,Nloop
       do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca_multi([ts_array_x(iloop),ts_array_y(jloop),lambda])
+        omega_grid(iloop,jloop)=solve_vca([ts_array_x(iloop),Mh,ts_array_y(jloop)])
       enddo
     enddo
     !
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
     !
-  else
-    print_observables=.true.
-    omegadummy=solve_vca_multi([ts_var,Mh_Var,lambdauser_var])
-    !print*,"calculate gradient"
-    !call fdjac_1n_func(solve_vca_multi,[ts_var,Mh_Var,lambdauser_var],df)
-    !print*,"gradient is", df
-    !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("OMEGA IS "),omegadummy,bold_green(" AT "),ts_var,Mh_Var,lambdauser_var
-    !
-    allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    !
-    !SET OBSERVABLE MATRIX: AS AN EXAMPLE, THE TWO ORBITAL OCCUPATIONS
-    !
-    observable_matrix=zero
-    do iii=1,Nlat
-          observable_matrix(iii,iii,1,1,1,1)=1.d0
-          observable_matrix(iii,iii,2,2,1,1)=1.d0
-    enddo
-    call observables_lattice(observable_matrix,observable_dummy)
-    print*,"User-requested observable with value store is ",observable_dummy
-    !
-    observable_matrix=zero
-    do iii=1,Nlat
-          observable_matrix(iii,iii,1,1,2,2)=1.d0
-          observable_matrix(iii,iii,2,2,2,2)=1.d0
-    enddo
-    call observables_lattice(observable_matrix)
   endif
-  !
-  !PRINT LOCAL GF AND SIGMA
-  !
-  call print_local(scheme)
-  call solve_Htop_new()
-  call build_z2_indices() 
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -203,7 +166,7 @@ contains
   !PURPOSE  : solve the model
   !+------------------------------------------------------------------+
 
-  function solve_vca_multi(pars) result(Omega)
+  function solve_vca(pars) result(Omega)
     real(8),dimension(:)         :: pars
     logical                      :: invert
     real(8)                      :: Omega
@@ -211,8 +174,10 @@ contains
     !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
     t_var=pars(1)  
-    M_var=pars(2)
-    lambda_var=pars(3)
+    !M_var=pars(2)
+    !lambda_var=pars(3)
+    M_var=M
+    lambda_var=pars(2)
     mu_var=0.d0*t_var
     !
     print*,""
@@ -229,98 +194,9 @@ contains
     call vca_solve(comm,t_prime,h_k)
     call vca_get_sft_potential(omega)
     !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
     !
-  end function solve_vca_multi
+  end function solve_vca
 
-
-  function solve_vca_t(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    t_var=variable 
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_t
-
-  function solve_vca_m(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    M_var=variable
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_m
-
-  function solve_vca_l(variable) result(Omega)
-    logical                      :: invert
-    real(8)                      :: Omega,variable
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    lambda_var=variable
-    !
-    print*,""
-    print*,"Variational parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
-    call generate_tcluster()
-    call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
-    !    
-    print*,""
-    !
-  end function solve_vca_l
-
- 
   !+------------------------------------------------------------------+
   !PURPOSE:  multidimensional finder of stationary points
   !+------------------------------------------------------------------+
@@ -335,8 +211,6 @@ contains
     !INITIALIZE FLAGS
     !
     iprint_=1
-    !if(verbose .ge. 1)iprint_=1
-    MULTIMAX=.false.
     !
     !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
     !
@@ -355,131 +229,11 @@ contains
     !
     !FIND LOCAL MINIMA
     !
-    call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
+    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d5,iprint=iprint_,nloop=Nloop)
     !
-    !RESET MINIMIZER FOR VARIABLES ON THE BORDER
-    !
-    do i=1,size(v)
-      if((abs(parvec(i)-l(i)) .lt. 1.d-6) .or. (abs(parvec(i)-u(i)) .lt. 1.d-6))then
-        parvec(i)=v(i)
-      MULTIMAX=.true.
-      else
-        l(i)=parvec(i)
-        u(i)=parvec(i)
-      endif
-    enddo
-    !
-    !IF NEEDED FIND MAXIMUMS/SADDLE POINTS
-    !
-    if (MULTIMAX) then
-      write(*,"(A)")""
-      write(*,"(A)")bold_red("LOOKING FOR MAXIMUMS")
-      call fmin_bfgs(solve_vca_multi,parvec,l,u,nbd,factr=1.d8,iprint=iprint_,nloop=Nloop)
-      do i=1,size(v)
-        if((abs(parvec(i)-lold(i)) .lt. 1.d-6) .or. (abs(parvec(i)-uold(i)) .lt. 1.d-6))stop "STATIONARY POINT NOT FOUND!"
-      enddo
-      !
-      MULTIMAX=.false.
-      v=parvec
-    endif
-    !
-    deallocate(nbd,parvec,l,u,lold,uold)
+    v=parvec
     !
   end subroutine minimize_parameters
-
-
-
-  subroutine fmin_brent(v,radius)
-    real(8),dimension(3)                      :: v
-    real(8)                                   :: radius 
-    integer                                   :: i        
-    !
-    !
-    !INITIALIZE FLAGS
-    !
-    t_var=v(1)
-    M_var=v(2)
-    lambda_var=v(3)
-    mu_var=0.d0*t_var
-    MULTIMAX=.false.
-    !
-    print*,"MINIMIZE T"
-    !
-    call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])   
-    if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.true.
-      call  brent(solve_vca_t,v(1),[t_var-radius,t_var+radius])
-      if((abs(t_var-v(1)-radius) .lt. 1.d-5) .or. (abs(t_var-v(1)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    t_var=v(1)
-    !
-    print*,"MINIMIZE M"
-    !
-    MULTIMAX=.true.
-    call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])   
-    if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.false.
-      call  brent(solve_vca_m,v(2),[M_var-radius,M_var+radius])
-      if((abs(M_var-v(2)-radius) .lt. 1.d-5) .or. (abs(M_var-v(2)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    M_var=v(2)
-    !
-    print*,"MINIMIZE LAMBDA"
-    !
-    MULTIMAX=.true.
-    call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])   
-    if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )then
-      MULTIMAX=.false.
-      call  brent(solve_vca_l,v(3),[lambda_var-radius,lambda_var+radius])
-      if((abs(lambda_var-v(3)-radius) .lt. 1.d-5) .or. (abs(lambda_var-v(3)+radius) .lt. 1.d-5) )STOP "error on minimizing t"
-    endif
-    lambda_var=v(3)
-    MULTIMAX=.false.
-    call fdjac_1n_func(solve_vca_multi,v,df)
-    print*,"norm of gradient is", dot_product(df,df)
-    !
-  end subroutine fmin_brent
-
-
-  subroutine fdjac_1n_func(funcv,x,fjac,epsfcn)
-    implicit none
-    interface 
-       function funcv(x)
-         implicit none
-         real(8),dimension(:) :: x
-         real(8)              :: funcv
-       end function funcv
-    end interface
-    integer          ::  n
-    real(8)          ::  x(:)
-    real(8)          ::  fvec
-    real(8)          ::  fjac(size(x))
-    real(8),optional ::  epsfcn
-    real(8)          ::  eps,eps_
-    real(8)          ::  epsmch
-    real(8)          ::  h,temp
-    real(8)          ::  wa1
-    real(8)          ::  wa2
-    integer          :: i,j,k
-    real(8)          :: df_eps=1.d-3
-    n=size(x)
-    fjac=0.d0
-    eps_= df_eps; if(present(epsfcn))eps_=epsfcn
-    epsmch = epsilon(epsmch)
-    eps  = sqrt(max(eps_,epsmch))
-    !  Evaluate the function
-    fvec = funcv(x)
-    do j=1,n
-       temp = x(j)
-       h    = eps*abs(temp)
-       if(h==0.d0) h = eps
-       x(j) = temp + h
-       wa1  = funcv(x)
-       x(j) = temp
-       fjac(j) = (wa1 - fvec)/h
-    enddo
-  end subroutine fdjac_1n_func
-
 
   !+------------------------------------------------------------------+
   !PURPOSE  : generate hopping matrices
@@ -489,9 +243,6 @@ contains
   subroutine generate_tcluster()
     integer                                      :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
     complex(8),dimension(Nlso,Nlso)              :: H0
-    character(len=64)                            :: file_
-    integer                                      :: unit
-    file_ = "tcluster_matrix.dat"
     !
     if(allocated(t_prime))deallocate(t_prime)
     allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
@@ -524,15 +275,6 @@ contains
     !
     H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
     !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(REAL(H0(ilat,jlat)),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    write(unit,*)"                  "
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(IMAG(H0(ilat,jlat)),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)
   end subroutine generate_tcluster
 
 
@@ -589,14 +331,13 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
-    character(len=64)                            :: file_
-    file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone
-    kgrid=kgrid/Nx 
+    kgrid(:,1)=kgrid(:,1)/Nx 
+    kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
@@ -607,13 +348,7 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
-    H0=vca_nnn2lso_reshape(tk([0.d0,0.d0]),Nlat,Nspin,Norb)
     !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)    
   end subroutine generate_hk
 
 
@@ -652,534 +387,8 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : PRINT HAMILTONIAN ALONG PATH
-  !+------------------------------------------------------------------+
-
-  function hk_bhz_clusterbase(kpoint,N) result(hopping_matrix_lso)
-    integer                                                       :: N,ilat,jlat
-    real(8),dimension(:)                                          :: kpoint
-    real(8),dimension(Ndim)                                       :: kpoint_,ind1,ind2
-    complex(8),dimension(N,N)                                     :: hopping_matrix_lso
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)         :: hopping_matrix_big
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)   :: tmpSigmaMat
-    real(8)                                                       :: energy_scale
-    if(N.ne.Nlat*Nspin*Norb)stop "error N: wrong dimension"
-    !
-    hopping_matrix_lso=zero
-    hopping_matrix_big=zero
-    !
-    !
-    !call vca_get_sigma_matsubara(tmpSigmaMat)
-    hopping_matrix_big=tk(kpoint)!+DREAL(TmpSigmaMat(:,:,:,:,:,:,1))
-    !
-    !
-    hopping_matrix_lso=vca_nnn2lso_reshape(Hopping_matrix_big,Nlat,Nspin,Norb)
-    !
-  end function hk_bhz_clusterbase
-
-
-
-  subroutine solve_Htop_new(kpath_)
-    integer                                  :: i,j
-    integer                                  :: Npts,Nkpath
-    type(rgb_color),dimension(:),allocatable :: colors
-    real(8),dimension(:,:),optional          :: kpath_
-    real(8),dimension(:,:),allocatable       :: kpath
-    character(len=64)                        :: file
-    !
-    Nkpath=100
-    !
-    if(present(kpath_))then
-       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-       Npts = size(kpath_,1)
-       allocate(kpath(Npts,size(kpath_,2)))
-       kpath=kpath_
-    else
-       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-       Npts = 4
-       allocate(kpath(Npts,3))
-       kpath(1,:)=[0.d0,0.d0,0.d0]
-       kpath(2,:)=[1.d0/Nx,1.d0/Nx,0.d0]
-       kpath(3,:)=[1.d0/Nx,0.d0,0.d0]
-       kpath(4,:)=[0.d0,0.d0,0.d0]
-    endif
-    allocate(colors(Nlat*Nspin*Norb))
-    colors = gray99
-    !colors(1) = red1
-    !colors(5) = red1
-    !colors(9) = red1
-    !colors(13) = red1
-    !colors(2) = blue1
-    !colors(6) = blue1
-    !colors(10) = blue1
-    !colors(14) = blue1
-    !colors(3) = red1
-    !colors(7) = red1
-    !colors(11) = red1
-    !colors(15) = red1
-    !colors(4) = blue1
-    !colors(8) = blue1
-    !colors(12) = blue1
-    !colors(16) = blue1
-    do i=0,Nlat-1
-      colors(1+i*Nspin*Norb) = red1
-      colors(2+i*Nspin*Norb) = blue1
-      colors(3+i*Nspin*Norb) = red1
-      colors(4+i*Nspin*Norb) = blue1
-    enddo
-   !
-   call TB_set_bk([pi2/Nx,0d0,0d0],[0d0,pi2/Ny,0d0],[0d0,0d0,pi2])
-   file="Eig_Htop_clusterbase.nint"
-   if(master) call TB_Solve_model(hk_bhz_clusterbase,Nlat*Nspin*Norb,kpath,Nkpath,&   
-         colors_name=colors,&
-         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-         file=reg(file))
-  end subroutine solve_Htop_new
-
-
-  !+------------------------------------------------------------------+
-  !Periodization functions G-SCHEME
-  !+------------------------------------------------------------------+
-
-  !OBTAIN PERIODIZED G
-
-  subroutine periodize_gmats_g_scheme(kpoint)
-    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
-    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
-    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    complex(8),allocatable,dimension(:,:)                       :: gfTempMat ![Nlso][Nlso]
-    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
-    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfmats_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    !
-    !
-    allocate(gfmats_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-    allocate(gfTempMat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    !
-    gfmats_unperiodized=zero
-    gfprime=zero
-    gfTempMat=zero
-    Vk_lso=zero
-    gfmats_periodized=zero
-    call vca_get_gimp_matsubara(gfprime)
-    !
-    do ii=1,Lmats         
-      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(xi*wm(ii),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)
-      gfTempMat=vca_nnn2lso_reshape(gfprime(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
-      call inv(gfTempMat)
-      gfTempMat=gfTempMat-Vk_lso
-      call inv(gfTempMat)
-      gfmats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfTempMat,Nlat,Nspin,Norb)
-    enddo
-    !
-    do ilat=1,Nlat
-      ind1=N2indices(ilat)   
-      do jlat=1,Nlat
-        ind2=N2indices(jlat)
-          gfmats_periodized=gfmats_periodized+exp(-xi*dot_product(kpoint,ind1-ind2))*gfmats_unperiodized(ilat,jlat,:,:,:,:,:)/Nlat
-      enddo
-    enddo
-    !
-    deallocate(gfmats_unperiodized,Vk_lso,gfTempMat,gfprime)
-    !   
-  end subroutine periodize_gmats_g_scheme
-
-  subroutine periodize_greal_g_scheme(kpoint)
-    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
-    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
-    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfprime ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    complex(8),allocatable,dimension(:,:)                       :: gfTempMat ![Nlso][Nlso]
-    complex(8),allocatable,dimension(:,:)                       :: Vk_lso ![Nlso][Nlso]
-    complex(8),allocatable,dimension(:,:,:,:,:,:,:)             :: gfreal_unperiodized ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    !
-    !
-    allocate(gfreal_unperiodized(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-    allocate(gfprime(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-    allocate(gfTempMat(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    allocate(Vk_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
-    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
-    !
-    gfreal_unperiodized=zero
-    gfprime=zero
-    gfTempMat=zero
-    Vk_lso=zero
-    gfreal_periodized=zero
-    call vca_get_gimp_realaxis(gfprime)
-    !
-    do ii=1,Lreal       
-      Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime-set_delta(dcmplx(wr(ii),eps),[ts],[Uloc(1)/2]),Nlat,Nspin,Norb)
-      gfTempMat=vca_nnn2lso_reshape(gfprime(:,:,:,:,:,:,ii),Nlat,Nspin,Norb)
-      call inv(gfTempMat)
-      gfTempMat=gfTempMat-Vk_lso
-      call inv(gfTempMat)
-      gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfTempMat,Nlat,Nspin,Norb)
-    enddo
-    !
-    do ilat=1,Nlat
-      ind1=N2indices(ilat)   
-      do jlat=1,Nlat
-        ind2=N2indices(jlat)
-          gfreal_periodized=gfreal_periodized+exp(-xi*dot_product(kpoint,ind1-ind2))*gfreal_unperiodized(ilat,jlat,:,:,:,:,:)/Nlat
-      enddo
-    enddo
-    !
-    deallocate(gfreal_unperiodized,Vk_lso,gfTempMat,gfprime)
-    !   
-  end subroutine periodize_greal_g_scheme
-
-! OBTAIN PERIODIZED SIGMA
-
-  subroutine build_smats_g_scheme(kpoint)
-    integer                                                       :: i,ispin,iorb,ii
-    real(8)                                                       :: energy_Scale
-    real(8),dimension(Ndim)                                       :: kpoint
-    complex(8),dimension(:,:,:),allocatable                       :: invG0mats_lso,invGmats_lso ![Nlso][Nlso]
-    !
-    !
-    if(.not.allocated(invG0mats_lso))allocate(invG0mats_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(invGmats_lso))allocate(invGmats_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(Smats_periodized_lso))allocate(Smats_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    invG0mats_lso=zero
-    invGmats_lso=zero
-    Smats_periodized_lso  = zero
-    energy_scale=2.d0*t
-    !
-    !Get G0^-1
-    do ii=1,Lmats
-        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-    enddo
-    !  
-    !Get Gimp^-1
-    call periodize_gmats_g_scheme(kpoint)
-    do ii=1,Lmats
-      invGmats_lso(:,:,ii)=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
-      call inv(invGmats_lso(:,:,ii))
-    enddo
-    !Get Sigma functions: Sigma= G0^-1 - G^-1
-    do ii=1,Lmats
-      Smats_periodized_lso(:,:,ii) = invG0mats_lso(:,:,ii) - invGmats_lso(:,:,ii)
-      Smats_periodized(:,:,:,:,ii) = vca_so2nn_reshape(Smats_periodized_lso(:,:,ii),Nspin,Norb)
-    enddo
-    !
-    deallocate(invG0mats_lso,invGmats_lso)
-    !
-  end subroutine build_smats_g_scheme
-
-
-  subroutine build_sreal_g_scheme(kpoint)
-    integer                                                       :: i,ispin,iorb,ii
-    real(8)                                                       :: energy_Scale
-    real(8),dimension(Ndim)                                       :: kpoint
-    complex(8),dimension(:,:,:),allocatable                       :: invG0real_lso,invGreal_lso ![Nlso][Nlso]
-    !
-    !
-    if(.not.allocated(invG0real_lso))allocate(invG0real_lso(Nspin*Norb,Nspin*Norb,Lreal))
-    if(.not.allocated(invGreal_lso))allocate(invGreal_lso(Nspin*Norb,Nspin*Norb,Lreal))
-    if(.not.allocated(Sreal_periodized_lso))allocate(Sreal_periodized_lso(Nspin*Norb,Nspin*Norb,Lreal))
-    if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
-    invG0real_lso=zero
-    invGreal_lso=zero
-    energy_scale=2.d0*t
-    !
-    !Get G0^-1
-    do ii=1,Lreal
-        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-    enddo
-    !  
-    !Get Gimp^-1
-    call periodize_greal_g_scheme(kpoint)
-    do ii=1,Lreal
-      invGreal_lso(:,:,ii)=vca_nn2so_reshape(gfreal_periodized(:,:,:,:,ii),Nspin,Norb)
-      call inv(invGreal_lso(:,:,ii))
-    enddo
-    !Get Sigma functions: Sigma= G0^-1 - G^-1
-    do ii=1,Lreal
-      Sreal_periodized_lso(:,:,ii) = invG0real_lso(:,:,ii) - invGreal_lso(:,:,ii)
-      Sreal_periodized(:,:,:,:,ii) = vca_so2nn_reshape(Sreal_periodized_lso(:,:,ii),Nspin,Norb)
-    enddo
-    !
-    deallocate(invG0real_lso,invGreal_lso)
-    !
-  end subroutine build_sreal_g_scheme
-
-
-  !+------------------------------------------------------------------+
-  !Periodization functions SIGMA-SCHEME
-  !+------------------------------------------------------------------+
-
-! OBTAIN PERIODIZED SIGMA
-
-  subroutine periodize_smats_sigma_scheme(kpoint)
-    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
-    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
-    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: tmpSigmaMat
-    !
-    if(.not.allocated(Smats_periodized))allocate(Smats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    if(.not.allocated(Smats_periodized_lso))allocate(Smats_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(tmpSigmaMat))allocate(tmpSigmaMat(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-    !
-    Smats_periodized=zero
-    Smats_periodized_lso=zero
-    tmpSigmaMat=zero
-    !
-    call vca_get_sigma_matsubara(tmpSigmaMat)
-    do ii=1,Lmats
-      do ilat=1,Nlat
-        ind1=N2indices(ilat)   
-        do jlat=1,Nlat
-          ind2=N2indices(jlat)
-          Smats_periodized(:,:,:,:,ii)=Smats_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*tmpSigmaMat(ilat,jlat,:,:,:,:,ii)/Nlat
-        enddo
-      enddo
-    enddo
-    !
-    do ii=1,Lmats
-      Smats_periodized_lso(:,:,ii)=vca_nn2so_reshape(Smats_periodized(:,:,:,:,ii),Nspin,Norb)
-    enddo
-    !
-    deallocate(tmpSigmamat)
-    !
-  end subroutine periodize_smats_sigma_scheme
-
-  subroutine periodize_sreal_sigma_scheme(kpoint)
-    integer                                                     :: ilat,jlat,ispin,iorb,jorb,ii
-    real(8),dimension(Ndim)                                     :: kpoint,ind1,ind2
-    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: tmpSigmaMat
-    !
-    if(.not.allocated(Sreal_periodized))allocate(Sreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
-    if(.not.allocated(Sreal_periodized_lso))allocate(Sreal_periodized_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(tmpSigmaMat))allocate(tmpSigmaMat(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-    !
-    Sreal_periodized=zero
-    Sreal_periodized_lso=zero
-    tmpSigmaMat=zero
-    !
-    call vca_get_sigma_realaxis(tmpSigmaMat)
-    do ii=1,Lreal
-      do ilat=1,Nlat
-        ind1=N2indices(ilat)   
-        do jlat=1,Nlat
-          ind2=N2indices(jlat)
-          Sreal_periodized(:,:,:,:,ii)=Sreal_periodized(:,:,:,:,ii)+exp(-xi*dot_product(kpoint,ind1-ind2))*tmpSigmaMat(ilat,jlat,:,:,:,:,ii)/Nlat
-        enddo
-      enddo
-    enddo
-    !
-    do ii=1,Lreal
-      Sreal_periodized_lso(:,:,ii)=vca_nn2so_reshape(Sreal_periodized(:,:,:,:,ii),Nspin,Norb)
-    enddo
-    !
-    deallocate(tmpSigmaMat)
-    !
-  end subroutine periodize_sreal_sigma_scheme
-
-
-! OBTAIN PERIODIZED G
-
-  subroutine build_gmats_sigma_scheme(kpoint)
-    integer                                                       :: i,ispin,iorb,ii
-    real(8)                                                       :: energy_Scale
-    real(8),dimension(Ndim)                                       :: kpoint
-    complex(8),dimension(:,:,:),allocatable                       :: invG0mats_lso,invGmats_lso ![Nlso][Nlso]
-    !
-    !
-    if(.not.allocated(invG0mats_lso))allocate(invG0mats_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(invGmats_lso))allocate(invGmats_lso(Nspin*Norb,Nspin*Norb,Lmats))
-    if(.not.allocated(gfmats_periodized))allocate(gfmats_periodized(Nspin,Nspin,Norb,Norb,Lmats))
-    !
-    invG0mats_lso=zero
-    invGmats_lso=zero
-    gfmats_periodized  = zero
-    energy_scale=2.d0*t
-    !
-    !Get G0^-1
-    do ii=1,Lmats
-        invG0mats_lso(:,:,ii) = (xi*wm(ii)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-    enddo
-    !  
-    !Get Sigma functions
-    call periodize_smats_sigma_scheme(kpoint)
-    !Get Gimp^-1: G^-1 = G0^-1 - Sigma
-    do ii=1,Lmats
-      invGmats_lso(:,:,ii) = invG0mats_lso(:,:,ii) - vca_nn2so_reshape(Smats_periodized(:,:,:,:,ii),Nspin,Norb)
-    enddo    
-    !
-    do ii=1,Lmats
-      call inv(invGmats_lso(:,:,ii))
-      gfmats_periodized(:,:,:,:,ii)=vca_so2nn_reshape(invGmats_lso(:,:,ii),Nspin,Norb)
-    enddo
-    !
-    !
-    deallocate(invG0mats_lso,invGmats_lso)
-    !
-  end subroutine build_gmats_sigma_scheme
-
-  subroutine build_greal_sigma_scheme(kpoint)
-    integer                                                       :: i,ispin,iorb,ii
-    real(8)                                                       :: energy_Scale
-    real(8),dimension(Ndim)                                       :: kpoint
-    complex(8),dimension(:,:,:),allocatable                       :: invG0real_lso,invGreal_lso ![Nlso][Nlso]
-    !
-    !
-    if(.not.allocated(invG0real_lso))allocate(invG0real_lso(Nspin*Norb,Nspin*Norb,Lreal))
-    if(.not.allocated(invGreal_lso))allocate(invGreal_lso(Nspin*Norb,Nspin*Norb,Lreal))
-    if(.not.allocated(gfreal_periodized))allocate(gfreal_periodized(Nspin,Nspin,Norb,Norb,Lreal))
-    !
-    invG0real_lso=zero
-    invGreal_lso=zero
-    gfreal_periodized = zero
-    energy_scale=2.d0*t
-    !
-    !Get G0^-1
-    do ii=1,Lreal
-        invG0real_lso(:,:,ii) = (dcmplx(wr(ii),eps)+xmu)*eye(Nspin*Norb)  + (M-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-                                                                 lambda*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-                                                                 lambda*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-    enddo
-    !  
-    !Get Sigma functions
-    call periodize_sreal_sigma_scheme(kpoint)
-    !Get Gimp^-1: G^-1 = G0^-1 - Sigma
-    do ii=1,Lreal
-      invGreal_lso(:,:,ii) = invG0real_lso(:,:,ii) - vca_nn2so_reshape(Sreal_periodized(:,:,:,:,ii),Nspin,Norb)
-    enddo    
-    !
-    do ii=1,Lreal
-      call inv(invGreal_lso(:,:,ii))
-      gfreal_periodized(:,:,:,:,ii)=vca_so2nn_reshape(invGreal_lso(:,:,ii),Nspin,Norb)
-    enddo
-    !
-    !
-    deallocate(invG0real_lso,invGreal_lso)
-    !
-  end subroutine build_greal_sigma_scheme
-
-
-  !+------------------------------------------------------------------+
-  !PRINT LOCAL QUANTITIES
-  !+------------------------------------------------------------------+
-
-  subroutine print_local(scheme)
-    integer                                         :: ix,ik,ispin,iorb,jorb
-    character(len=30)                               :: suffix
-    character(len=6)                                :: scheme
-    !
-    if(master)then
-    !
-      if(.not.allocated(Gfmats_local))allocate(Gfmats_local(Nspin,Nspin,Norb,Norb,Lmats))
-      if(.not.allocated(Smats_local))allocate(Smats_local(Nspin,Nspin,Norb,Norb,Lmats))
-      if(.not.allocated(Gfreal_local))allocate(Gfreal_local(Nspin,Nspin,Norb,Norb,Lreal))
-      if(.not.allocated(Sreal_local))allocate(Sreal_local(Nspin,Nspin,Norb,Norb,Lreal))
-      gfmats_local=zero
-      smats_local=zero
-      gfreal_local=zero
-      sreal_local=zero
-      !
-      allocate(kgrid_test(product(Nkpts),Ndim)) 
-      call TB_build_kgrid(Nkpts,kgrid_test)
-      !
-      print*,"Calculating Gloc and Sigma ",scheme," scheme"  
-      !
-      call start_timer
-      !
-      do ik=1,product(Nkpts)
-        if(scheme=="g")then
-          if(print_mats)call build_smats_g_scheme(kgrid_test(ik,:))       !also periodizes g
-          if(print_real)call build_sreal_g_scheme(kgrid_test(ik,:))       !also periodizes g
-        else
-          if(print_mats)call build_gmats_sigma_scheme(kgrid_test(ik,:))   !also periodizes sigma
-          if(print_real)call build_greal_sigma_scheme(kgrid_test(ik,:))       !also periodizes sigma
-        endif
-        if(print_mats)then
-          do ix=1,Lmats
-            gfmats_local(:,:,:,:,ix)=gfmats_local(:,:,:,:,ix)+gfmats_periodized(:,:,:,:,ix)/(product(Nkpts))
-            smats_local(:,:,:,:,ix)=smats_local(:,:,:,:,ix)+Smats_periodized(:,:,:,:,ix)/(product(Nkpts))
-          enddo
-        endif
-        if(print_real)then
-          do ix=1,Lreal
-            gfreal_local(:,:,:,:,ix)=gfreal_local(:,:,:,:,ix)+gfreal_periodized(:,:,:,:,ix)/(product(Nkpts))
-            sreal_local(:,:,:,:,ix)=sreal_local(:,:,:,:,ix)+Sreal_periodized(:,:,:,:,ix)/(product(Nkpts))
-          enddo
-        endif
-        call eta(ik,product(Nkpts))
-      enddo
-      !
-      call stop_timer
-      !
-      do iorb=1,Norb
-       do jorb=1,Norb
-         do ispin=1,Nspin
-           suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//"_"//str(scheme)//"_scheme"
-           if(print_mats)call splot("perG"//reg(suffix)//"_iw.vca"   ,wm,gfmats_local(ispin,ispin,iorb,jorb,:))
-           if(print_mats)call splot("perSigma"//reg(suffix)//"_iw.vca"   ,wm,Smats_local(ispin,ispin,iorb,jorb,:))
-           if(print_real)call splot("perG"//reg(suffix)//"_realw.vca"   ,wr,gfreal_local(ispin,ispin,iorb,jorb,:))
-           if(print_real)call splot("perSigma"//reg(suffix)//"_realw.vca"   ,wr,Sreal_local(ispin,ispin,iorb,jorb,:))
-          enddo
-        enddo
-      enddo
-    endif
-  !
-  end subroutine print_local
-
-
-  !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
-
-
-  subroutine build_z2_indices()
-    integer                                                         :: unit
-    integer                                                         :: z2
-    !
-    !Evaluate the Z2 index:
-    z2 = z2_number(reshape( [ [0,0] , [0,1] , [1,0] , [1,1] ] , [2,4])*pi/Nx)
-    unit=free_unit()
-    open(unit,file="z2_invariant.ed")
-    write(unit,*)z2
-    close(unit)
-  end subroutine build_z2_indices
-
-  function z2_number(ktrims) result(z2)
-    real(8),dimension(:,:),intent(in)                                    :: ktrims
-    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb,size(Ktrims,2)) :: Htrims
-    complex(8),dimension(size(Ktrims,2))                                 :: Delta
-    integer                                                              :: z2
-    integer                                                              :: i,j,Ntrim,itrim,Nocc
-    real(8),dimension(Nlat*Nspin*Norb)                                   :: Eigval
-    !
-    Ntrim=size(Ktrims,2)
-    !
-    do itrim=1,Ntrim
-       Htrims(:,:,itrim) = hk_bhz_clusterbase(Ktrims(:,itrim),Nlat*Nspin*Norb)
-       call eigh(Htrims(:,:,itrim),Eigval)
-       Delta(itrim)=one
-       do Nocc=1,Nlat*Nspin*Norb/2
-         if(abs(Htrims(2,Nocc,itrim))>0.125 .or. abs(Htrims(4,Nocc,itrim))>0.125 .or. abs(Htrims(6,Nocc,itrim))>0.125 .or. abs(Htrims(8,Nocc,itrim))>0.125&
-          .or. abs(Htrims(10,Nocc,itrim))>0.125 .or. abs(Htrims(12,Nocc,itrim))>0.125 .or. abs(Htrims(14,Nocc,itrim))>0.125 .or. abs(Htrims(16,Nocc,itrim))>0.125) then
-          Delta(itrim)=Delta(itrim)*xi
-          endif
-       enddo
-    enddo
-    !
-    z2=product(Delta(:))
-    if(z2>0)then
-       z2=0
-    else
-       z2=1
-    end if
-    print*,"Z2",z2
-    !
-  end function z2_number
 
   function Zrenorm(sigma) result(Zmats)
     !
@@ -1221,38 +430,41 @@ contains
     endif
   end function set_delta
 
-  function indices2N(indices) result(N)
-    integer,dimension(Ndim)      :: indices
-    integer                      :: N,i
-    !
-    !
-    N=1
-    N=N+(indices(1)-1)*Nx+(indices(2)-1)
-  end function indices2N
+   function indices2N(indices) result(N)
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      !
+      N=Nx*(indices(2)-1)+indices(1)
+   end function indices2N
 
-  function N2indices(N_) result(indices)
-    integer,dimension(Ndim)      :: indices
-    integer                      :: N,i,N_
-    !
-    N=N_-1
-    indices(2)=mod(N,Nx)+1
-    indices(1)=N/Nx+1
-  end function N2indices
+   function N2indices(N) result(indices) 
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      indices(1)=mod(N,Nx)
+      if(indices(1)==0)then
+         indices(1)=Nx
+         indices(2)=(N-Nx)/Nx+1
+      else
+         indices(2)=N/Nx+1
+      endif
+   end function N2indices
 
    subroutine naming_convention()
       integer                       :: i,j
       integer,dimension(Nx,Ny)      :: matrix
       !
-      do i=1,Nx
-         do j=1,Ny
-            matrix(i,j)=indices2N([j,i])
+      do j=1,Ny
+         do i=1,Nx
+            matrix(i,j)=indices2N([i,j])
          enddo
       enddo
       !
       write(LOGfile,"(A)")"The unique index of each site (on the cartesian plane) is as follows:"
       write(LOGfile,"(A)")" "
       do j=1,Ny
-         write(LOGfile,"(20(I2,2x))")(matrix(Ny+1-j,i),i =1,Nx)
+         write(LOGfile,"(20(I2,2x))")(matrix(i,Ny+1-j),i =1,Nx)
       enddo
       write(LOGfile,"(A)")" "
    end subroutine naming_convention

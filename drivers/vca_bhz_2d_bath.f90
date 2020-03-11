@@ -118,6 +118,14 @@ program vca_bhz_2d_bath
   !INITIALIZE SOLVER:
   !
   call vca_init_solver(comm,bath)
+  
+  !CUSTOM OBSERVABLE: KINETIC ENERGY
+  allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  observable_matrix=zero
+  observable_matrix(1,1,1,1,1,1)=one
+  call init_custom_observables(1)
+  call add_custom_observable("test",observable_matrix)
+  
   MULTIMAX=.false.
   !
   !SOLVE INTERACTING PROBLEM:
@@ -126,7 +134,7 @@ program vca_bhz_2d_bath
     !
     bath_v=0.4
     if(master)print*,"Guess:",bath_v
-    call  brent_(solve_vca_single,bath_v,[0.05d0,2d0])
+    call  brent(solve_vca_single,bath_v,[0.05d0,2d0])
     if(master)print*,"Result ts : ",bath_v
     omegadummy=solve_vca_single(bath_v)
     if(master)write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT V = "),bath_v
@@ -279,15 +287,6 @@ contains
     !
     H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
     !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(REAL(H0(ilat,jlat)),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    write(unit,*)"                  "
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(IMAG(H0(ilat,jlat)),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)
   end subroutine generate_tcluster
 
 
@@ -406,75 +405,6 @@ contains
   end function t_y
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : PRINT HAMILTONIAN ALONG PATH
-  !+------------------------------------------------------------------+
-
-  function hk_bhz_clusterbase(kpoint,N) result(hopping_matrix_lso)
-    integer                                                       :: N,ilat,jlat
-    real(8),dimension(:)                                          :: kpoint
-    real(8),dimension(Ndim)                                       :: kpoint_
-    complex(8),dimension(N,N)                                     :: hopping_matrix_lso
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)         :: hopping_matrix_big
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)   :: tmpSigmaMat
-    real(8)                                                       :: energy_scale
-    if(N.ne.Nlat*Nspin*Norb)stop "error N: wrong dimension"
-    !
-    hopping_matrix_lso=zero
-    hopping_matrix_big=zero
-    !
-    !
-    call vca_get_sigma_matsubara(tmpSigmaMat)
-    hopping_matrix_big=tk(kpoint)+DREAL(TmpSigmaMat(:,:,:,:,:,:,1))
-    !
-    !
-    hopping_matrix_lso=vca_nnn2lso_reshape(Hopping_matrix_big,Nlat,Nspin,Norb)
-    !
-  end function hk_bhz_clusterbase
-
-
-
-  subroutine solve_Htop_new(kpath_)
-    integer                                  :: i,j
-    integer                                  :: Npts,Nkpath
-    type(rgb_color),dimension(:),allocatable :: colors
-    real(8),dimension(:,:),optional          :: kpath_
-    real(8),dimension(:,:),allocatable       :: kpath
-    character(len=64)                        :: file
-    !
-    Nkpath=100
-    !
-    if(present(kpath_))then
-       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-       Npts = size(kpath_,1)
-       allocate(kpath(Npts,size(kpath_,2)))
-       kpath=kpath_
-    else
-       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-       Npts = 4
-       allocate(kpath(Npts,2))
-       kpath(1,:)=[0.d0,0.d0]
-       kpath(2,:)=[pi/Nx,pi/Nx]
-       kpath(3,:)=[pi/Nx,0.d0]
-       kpath(4,:)=[0.d0,0.d0]
-    endif
-    allocate(colors(Nlat*Nspin*Norb))
-    colors = gray99
-    !
-    do i=0,Nlat-1
-      colors(1+i*Nspin*Norb) = red1
-      colors(2+i*Nspin*Norb) = blue1
-      colors(3+i*Nspin*Norb) = red1
-      colors(4+i*Nspin*Norb) = blue1
-    enddo
-   !
-   file="Eig_Htop_clusterbase.nint"
-   if(master) call TB_Solve_model(hk_bhz_clusterbase,Nlat*Nspin*Norb,kpath,Nkpath,&   
-         colors_name=colors,&
-         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-         file=reg(file))
-  end subroutine solve_Htop_new
-
 
   !+------------------------------------------------------------------+
   !Auxilliary functions
@@ -484,181 +414,64 @@ contains
  
   !SET THE BATH DELTA FUNCTION
 
-  function set_delta(freq,vps,eps) result(DELTA)
-    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-    complex(8)                                                  :: freq
-    real(8),dimension(:)                                        :: vps,eps
-    integer                                                     :: ispin,iorb,ilat
-    !
-    allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    DELTA=zero
-    !
+   function set_delta(freq,vps,eps) result(DELTA)
+     complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
+     complex(8)                                                  :: freq
+     real(8),dimension(:)                                        :: vps,eps
+     integer                                                     :: ispin,iorb,ilat
+     !
+     allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+     DELTA=zero
+     !
     if (Nbath .ne. 0)then
-      do ilat=1,Nlat
-        do ispin=1,Nspin
-           do iorb=1,Norb
-             DELTA(ilat,ilat,ispin,ispin,iorb,iorb)=sum( vps(:)*vps(:)/(freq - eps(:)+XMU) )
-           enddo
-        enddo
+       do ilat=1,Nlat
+         do ispin=1,Nspin
+            do iorb=1,Norb
+              DELTA(ilat,ilat,ispin,ispin,iorb,iorb)=sum( vps(:)*vps(:)/(freq - eps(:)+XMU) )
+            enddo
+         enddo
+       enddo
+     endif
+   end function set_delta
+
+   function indices2N(indices) result(N)
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      !
+      N=Nx*(indices(2)-1)+indices(1)
+   end function indices2N
+
+   function N2indices(N) result(indices) 
+      integer,dimension(2)         :: indices
+      integer                      :: N,i
+      !
+      indices(1)=mod(N,Nx)
+      if(indices(1)==0)then
+         indices(1)=Nx
+         indices(2)=(N-Nx)/Nx+1
+      else
+         indices(2)=N/Nx+1
+      endif
+   end function N2indices
+
+   subroutine naming_convention()
+      integer                       :: i,j
+      integer,dimension(Nx,Ny)      :: matrix
+      !
+      do j=1,Ny
+         do i=1,Nx
+            matrix(i,j)=indices2N([i,j])
+         enddo
       enddo
-    endif
-  end function set_delta
-
-  function indices2N(indices) result(N)
-    integer,dimension(2)      :: indices
-    integer                      :: N,i
-    !
-    !
-    N=1
-    N=N+(indices(1)-1)*Ny+(indices(2)-1)
-  end function indices2N
-
-  function N2indices(N_) result(indices)
-    integer,dimension(2)      :: indices
-    integer                      :: N,i,N_
-    !
-    N=N_-1
-    indices(2)=mod(N,Ny)+1
-    indices(1)=N/Ny+1
-  end function N2indices
-
-
-  !BRENT MINIMIZING FUNCTION
-
-  subroutine brent_(func,xmin,brack,tol,niter)
-    interface
-       function func(x)
-         real(8) :: x
-         real(8) :: func
-       end function func
-    end interface
-    real(8),intent(inout)         :: xmin
-    real(8),dimension(:),optional :: brack
-    real(8),optional              :: tol
-    integer,optional              :: niter
-    real(8)                       :: tol_
-    integer                       :: niter_
-    integer                       :: iter
-    real(8)                       :: ax,xx,bx,fa,fx,fb,fret
-    !
-    tol_=1d-6;if(present(tol))tol_=tol
-    Niter_=200;if(present(Niter))Niter_=Niter
-    !
-    if(present(brack))then
-       select case(size(brack))
-       case(1)
-          stop "Brent error: calling brent with size(brack)==1. None or two points are necessary."
-       case(2)
-          ax = brack(1)
-          xx = brack(2)
-       case (3)
-          ax = brack(1)
-          xx = brack(2)
-          bx = brack(3)
-       end select
-    else
-       ax=0d0
-       xx=1d0
-    endif
-    fret=brent_optimize(ax,xx,bx,func,tol_,niter_,xmin)
-  end subroutine brent_
-  !
-
-
-
-  function brent_optimize(ax,bx,cx,func,tol,itmax,xmin)
-    real(8), intent(in)  :: ax,bx,cx,tol
-    real(8), intent(out) :: xmin
-    real(8)              :: brent_optimize
-    integer              :: itmax
-    real(8), parameter   :: cgold=0.3819660d0,zeps=1.0d-3*epsilon(ax)
-    integer              :: iter
-    real(8)              :: a,b,d,e,etemp,fu,fv,fw,fx,p,q,r,tol1,tol2,u,v,w,x,xm
-    interface
-       function func(x)
-         real(8) :: x
-         real(8) :: func
-       end function func
-    end interface
-    a=min(ax,cx)
-    b=max(ax,cx)
-    v=bx
-    w=v
-    x=v
-    e=0.d0
-    fx=func(x)
-    fv=fx
-    fw=fx
-    do iter=1,itmax
-       xm=0.5d0*(a+b)
-       tol1=tol*abs(x)+zeps
-       tol2=2.0*tol1
-       if (abs(x-xm) <= (tol2-0.5d0*(b-a))) then
-          xmin=x
-          brent_optimize=fx
-          return
-       end if
-       if (abs(e) > tol1) then
-          r=(x-w)*(fx-fv)
-          q=(x-v)*(fx-fw)
-          p=(x-v)*q-(x-w)*r
-          q=2.d0*(q-r)
-          if (q > 0.d0) p=-p
-          q=abs(q)
-          etemp=e
-          e=d
-          if (abs(p) >= abs(0.5d0*q*etemp) .or. &
-               p <= q*(a-x) .or. p >= q*(b-x)) then
-             e=merge(a-x,b-x, x >= xm )
-             d=cgold*e
-          else
-             d=p/q
-             u=x+d
-             if (u-a < tol2 .or. b-u < tol2) d=sign(tol1,xm-x)
-          end if
-       else
-          e=merge(a-x,b-x, x >= xm )
-          d=cgold*e
-       end if
-       u=merge(x+d,x+sign(tol1,d), abs(d) >= tol1 )
-       fu=func(u)
-       if (fu <= fx) then
-          if (u >= x) then
-             a=x
-          else
-             b=x
-          end if
-          call shft(v,w,x,u)
-          call shft(fv,fw,fx,fu)
-       else
-          if (u < x) then
-             a=u
-          else
-             b=u
-          end if
-          if (fu <= fw .or. w == x) then
-             v=w
-             fv=fw
-             w=u
-             fw=fu
-          else if (fu <= fv .or. v == x .or. v == w) then
-             v=u
-             fv=fu
-          end if
-       end if
-    end do
-    !pause 'brent: exceed maximum iterations'
-
-  end function brent_optimize
-
-    subroutine shft(a,b,c,d)
-      real(8), intent(out) :: a
-      real(8), intent(inout) :: b,c
-      real(8), intent(in) :: d
-      a=b
-      b=c
-      c=d
-    end subroutine shft
+      !
+      write(LOGfile,"(A)")"The unique index of each site (on the cartesian plane) is as follows:"
+      write(LOGfile,"(A)")" "
+      do j=1,Ny
+         write(LOGfile,"(20(I2,2x))")(matrix(i,Ny+1-j),i =1,Nx)
+      enddo
+      write(LOGfile,"(A)")" "
+   end subroutine naming_convention
 
 end program vca_bhz_2d_bath
 
