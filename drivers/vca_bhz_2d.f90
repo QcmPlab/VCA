@@ -111,8 +111,7 @@ program vca_bhz_2d
   !CUSTOM OBSERVABLE: KINETIC ENERGY
   allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   observable_matrix=zero
-  observable_matrix(1,1,1,1,1,1)=one
-  observable_matrix(1,1,2,2,1,1)=one
+  observable_matrix(1,1,:,:,1,1)=one
   call init_custom_observables(1,product(Nkpts))
   call add_custom_observable("test",observable_matrix)
   !

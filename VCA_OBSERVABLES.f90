@@ -305,19 +305,22 @@ contains
        !
     enddo
     if(MPIMASTER)then
-       !call get_szr
-       !if(iolegend)call write_legend
-       !call write_observables()
+       call get_szr
+       if(iolegend)call write_legend
+       call write_observables()
        !
-       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(file_suffix)//"=",(sum(dens(:,iorb))/Nlat,iorb=1,Norb),sum(dens)/Nlat
-       write(LOGfile,"(A,10f18.12,A)")"docc"//reg(file_suffix)//"=",(sum(docc(:,iorb))/Nlat,iorb=1,Norb)
+       do ilat=1,Nlat
+          write(LOGfile,"(A,10f18.12,f18.12,A)")"dens site "//str(ilat)//" "//reg(file_suffix)//"=",(dens(ilat,iorb),iorb=1,Norb),sum(dens(ilat,:))
+       enddo
+       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens  avg  "//reg(file_suffix)//" =",(sum(dens(:,iorb))/Nlat,iorb=1,Norb),sum(dens)/Nlat
+       !
+       write(LOGfile,"(A,10f18.12,A)")"docc       "//reg(file_suffix)//" =",(sum(docc(:,iorb))/Nlat,iorb=1,Norb)
        if(Nspin==2)write(LOGfile,"(A,10f18.12,A)") "mag "//reg(file_suffix)//"=",(sum(magz(:,iorb))/Nlat,iorb=1,Norb)
        !
-       imp_dens_up = dens_up
-       imp_dens_dw = dens_dw
-       imp_dens    = dens
-       imp_docc    = docc
-
+       imp_dens_up=dens_up
+       imp_dens_dw=dens_dw
+       imp_dens   =dens
+       imp_docc   =docc
     endif
 #ifdef _MPI
     if(MpiStatus)then
