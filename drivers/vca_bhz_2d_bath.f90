@@ -123,7 +123,7 @@ program vca_bhz_2d_bath
   allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   observable_matrix=zero
   observable_matrix(1,1,1,1,1,1)=one
-  call init_custom_observables(1)
+  call init_custom_observables(1,product(Nkpts))
   call add_custom_observable("test",observable_matrix)
   
   MULTIMAX=.false.
@@ -285,8 +285,6 @@ contains
       enddo
     enddo
     !
-    H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
-    !
   end subroutine generate_tcluster
 
 
@@ -344,9 +342,6 @@ contains
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),Ndim)          :: kgrid
-    real(8),dimension(Nlso,Nlso)                 :: H0
-    character(len=64)                            :: file_
-    file_ = "tlattice_matrix.dat"
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone
@@ -361,13 +356,7 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
-    H0=vca_nnn2lso_reshape(tk([0.d0,0.d0]),Nlat,Nspin,Norb)
-    !
-    open(free_unit(unit),file=trim(file_))
-    do ilat=1,Nlat*Nspin*Norb
-       write(unit,"(5000(F5.2,1x))")(H0(ilat,jlat),jlat=1,Nlat*Nspin*Norb)
-    enddo
-    close(unit)    
+    ! 
   end subroutine generate_hk
 
 

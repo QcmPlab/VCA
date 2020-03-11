@@ -272,8 +272,6 @@ contains
       enddo
     enddo
     !
-    H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
-    !
   end subroutine generate_tcluster
 
 

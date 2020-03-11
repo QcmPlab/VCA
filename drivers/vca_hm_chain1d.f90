@@ -165,13 +165,7 @@ contains
       enddo
     enddo
     !
-    H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
     !
-    open(free_unit(unit),file=trim(file_))
-    do i=1,Nlat*Norb*Nspin
-       write(unit,"(5000(F5.2,1x))")(real(H0(i,j)),j=1,Nlat*Norb)
-    enddo
-    close(unit)
   end subroutine generate_tcluster
 
 

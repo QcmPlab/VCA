@@ -227,7 +227,7 @@ contains
       enddo
     enddo
     !
-    H0=vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
+    H0=nnn2lso(t_prime)
     !
     open(free_unit(unit),file=trim(file_))
     do ilat=1,Nlat*Nspin*Norb
@@ -257,7 +257,7 @@ contains
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
         !
     enddo
-    H0=vca_nnn2lso_reshape(tk([0.3d0,0.6d0]),Nlat,Nspin,Norb)
+    H0=nnn2lso(tk([0.3d0,0.6d0]))
     !
     open(free_unit(unit),file=trim(file_))
     do ilat=1,Nlat*Nspin*Norb
@@ -350,24 +350,24 @@ contains
     gfprime_lso=zero
     !
     !
-    Vk_lso=vca_nnn2lso_reshape(tk(kpoint)-t_prime,Nlat,Nspin,Norb)
+    Vk_lso=nnn2lso(tk(kpoint)-t_prime)
     !
     do ii=1,Lmats    
         call vca_gf_cluster(xi*wm(ii),gfprime)
-        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        gfprime_lso=nnn2lso(gfprime)
         call inv(gfprime_lso)
         gfprime_lso=gfprime_lso-Vk_lso
         call inv(gfprime_lso)
-        gfmats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+        gfmats_unperiodized(:,:,:,:,:,:,ii)=lso2nnn(gfprime_lso)
     enddo
     !
     do ii=1,Lreal    
         call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
-        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        gfprime_lso=nnn2lso(gfprime)
         call inv(gfprime_lso)
         gfprime_lso=gfprime_lso-Vk_lso
         call inv(gfprime_lso)
-        gfreal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+        gfreal_unperiodized(:,:,:,:,:,:,ii)=lso2nnn(gfprime_lso)
     enddo
     !
     do ii=1,Lmats
@@ -495,21 +495,21 @@ contains
     !
     !
     do ii=1,Lmats    
-        invG0cluster=(xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)
+        invG0cluster=(xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb)-nnn2lso(t_prime)
         call vca_gf_cluster(xi*wm(ii),gfprime)
-        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        gfprime_lso=nnn2lso(gfprime)
         call inv(gfprime_lso)
         gfprime_lso=invG0cluster-gfprime_lso
-        Sigmamats_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+        Sigmamats_unperiodized(:,:,:,:,:,:,ii)=lso2nnn(gfprime_lso)
     enddo
     !
     do ii=1,Lreal
-        invG0cluster=(wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-vca_nnn2lso_reshape(t_prime,Nlat,Nspin,Norb)   
+        invG0cluster=(wr(ii)+xmu)*eye(Nlat*Nspin*Norb)-nnn2lso(t_prime)   
         call vca_gf_cluster(dcmplx(wr(ii),eps),gfprime)
-        gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
+        gfprime_lso=nnn2lso(gfprime)
         call inv(gfprime_lso)
         gfprime_lso=invG0cluster-gfprime_lso
-        Sigmareal_unperiodized(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(gfprime_lso,Nlat,Nspin,Norb)
+        Sigmareal_unperiodized(:,:,:,:,:,:,ii)=lso2nnn(gfprime_lso)
     enddo
     !
     do ii=1,Lmats
@@ -584,15 +584,15 @@ contains
     enddo
     !
     do ii=1,Lmats
-        tmpmat=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,ii),Nspin,Norb)
+        tmpmat=nn2so(gfmats_periodized(:,:,:,:,ii))
         call inv(tmpmat)
-        gfmats_periodized(:,:,:,:,ii)=vca_so2nn_reshape(tmpmat,Nspin,Norb)
+        gfmats_periodized(:,:,:,:,ii)=so2nn(tmpmat)
     enddo
     !
     do ii=1,Lmats
-        tmpmat=vca_nn2so_reshape(gfreal_periodized(:,:,:,:,ii),Nspin,Norb)
+        tmpmat=nn2so(gfreal_periodized(:,:,:,:,ii))
         call inv(tmpmat)
-        gfreal_periodized(:,:,:,:,ii)=vca_so2nn_reshape(tmpmat,Nspin,Norb)
+        gfreal_periodized(:,:,:,:,ii)=so2nn(tmpmat)
     enddo
     !
     !if(allocated(wm))deallocate(wm)
@@ -701,6 +701,97 @@ end subroutine get_Akw
     indices(2)=mod(N,Nx)+1
     indices(1)=N/Nx+1
   end function N2indices
+
+   function lso2nnn(Hlso) result(Hnnn)
+      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
+      integer                                               :: ilat,jlat
+      integer                                               :: iorb,jorb
+      integer                                               :: ispin,jspin
+      integer                                               :: is,js
+      Hnnn=zero
+      do ilat=1,Nlat
+         do jlat=1,Nlat
+            do ispin=1,Nspin
+               do jspin=1,Nspin
+                  do iorb=1,Norb
+                     do jorb=1,Norb
+                        is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                        js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
+                        Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
+                     enddo
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+   end function lso2nnn
+
+
+   function nnn2lso(Hnnn) result(Hlso)
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
+      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
+      integer                                               :: ilat,jlat
+      integer                                               :: iorb,jorb
+      integer                                               :: ispin,jspin
+      integer                                               :: is,js
+      Hlso=zero
+      do ilat=1,Nlat
+         do jlat=1,Nlat
+            do ispin=1,Nspin
+               do jspin=1,Nspin
+                  do iorb=1,Norb
+                     do jorb=1,Norb
+                        is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                        js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
+                        Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
+                     enddo
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+   end function nnn2lso
+
+   function so2nn(Hso) result(Hnn)
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hnn=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                  is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hnn(ispin,jspin,iorb,jorb) = Hso(is,js)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function so2nn
+   !
+   function nn2so(Hnn) result(Hso)
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hso=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hso(is,js) = Hnn(ispin,jspin,iorb,jorb)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function nn2so
+
+
 
 end program vca_test
 
