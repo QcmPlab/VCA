@@ -228,7 +228,7 @@ contains
     !
     !FIND LOCAL MINIMA
     !
-    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d5,iprint=iprint_,nloop=Nloop)
+    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d8,pgtol=1.d-4,iprint=iprint_,nloop=Nloop)
     !
     v=parvec
     !
