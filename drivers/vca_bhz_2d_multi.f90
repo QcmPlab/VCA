@@ -1,4 +1,9 @@
-program vca_bhz_2d
+!--------------------------------------------------------------
+!Solve the 2d BHZ model with N bath sites, the only variational
+!parameter is currently V.
+!______________________________________________________________
+
+program vca_bhz_2d_bath
   USE SCIFOR
   USE DMFT_TOOLS
   USE MPI
@@ -10,8 +15,9 @@ program vca_bhz_2d
   integer                                         :: Nx,Ny,Ndim
   integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
-  real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var,random_1,random_2
+  real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var,random_1,random_2,random_3
   real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var
+  real(8)                                         :: bath_e,bath_v
   !Bath
   integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
@@ -24,7 +30,6 @@ program vca_bhz_2d
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_local,gfreal_periodized     ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Sreal_local,Sreal_periodized       ![Nspin][Nspin][Norb][Norb][L]
-  complex(8),allocatable,dimension(:,:,:)         :: Smats_periodized_lso,Sreal_periodized_lso    
   !Utility variables:
   integer                                         :: unit
   integer                                         :: comm,rank
@@ -65,10 +70,13 @@ program vca_bhz_2d
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
   call parse_input_variable(wmin,"WMIN",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(scheme,"SCHEME",finput,default="g")
+  call parse_input_variable(print_mats,"PRINT_MATS",finput,default=.true.)
+  call parse_input_variable(print_real,"PRINT_REAL",finput,default=.true.)
+  call parse_input_variable(scheme,"SCHEME",finput,default="g")
+  call parse_input_variable(usez,"USEZ",finput,default=.false.)
   !
   call vca_read_input(trim(finput),comm)
   !
-  call naming_convention()
   !
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
@@ -80,11 +88,17 @@ program vca_bhz_2d
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   !
+  !
   !SET CLUSTER DIMENSIONS (ASSUME SQUARE CLUSTER):
   !
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
+  !
+  !SET BATH
+  !
+  Nb=vca_get_bath_dimension()
+  allocate(Bath(Nb))
   !
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
@@ -103,18 +117,10 @@ program vca_bhz_2d
   !
   !INITIALIZE SOLVER:
   !
-  call vca_init_solver(comm)
+  call vca_init_solver(comm,bath)
   print_impG=.false.
   print_impG0=.false.
   print_Sigma=.false.
-  !
-  !CUSTOM OBSERVABLE: KINETIC ENERGY
-  allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-  observable_matrix=zero
-  observable_matrix(1,1,:,:,1,1)=one
-  call init_custom_observables(1,product(Nkpts))
-  call add_custom_observable("test",observable_matrix)
-  !
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
@@ -122,41 +128,35 @@ program vca_bhz_2d
     !
     !
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
-    call random_number(random_1)
-    call random_number(random_2)
-    random_1=0.5d0-random_1
-    random_2=0.5d0-random_2
-    params=[ts_var*(1.d0+random_1),lambdauser_var*(1.d0+random_2)]
     !
     !params=[ts_var,Mh_var,lambdauser_var]
-    !
-    !call minimize_parameters(params,1.d0)
-    call minimize_parameters_simplex(params)
-    !
-    print_Sigma=.true.
-    print_observables=.true.
-    omegadummy=solve_vca(params)
-    !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
-    write(*,"(A)")""
-    !
-  elseif(wloop)then
-    !
-    allocate(ts_array_x(Nloop))
-    allocate(ts_array_y(Nloop))
-    allocate(omega_grid(Nloop,Nloop))
-    !
-    ts_array_x = linspace(ts_var-0.2d0,ts_var+0.2d0,Nloop)
-    ts_array_y = linspace(lambdauser_var-0.2d0,lambdauser_var+0.2d0,Nloop)
-    do iloop=1,Nloop
-      do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca([ts_array_x(iloop),Mh,ts_array_y(jloop)])
-      enddo
-    enddo
-    !
-    call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
-    !
-  endif
+      if(master) then
+        call random_number(random_1)
+        call random_number(random_2)
+        call random_number(random_3)
+        random_1=0.5d0-random_1
+        random_2=0.5d0-random_2
+        random_3=0.5d0-random_3
+        params=[ts_var*(1.d0+random_1),lambdauser_var*(1.d0+random_2),0.5d0*(1.d0+random_3)]
+      endif
+      !
+      !
+      call Bcast_MPI(comm,params)
+      !call minimize_parameters(params,0.5d0)
+      call minimize_parameters_simplex(params)
+      !
+      print_Sigma=.true.
+      print_observables=.true.
+      omegadummy=solve_vca(params)
+      !
+      write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
+      !
+  endif  
+  !
+  !PRINT LOCAL GF AND SIGMA
+  !
+  !call solve_Htop_new()
+  !call get_local_gf()
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -170,36 +170,59 @@ contains
   !PURPOSE  : solve the model
   !+------------------------------------------------------------------+
 
+
   function solve_vca(pars) result(Omega)
-    real(8),dimension(:),intent(in)  :: pars
-    logical                          :: invert
-    real(8)                          :: Omega
+    integer                           :: ix,iy,il,is,io,ib
+    real(8)                           :: Vij,Eij,deltae
+    real(8),dimension(:),intent(in)   :: pars
+    real(8),dimension(Nbath)          :: evector,vvector,tmp
+    logical                           :: invert
+    real(8)                           :: Omega
     !
     !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    call Bcast_MPI(comm,params)
     !
     t_var=pars(1)  
-    !M_var=pars(2)
-    !lambda_var=pars(3)
     M_var=M
     lambda_var=pars(2)
-    mu_var=0.d0*t_var
+    deltae=0.d0
+    Vij=pars(3)
     !
-    !print*,""
-    !print*,"Variational parameters:"
-    !print*,"t      = ",t_var
-    !print*,"M      = ",m_var
-    !print*,"lambda = ",lambda_var
-    !print*,"Lattice parameters:"
-    !print*,"t      = ",t
-    !print*,"M      = ",m
-    !print*,"lambda = ",lambda
+    mu_var=0.d0*t_var
+    Eij=0.d0
+    !
+    if(NBATH>1)then
+      tmp=linspace(0.d0,deltae,Nbath)
+    else
+      tmp=0.5d0*deltae
+    endif
+    !
+    do iy=1,Nbath
+      evector(iy)=Eij+tmp(iy)-0.5d0*deltae
+      vvector(iy)=Vij
+    enddo
+    !
+    do ix=1,Nx
+      do iy=1,Ny
+        il=indices2N([ix,iy])
+        do is=1,Nspin
+          do io=1,Norb
+            call set_bath_component(bath,il,is,io,e_component=evector)
+            call set_bath_component(bath,il,is,io,v_component=vvector)
+          enddo
+        enddo
+      enddo
+    enddo
+    !
     call generate_tcluster()
     call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
+    call vca_solve(comm,t_prime,h_k,bath)
     call vca_get_sft_potential(omega)
     !
+    call Bcast_MPI(comm,omega)
     !
   end function solve_vca
+
 
   function solve_vca_mod_grad(pars) result(Omega)
     real(8),dimension(:)           :: pars
@@ -216,12 +239,12 @@ contains
     print*,"Variational parameters: ",pars
     !
     gradvec=f_dgradient(solve_vca,pars)
-    omega=sqrt(dot_product(gradvec,gradvec))
+    omega=dot_product(gradvec,gradvec)
     print*,"Gradient: ",gradvec
     print*,"Gradient modulus: ",omega
+    call Bcast_MPI(comm,omega)
     !
   end function solve_vca_mod_grad
-
 
   !+------------------------------------------------------------------+
   !PURPOSE:  multidimensional finder of stationary points
@@ -273,6 +296,7 @@ contains
     !
     !
   end subroutine minimize_parameters_simplex
+
 
   !+------------------------------------------------------------------+
   !PURPOSE  : generate hopping matrices
@@ -423,6 +447,7 @@ contains
   end function t_y
 
 
+
   !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
@@ -506,7 +531,7 @@ contains
       write(LOGfile,"(A)")" "
    end subroutine naming_convention
 
-end program vca_bhz_2d
+end program vca_bhz_2d_bath
 
 
 
@@ -516,166 +541,3 @@ end program vca_bhz_2d
 
 
 
-!OLD FUNCTIONS
-
-!  function solve_vca_square(tij) result(Omega)
-!    real(8)                      :: tij
-!    real(8)                      :: Vij,Eij
-!    real(8)                      :: Omega
-!    !
-!   t=0.5d0
-!    t_var=tij
-!    !
-!    mu=0.d0*t
-!    M=(2.d0*t)*Mh
-!    lambda=(2.d0*t)*0.3d0
-!    !  
-!    mu_var=0.d0*t
-!    M_var=(2.d0*t)*Mh
-!    lambda_var=(2.d0*t)*0.3d0
-!    !
-!    print*,""
-!    print*,"------ Doing for ",tij," ------"
-!    call generate_tcluster()
-!    call generate_hk()
-!    call vca_solve(comm,t_prime,h_k)
-!    call vca_get_sft_potential(omega)
-!    print*,""
-!    print*,"------ DONE ------"
-!    print*,""
-!    !
-!  end function solve_vca_square
-!
-!  subroutine solve_Htop(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=100
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,2))
-!       kpath(1,:)=[0.d0,0.d0]
-!       kpath(2,:)=[pi,pi]
-!       kpath(3,:)=[pi,0.d0]
-!       kpath(4,:)=[0.d0,0.d0]
-!    endif
-!   allocate(colors(Nspin*Norb))
-!   colors=[red1,blue1,red1,blue1]
-!   !
-!   file="Eig_Htop_kSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!   file="Eig_Htop_localSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz_local,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_Htop
-!
-!
-!  function tk_wrapper(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    if(N.ne.Nlso)stop "error N: wrong dimension"
-!    !
-!    hopping_matrix_lso=vca_nnn2lso_reshape(tk(kpoint),Nlat,Nspin,Norb)
-!    !
-!  end function tk_wrapper
-!
-!
-!  subroutine solve_hk_GXMG(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=500 
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!       file="Eig_path.nint"
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,3))
-!       kpath(1,:)=[0.d0,0.d0,0.0d0]
-!       kpath(2,:)=[pi/Nx,pi/ny,0.0d0]
-!       kpath(3,:)=[pi/Nx,0.d0,0.0d0]
-!       kpath(4,:)=[0.d0,0.d0,0.0d0]
-!       file="Eigenbands.nint"
-!    endif
-!   allocate(colors(Nlso))
-!   colors=[red1,blue1,red1,blue1]
-!   
-!   if(master) call TB_Solve_model(tk_wrapper,Nlso,kpath,Nkpath,&
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_hk_GXMG
-!
-!
-!
-!  function hk_bhz(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    real(8),dimension(Ndim)                         :: kpoint_
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    if(scheme=="g")then
-!      call build_sigma_g_scheme(kpoint)
-!    else
-!      call periodize_sigma_scheme(kpoint)
-!    endif
-!    !hopping_matrix_lso=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,1),Nspin,Norb)
-!    !call inv(hopping_matrix_lso)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(smats_periodized_lso(:,:,1))
-!    hopping_matrix_lso=matmul(Zrenorm(smats_periodized_lso(:,:,1)),DREAL(hopping_matrix_lso))
-!    !
-!  end function hk_bhz
-!
-!  function hk_bhz_local(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb))
-!    hopping_matrix_lso=matmul(Zrenorm(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb)),hopping_matrix_lso)
-!    !
-!  end function hk_bhz_local
