@@ -276,14 +276,14 @@ contains
       do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1))
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1))
+        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
+        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
       enddo
       do ilat =1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2))
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2))
+        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
+        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
       enddo
     enddo
     !
@@ -292,11 +292,12 @@ contains
 
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
-    real(8),dimension(product(Nkpts),Ndim)       :: kgrid
+    real(8),dimension(product(Nkpts),Ndim)          :: kgrid
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone
-    kgrid=kgrid/Nx 
+    kgrid(:,1)=kgrid(:,1)/Nx 
+    kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
@@ -309,6 +310,7 @@ contains
     enddo
     ! 
   end subroutine generate_hk
+
 
 !AUXILLIARY HOPPING MATRIX CONSTRUCTORS
 

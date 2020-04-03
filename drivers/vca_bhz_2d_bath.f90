@@ -345,7 +345,8 @@ contains
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone
-    kgrid=kgrid/Nx 
+    kgrid(:,1)=kgrid(:,1)/Nx 
+    kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
