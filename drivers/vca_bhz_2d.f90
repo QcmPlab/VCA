@@ -10,7 +10,7 @@ program vca_bhz_2d
   integer                                         :: Nx,Ny,Ndim
   integer,dimension(2)                            :: Nkpts
   integer                                         :: ilat,jlat
-  real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var,random_1,random_2
+  real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var,random_1,random_2,random_3
   real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var
   !Bath
   integer                                         :: Nb
@@ -124,12 +124,14 @@ program vca_bhz_2d
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
     call random_number(random_1)
     call random_number(random_2)
-    random_1=0.5d0-random_1
-    random_2=0.5d0-random_2
-    params=[ts_var*(1.d0+random_1),lambdauser_var*(1.d0+random_2)]
+    call random_number(random_3)
+    random_1=0.5d0*random_1
+    random_2=0.5d0*random_2
+    random_3=0.5d0*random_3
+    params=[Ts*(1.d0+random_1),Mh*(1.d0+random_2),lambdauser*(1.d0+random_3)]
+    !call minimize_parameters(params,0.5d0)
     !
-    !params=[ts_var,Mh_var,lambdauser_var]
-    !
+    !params=[Mh_var,lambdauser_var]
     !call minimize_parameters(params,1.d0)
     call minimize_parameters_simplex(params)
     !
@@ -178,21 +180,10 @@ contains
     !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
     t_var=pars(1)  
-    !M_var=pars(2)
-    !lambda_var=pars(3)
-    M_var=M
-    lambda_var=pars(2)
+    M_var=pars(2)
+    lambda_var=pars(3)
     mu_var=0.d0*t_var
     !
-    !print*,""
-    !print*,"Variational parameters:"
-    !print*,"t      = ",t_var
-    !print*,"M      = ",m_var
-    !print*,"lambda = ",lambda_var
-    !print*,"Lattice parameters:"
-    !print*,"t      = ",t
-    !print*,"M      = ",m
-    !print*,"lambda = ",lambda
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k)
@@ -244,8 +235,8 @@ contains
     !
     do i=1,size(v)
       nbd(i) = 2
-      l(i)   = parvec(i)-radius
-      u(i)   = parvec(i)+radius
+      l(i)   = parvec(i)
+      u(i)   = parvec(i)+radius*parvec(i)
     enddo
     lold=l
     uold=u
