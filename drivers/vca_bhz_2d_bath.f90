@@ -151,15 +151,29 @@ program vca_bhz_2d_bath
     !
   elseif(wloop)then
     !
-    allocate(ts_array_x(Nloop))
-    allocate(omega_grid(Nloop,Nloop))
-    !
-    ts_array_x = linspace(0.05d0,0.7d0,Nloop)
-    do iloop=1,Nloop
+    if(Nbath .eq. 1)then
+      allocate(ts_array_x(Nloop))
+      allocate(omega_grid(Nloop,Nloop))
+      ts_array_x = linspace(0.05d0,0.7d0,Nloop)
+      do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_single(ts_array_x(iloop))
-    enddo
-    !
-    call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
+      enddo
+      call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_grid(:,1))
+    else
+      allocate(ts_array_x(Nloop))
+      allocate(ts_array_y(Nloop))
+      allocate(omega_grid(Nloop,Nloop))
+      !
+      ts_array_x = linspace(0.d0,0.5d0,Nloop)
+      ts_array_y = linspace(0.05d0,0.7d0,Nloop)
+      do iloop=1,Nloop
+        do jloop=1,Nloop
+          omega_grid(iloop,jloop)=solve_vca([ts_array_x(iloop),Mh,ts_array_y(jloop)])
+        enddo
+      enddo
+      !
+      call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
+    endif
     !
   endif
   !
