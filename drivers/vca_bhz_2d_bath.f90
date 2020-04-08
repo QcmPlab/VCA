@@ -39,7 +39,7 @@ program vca_bhz_2d_bath
   logical                                         :: master,wloop,wmin,MULTIMAX
   logical                                         :: usez
   logical                                         :: print_mats,print_real
-  character(len=6)                                :: scheme
+  character(len=6)                                :: minimization_scheme
   character(len=16)                               :: finput
   real(8)                                         :: omegadummy,observable_dummy
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
@@ -70,10 +70,9 @@ program vca_bhz_2d_bath
   call parse_input_variable(nloop,"NLOOP",finput,default=100)
   call parse_input_variable(wloop,"WLOOP",finput,default=.false.)
   call parse_input_variable(wmin,"WMIN",finput,default=.false.,comment="T: includes global minimization")
-  call parse_input_variable(scheme,"SCHEME",finput,default="g")
+  call parse_input_variable(minimization_scheme,"SCHEME",finput,default="bfgs")
   call parse_input_variable(print_mats,"PRINT_MATS",finput,default=.true.)
   call parse_input_variable(print_real,"PRINT_REAL",finput,default=.true.)
-  call parse_input_variable(scheme,"SCHEME",finput,default="g")
   call parse_input_variable(usez,"USEZ",finput,default=.false.)
   !
   call vca_read_input(trim(finput),comm)
@@ -144,7 +143,13 @@ program vca_bhz_2d_bath
     else
       allocate(bath_params(2))
       bath_params=[bath_e,bath_v]
-      call minimize_parameters_simplex(bath_params)
+      if(minimization_scheme .eq. "bfgs")then
+         call minimize_parameters(bath_params,1.d0)
+      elseif(minimization_Scheme .eq. "simplex")then
+         call minimize_parameters_simplex(bath_params)
+      else
+         STOP "invalid minimization method"
+      endif
       omegadummy=solve_vca(bath_params)
       write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),bath_params
     endif
