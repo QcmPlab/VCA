@@ -39,7 +39,7 @@ program vca_bhz_2d_bath
   logical                                         :: master,wloop,wmin,MULTIMAX
   logical                                         :: usez
   logical                                         :: print_mats,print_real
-  character(len=6)                                :: minimization_scheme
+  character(len=10)                                :: minimization_scheme
   character(len=16)                               :: finput
   real(8)                                         :: omegadummy,observable_dummy
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
@@ -145,7 +145,7 @@ program vca_bhz_2d_bath
       bath_params=[bath_e,bath_v]
       if(minimization_scheme .eq. "bfgs")then
          call minimize_parameters(bath_params,1.d0)
-      elseif(minimization_Scheme .eq. "simplex")then
+      elseif(minimization_scheme .eq. "simplex")then
          call minimize_parameters_simplex(bath_params)
       else
          STOP "invalid minimization method"
