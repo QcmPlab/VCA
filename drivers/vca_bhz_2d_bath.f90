@@ -18,6 +18,7 @@ program vca_bhz_2d_bath
   real(8)                                         :: ts,ts_var,Mh,Mh_var,lambdauser,lambdauser_var
   real(8)                                         :: M,M_var,t,t_var,lambda,lambda_var,mu,mu_var
   real(8)                                         :: bath_e,bath_v
+  real(8),dimension(:),allocatable                :: bath_params
   !Bath
   integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
@@ -133,11 +134,20 @@ program vca_bhz_2d_bath
   if(wmin)then
     !
     bath_v=0.4
-    if(master)print*,"Guess:",bath_v
-    call  brent_(solve_vca_single,bath_v,[0.05d0,0.7d0])
-    if(master)print*,"Result ts : ",bath_v
-    omegadummy=solve_vca_single(bath_v)
-    if(master)write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT V = "),bath_v
+    bath_e=0.2
+    if(Nbath .eq. 1)then
+      if(master)print*,"Guess:",bath_v
+      call  brent_(solve_vca_single,bath_v,[0.05d0,0.7d0])
+      if(master)print*,"Result ts : ",bath_v
+      omegadummy=solve_vca_single(bath_v)
+      if(master)write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT V = "),bath_v
+    else
+      allocate(bath_params(2))
+      bath_params=[bath_e,bath_v]
+      call minimize_parameters_simplex(bath_params)
+      omegadummy=solve_vca(bath_params)
+      write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),bath_params
+    endif
     !
   elseif(wloop)then
     !
@@ -171,15 +181,8 @@ contains
   !+------------------------------------------------------------------+
 
 
-  function solve_vca_single(x) result(Omega_)
-    real(8)                   :: x,Omega_
-    !
-    Omega_=solve_vca_multi([t,M,lambda,2*M,x])
-    !
-  end function solve_vca_single
-
-  function solve_vca_multi(pars) result(Omega)
-    integer                      :: ix,iy,ik,iq,iz
+  function solve_vca(pars) result(Omega)
+    integer                      :: ix,iy,ik,iq,iz,ibath,ilat,is,io
     real(8)                      :: Vij,Eij,deltae
     real(8),dimension(:)         :: pars
     real(8),dimension(Nbath)     :: evector,vvector,tmp
@@ -188,60 +191,89 @@ contains
     !
     !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
-    t_var=pars(1)  
-    M_var=pars(2)
-    lambda_var=pars(3)
-    deltae=pars(4)
-    Vij=pars(5)
+    t_var=t  
+    M_var=M
+    lambda_var=lambda
+    deltae=pars(1)
+    Vij=pars(2)
     !
-    mu_var=0.d0*t_var
-    Eij=0.d0
+    mu_var=mu
+    Eij=xmu
     !
-    !if(NBATH>1)then
-    !  tmp=linspace(0.d0,deltae,Nbath)
-    !else
-    !  tmp=0.5d0*deltae
-    !endif
+    if(NBATH>1)then
+      tmp=linspace(-deltae,deltae,Nbath)
+    else
+      tmp=0.d0
+    endif
     !
-    do iy=1,Nbath
-      !evector(iy)=Eij+tmp(iy)-0.5d0*deltae
-      evector(iy)=Eij
-      vvector(iy)=Vij
+    do ibath=1,Nbath
+      evector(ibath)=Eij+tmp(ibath)
+      vvector(ibath)=Vij
     enddo
+    !
     do ix=1,Nx
-      do iq=1,Ny
-        iz=indices2N([ix,iq])
-        do iy=1,Nspin
-          do ik=1,Norb
-            call set_bath_component(bath,iz,iy,ik,e_component=evector*((-1)**(ik+2)))
-            call set_bath_component(bath,iz,iy,ik,v_component=vvector)
+      do iy=1,Ny
+        ilat=indices2N([ix,iy])
+        do is=1,Nspin
+          do io=1,Norb
+            call set_bath_component(bath,ilat,is,io,e_component=evector)
+            call set_bath_component(bath,ilat,is,io,v_component=vvector)
           enddo
         enddo
       enddo
     enddo
 
     !
-    if(master)then
-       print*,""
-       print*,"Variational parameters:"
-       print*,"t      = ",t_var
-       print*,"M      = ",m_var
-       print*,"lambda = ",lambda_var
-       print*,"Lattice parameters:"
-       print*,"t      = ",t
-       print*,"M      = ",m
-       print*,"lambda = ",lambda
-    endif
+    !if(master)then
+    !   print*,"Variational parameters: ", pars
+    !endif
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath)
     call vca_get_sft_potential(omega)
-    !
-    if(MULTIMAX)omega=-omega
     !    
     print*,""
     !
-  end function solve_vca_multi
+  end function solve_vca
+
+  function solve_vca_aux(pars) result(Omega)
+    real(8),dimension(:),intent(in)         :: pars
+    real(8)                                 :: Omega
+    !
+    Omega=solve_vca(pars)
+    !
+  end function solve_vca_aux
+
+  function solve_vca_single(v) result(Omega)
+    real(8)                   :: v
+    real(8)                   :: Omega
+    !
+    Omega=solve_vca([0.d0,v])
+    !
+  end function solve_vca_single
+
+
+  function solve_vca_mod_grad(pars) result(Omega)
+    real(8),dimension(:)           :: pars
+    real(8),dimension(size(pars))  :: gradvec
+    logical                        :: invert
+    real(8)                        :: Omega
+    integer                        :: i
+    !
+    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+    !
+    do i=1,size(pars)
+      if(pars(i).le.0d0)pars(i)=-pars(i)
+    enddo
+    print*,"Variational parameters: ",pars
+    !
+    gradvec=f_dgradient(solve_vca_aux,pars)
+    omega=sqrt(dot_product(gradvec,gradvec))
+    print*,"Gradient: ",gradvec
+    print*,"Gradient modulus: ",omega
+    !
+  end function solve_vca_mod_grad
+
 
 
   !+------------------------------------------------------------------+
@@ -463,7 +495,60 @@ contains
       write(LOGfile,"(A)")" "
    end subroutine naming_convention
 
- !BRENT MINIMIZING FUNCTION
+  !+------------------------------------------------------------------+
+  !Miminization functions
+  !+------------------------------------------------------------------+
+   
+   subroutine minimize_parameters(v,radius)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    real(8)                                   :: radius     
+    integer                                   :: i,iprint_         
+    !
+    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
+    !
+    !INITIALIZE FLAGS
+    !
+    iprint_=1
+    !
+    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
+    !
+    parvec=v
+    !
+    do i=1,size(v)
+      nbd(i) = 2
+      l(i)   = 0.01
+      u(i)   = parvec(i)+radius*parvec(i)
+    enddo
+    lold=l
+    uold=u
+    !
+    write(*,"(A)")""
+    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
+    !
+    !FIND LOCAL MINIMA
+    !
+    call fmin_bfgs(solve_vca_mod_grad,parvec,l,u,nbd,factr=1.d8,pgtol=1.d-4,iprint=iprint_,nloop=Nloop)
+    !
+    v=parvec
+    !
+  end subroutine minimize_parameters
+
+
+  subroutine minimize_parameters_simplex(v)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    integer                                   :: i,iprint_         
+    !
+    !FIND LOCAL MINIMA
+    !
+    call fmin(solve_vca_mod_grad,v)
+    !
+    !
+  end subroutine minimize_parameters_simplex
+
+
+  !BRENT MINIMIZING FUNCTION
 
   subroutine brent_(func,xmin,brack,tol,niter)
     interface
