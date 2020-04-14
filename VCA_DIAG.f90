@@ -262,7 +262,7 @@ contains
        !
     enddo anneal
     ! 
-    call stop_timer(LOGfile)
+    call stop_timer(unit=LOGfile)
     !
     close(unit)
     !
