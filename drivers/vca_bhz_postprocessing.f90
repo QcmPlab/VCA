@@ -43,6 +43,18 @@ program vca_bhz_2d_bath
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
   real(8),dimension(3)                            :: df
   type(finter_type)                               :: finter_func
+
+  !Some special points in the BZ:
+  !we do everything in 3d.
+  real(8),dimension(3),parameter         :: kpoint_gamma=[0,0,0]*pi
+  real(8),dimension(3),parameter         :: kpoint_x1=[1,0,0]*pi
+  real(8),dimension(3),parameter         :: kpoint_x2=[0,1,0]*pi
+  real(8),dimension(3),parameter         :: kpoint_x3=[0,0,1]*pi
+  real(8),dimension(3),parameter         :: kpoint_m1=[1,1,0]*pi
+  real(8),dimension(3),parameter         :: kpoint_m2=[0,1,1]*pi
+  real(8),dimension(3),parameter         :: kpoint_m3=[1,0,1]*pi
+  real(8),dimension(3),parameter         :: kpoint_r=[1,1,1]*pi
+
   !
   !MPI INIT
   !
