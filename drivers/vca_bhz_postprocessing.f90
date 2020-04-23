@@ -22,10 +22,12 @@ program vca_bhz_2d_bath
   integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
   !Matrices:
+  real(8),allocatable                                                    :: wt(:)
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
+  complex(8),allocatable,dimension(:,:,:)         :: hk
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal,Smats,Sreal
   !Utility variables:
   integer                                         :: unit
@@ -43,17 +45,6 @@ program vca_bhz_2d_bath
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
   real(8),dimension(3)                            :: df
   type(finter_type)                               :: finter_func
-
-  !Some special points in the BZ:
-  !we do everything in 3d.
-  real(8),dimension(3),parameter         :: kpoint_gamma=[0,0,0]*pi
-  real(8),dimension(3),parameter         :: kpoint_x1=[1,0,0]*pi
-  real(8),dimension(3),parameter         :: kpoint_x2=[0,1,0]*pi
-  real(8),dimension(3),parameter         :: kpoint_x3=[0,0,1]*pi
-  real(8),dimension(3),parameter         :: kpoint_m1=[1,1,0]*pi
-  real(8),dimension(3),parameter         :: kpoint_m2=[0,1,1]*pi
-  real(8),dimension(3),parameter         :: kpoint_m3=[1,0,1]*pi
-  real(8),dimension(3),parameter         :: kpoint_r=[1,1,1]*pi
 
   !
   !MPI INIT
@@ -109,6 +100,7 @@ program vca_bhz_2d_bath
   !ALLOCATE VECTORS:
   !
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   if(.not.allocated(wm))allocate(wm(Lmats))
   if(.not.allocated(wr))allocate(wr(Lreal))
   if(.not.allocated(params))allocate(params(3))
@@ -131,9 +123,12 @@ program vca_bhz_2d_bath
   lambda=(2.d0*t)*lambdauser
   mu=0.d0*t
   !
+  !
   call vca_init_solver(comm,bath)
   if(redo)then
     omegadummy=solve_vca(bath_v)
+  else
+    call generate_hk()
   endif
   !
   !
@@ -141,6 +136,8 @@ program vca_bhz_2d_bath
   call vca_get_sigma_matsubara(Smats)
   call vca_get_sigma_realaxis(Sreal)
   !
+  call dmft_gloc_realaxis(comm,Hk,Wt,Greal,Sreal)
+  if(master)call dmft_print_gf_realaxis(Greal,"Gloc",iprint=4)
   call   print_hk_periodized_path()
   call   print_hk_topological_path()
   call   get_Akw()
@@ -312,12 +309,18 @@ contains
     kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
+    if(allocated(hk))deallocate(hk)
+    if(allocated(Wt))deallocate(Wt)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
+    allocate(Hk(Nlso,Nlso,product(Nkpts)),Wt(product(Nkpts)))
     h_k=zero
+    hk=zero
     !
+    Wt = 1d0/(product(Nkpts))
     do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
+        hk(:,:,ik)=nnn2lso(h_k(:,:,:,:,:,:,ik))
         !
     enddo
     ! 

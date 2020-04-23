@@ -64,6 +64,8 @@ program vca_bhz_2d_bath
   call parse_input_variable(lambdauser,"lambda",finput,default=0.3d0,comment="Spin/orbit coupling (units of epsilon)")
   call parse_input_variable(ts_var,"ts_Var",finput,default=0.5d0,comment="variational hopping parameter (units of epsilon)")
   call parse_input_variable(Mh_var,"Mh_Var",finput,default=3d0,comment="variational field splitting (units of epsilon)")
+  call parse_input_variable(bath_e,"bath_e",finput,default=0.d0,comment="variational bath energy")
+  call parse_input_variable(bath_v,"bath_v",finput,default=0.2d0,comment="variational bath hybridization")
   call parse_input_variable(lambdauser_var,"lambda_var",finput,default=0.3d0,comment="variational spin/orbit coupling (units of epsilon)")
   call parse_input_variable(Nx,"Nx",finput,default=2,comment="Number of sites along X")
   call parse_input_variable(Ny,"Ny",finput,default=2,comment="Number of sites along Y")
@@ -123,8 +125,9 @@ program vca_bhz_2d_bath
   allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   observable_matrix=zero
   observable_matrix(1,1,1,1,1,1)=one
+  observable_matrix(1,1,Nspin,Nspin,1,1)=one
   call init_custom_observables(1,product(Nkpts))
-  call add_custom_observable("test",observable_matrix)
+  call add_custom_observable("n1",observable_matrix)
   
   MULTIMAX=.false.
   !
@@ -136,7 +139,7 @@ program vca_bhz_2d_bath
     bath_e=0.2
     if(Nbath .eq. 1)then
       if(master)print*,"Guess:",bath_v
-      call  brent_(solve_vca_single,bath_v,[0.05d0,0.7d0])
+      call  brent_(solve_vca_single,bath_v,[0.00d0,0.7d0])
       if(master)print*,"Result ts : ",bath_v
       omegadummy=solve_vca_single(bath_v)
       if(master)write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT V = "),bath_v
@@ -159,7 +162,7 @@ program vca_bhz_2d_bath
     if(Nbath .eq. 1)then
       allocate(ts_array_x(Nloop))
       allocate(omega_grid(Nloop,Nloop))
-      ts_array_x = linspace(0.05d0,0.7d0,Nloop)
+      ts_array_x = linspace(0.05d0,1.5d0,Nloop)
       do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_single(ts_array_x(iloop))
       enddo
@@ -170,7 +173,7 @@ program vca_bhz_2d_bath
       allocate(omega_grid(Nloop,Nloop))
       !
       ts_array_x = linspace(0.d0,0.5d0,Nloop)
-      ts_array_y = linspace(0.05d0,0.7d0,Nloop)
+      ts_array_y = linspace(0.00d0,0.7d0,Nloop)
       do iloop=1,Nloop
         do jloop=1,Nloop
           omega_grid(iloop,jloop)=solve_vca([ts_array_x(iloop),Mh,ts_array_y(jloop)])
@@ -180,6 +183,12 @@ program vca_bhz_2d_bath
       call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
     endif
     !
+  else
+    if(Nbath .eq. 1)then
+     omegadummy=solve_vca_single(bath_v)
+    else
+     omegadummy=solve_vca([bath_e,bath_v])
+    endif
   endif
   !
   !PRINT LOCAL GF AND SIGMA
