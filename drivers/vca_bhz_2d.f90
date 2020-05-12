@@ -16,10 +16,13 @@ program vca_bhz_2d
   integer                                         :: Nb
   real(8),allocatable                             :: Bath(:)
   !Matrices:
+  real(8),allocatable                                                    :: wt(:)
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: h_k
+  complex(8),allocatable,dimension(:,:,:)         :: hk
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gmats,Greal,Smats,Sreal
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_local,gfmats_periodized     ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfreal_local,gfreal_periodized     ![Nspin][Nspin][Norb][Norb][L]
   complex(8),allocatable,dimension(:,:,:,:,:)     :: Smats_local,Smats_periodized       ![Nspin][Nspin][Norb][Norb][L]
@@ -86,6 +89,9 @@ program vca_bhz_2d
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
   !
+  allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  !
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
   t=ts
@@ -104,16 +110,35 @@ program vca_bhz_2d
   !INITIALIZE SOLVER:
   !
   call vca_init_solver(comm)
-  print_impG=.false.
-  print_impG0=.false.
-  print_Sigma=.false.
+  print_impG=.true.
+  print_impG0=.true.
+  print_Sigma=.true.
   !
   !CUSTOM OBSERVABLE: KINETIC ENERGY
   allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  call init_custom_observables(4,product(Nkpts))
+  !
   observable_matrix=zero
-  observable_matrix(1,1,:,:,1,1)=one
-  call init_custom_observables(1,product(Nkpts))
-  call add_custom_observable("test",observable_matrix)
+  observable_matrix(1,1,1,1,1,1)=one
+  observable_matrix(1,1,Nspin,Nspin,1,1)=one
+  call add_custom_observable("n1_1",observable_matrix)
+  !
+  observable_matrix=zero
+  observable_matrix(2,2,1,1,1,1)=one
+  observable_matrix(2,2,Nspin,Nspin,1,1)=one
+  call add_custom_observable("n1_2",observable_matrix)
+  !
+  observable_matrix=zero
+  observable_matrix(3,3,1,1,1,1)=one
+  observable_matrix(3,3,Nspin,Nspin,1,1)=one
+  call add_custom_observable("n1_3",observable_matrix)
+  !
+  observable_matrix=zero
+  do iii=1,Nlat
+    observable_matrix(iii,iii,1,1,1,1)=one/Nlat
+    observable_matrix(iii,iii,Nspin,Nspin,1,1)=one/Nlat
+  enddo
+  call add_custom_observable("n1_avg",observable_matrix)
   !
   !
   !SOLVE INTERACTING PROBLEM:
@@ -157,6 +182,18 @@ program vca_bhz_2d
     enddo
     !
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
+  else
+    params=[Ts,Mh,lambdauser]
+    print_Sigma=.true.
+    print_observables=.true.
+    omegadummy=solve_vca(params)
+    !
+    !call vca_read_impSigma()
+    call vca_get_sigma_matsubara(Smats)
+    call vca_get_sigma_realaxis(Sreal)
+    !
+    !call dmft_gloc_realaxis(comm,Hk,Wt,Greal,Sreal)
+    !if(master)call dmft_print_gf_realaxis(Greal,"Gloc",iprint=4)
     !
   endif
   !
@@ -183,6 +220,15 @@ contains
     M_var=pars(2)
     lambda_var=pars(3)
     mu_var=0.d0*t_var
+    print*,""
+    print*,"Variational parameters:"
+    print*,"t      = ",t_var
+    print*,"M      = ",m_var
+    print*,"lambda = ",lambda_var
+    print*,"Lattice parameters:"
+    print*,"t      = ",t
+    print*,"M      = ",m
+    print*,"lambda = ",lambda
     !
     call generate_tcluster()
     call generate_hk()
@@ -368,12 +414,21 @@ contains
     kgrid(:,2)=kgrid(:,2)/Ny 
     !
     if(allocated(h_k))deallocate(h_k)
+    if(allocated(hk))deallocate(hk)
+    if(allocated(wt))deallocate(wt)
+    !
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
+    allocate(hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb,product(Nkpts))) 
+    allocate(wt(product(Nkpts))) 
+    !
     h_k=zero
+    hk=zero
+    Wt = 1d0/(product(Nkpts))
     !
     do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
+        hk(:,:,ik)=nnn2lso(h_k(:,:,:,:,:,:,ik))
         !
     enddo
     !
@@ -496,6 +551,97 @@ contains
       enddo
       write(LOGfile,"(A)")" "
    end subroutine naming_convention
+
+
+   function lso2nnn(Hlso) result(Hnnn)
+      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
+      integer                                               :: ilat,jlat
+      integer                                               :: iorb,jorb
+      integer                                               :: ispin,jspin
+      integer                                               :: is,js
+      Hnnn=zero
+      do ilat=1,Nlat
+         do jlat=1,Nlat
+            do ispin=1,Nspin
+               do jspin=1,Nspin
+                  do iorb=1,Norb
+                     do jorb=1,Norb
+                        is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                        js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
+                        Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
+                     enddo
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+   end function lso2nnn
+
+
+   function nnn2lso(Hnnn) result(Hlso)
+      complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb) :: Hnnn
+      complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
+      integer                                               :: ilat,jlat
+      integer                                               :: iorb,jorb
+      integer                                               :: ispin,jspin
+      integer                                               :: is,js
+      Hlso=zero
+      do ilat=1,Nlat
+         do jlat=1,Nlat
+            do ispin=1,Nspin
+               do jspin=1,Nspin
+                  do iorb=1,Norb
+                     do jorb=1,Norb
+                        is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                        js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
+                        Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
+                     enddo
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+   end function nnn2lso
+   
+   function so2nn(Hso) result(Hnn)
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hnn=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                  is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hnn(ispin,jspin,iorb,jorb) = Hso(is,js)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function so2nn
+   !
+   function nn2so(Hnn) result(Hso)
+     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hnn
+     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hso
+     integer                                     :: iorb,ispin,is
+     integer                                     :: jorb,jspin,js
+     Hso=zero
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                 js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                 Hso(is,js) = Hnn(ispin,jspin,iorb,jorb)
+              enddo
+           enddo
+        enddo
+     enddo
+   end function nn2so
+
 
 end program vca_bhz_2d
 

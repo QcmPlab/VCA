@@ -121,13 +121,31 @@ program vca_bhz_2d_bath
   !
   call vca_init_solver(comm,bath)
   
-  !CUSTOM OBSERVABLE: KINETIC ENERGY
+  !CUSTOM OBSERVABLE:  N
   allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  call init_custom_observables(4,product(Nkpts))
+  !
   observable_matrix=zero
   observable_matrix(1,1,1,1,1,1)=one
   observable_matrix(1,1,Nspin,Nspin,1,1)=one
-  call init_custom_observables(1,product(Nkpts))
-  call add_custom_observable("n1",observable_matrix)
+  call add_custom_observable("n1_1",observable_matrix)
+  !
+  observable_matrix=zero
+  observable_matrix(2,2,1,1,1,1)=one
+  observable_matrix(2,2,Nspin,Nspin,1,1)=one
+  call add_custom_observable("n1_2",observable_matrix)
+  !
+  observable_matrix=zero
+  observable_matrix(3,3,1,1,1,1)=one
+  observable_matrix(3,3,Nspin,Nspin,1,1)=one
+  call add_custom_observable("n1_3",observable_matrix)
+  !
+  observable_matrix=zero
+  do iii=1,Nlat
+    observable_matrix(iii,iii,1,1,1,1)=one/Nlat
+    observable_matrix(iii,iii,Nspin,Nspin,1,1)=one/Nlat
+  enddo
+  call add_custom_observable("n1_avg",observable_matrix)
   
   MULTIMAX=.false.
   !
@@ -162,7 +180,7 @@ program vca_bhz_2d_bath
     if(Nbath .eq. 1)then
       allocate(ts_array_x(Nloop))
       allocate(omega_grid(Nloop,Nloop))
-      ts_array_x = linspace(0.05d0,1.5d0,Nloop)
+      ts_array_x = linspace(0.03d0,1.d0,Nloop)
       do iloop=1,Nloop
         omega_grid(iloop,1)=solve_vca_single(ts_array_x(iloop))
       enddo
