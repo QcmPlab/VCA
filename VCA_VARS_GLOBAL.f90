@@ -99,6 +99,15 @@ MODULE VCA_VARS_GLOBAL
   integer,save                                       :: Nsectors !Number of sectors
   integer,save                                       :: Ns_orb
   integer,save                                       :: Ns_ud
+  
+  !INTERACTION COEFFICIENTS: internal copy
+  !=========================================================
+  real(8),dimension(:,:),allocatable                 :: Uloc_per_site
+  real(8),dimension(:),allocatable                   :: Ust_per_site
+  real(8),dimension(:),allocatable                   :: Jx_per_site
+  real(8),dimension(:),allocatable                   :: Jp_per_site
+  real(8),dimension(:),allocatable                   :: Jh_per_site
+
 
 
   !non-interacting cluster Hamiltonian and full system hopping matrix

@@ -29,7 +29,7 @@
      ! = \sum_\a U_\a*(n_{\a,up}*n_{\a,dw})
       do ilat=1,Nlat
          do iorb=1,Norb
-            htmp = htmp + Uloc(iorb)*nup(ilat,iorb)*ndw(ilat,iorb)
+            htmp = htmp + Uloc_per_site(ilat,iorb)*nup(ilat,iorb)*ndw(ilat,iorb)
          enddo
       enddo
       if(Norb>1)then
@@ -39,7 +39,7 @@
          do ilat=1,Nlat
             do iorb=1,Norb
                do jorb=iorb+1,Norb
-                  htmp = htmp + Ust*(nup(ilat,iorb)*ndw(ilat,jorb) + nup(ilat,jorb)*ndw(ilat,iorb))
+                  htmp = htmp + Ust_per_site(ilat)*(nup(ilat,iorb)*ndw(ilat,jorb) + nup(ilat,jorb)*ndw(ilat,iorb))
                enddo
             enddo
          enddo
@@ -49,7 +49,7 @@
          do ilat=1,Nlat
             do iorb=1,Norb
                do jorb=iorb+1,Norb
-                  htmp = htmp + (Ust-Jh)*(nup(ilat,iorb)*nup(ilat,jorb) + ndw(ilat,iorb)*ndw(ilat,jorb))
+                  htmp = htmp + (Ust_per_site(ilat)-Jh_per_site(ilat))*(nup(ilat,iorb)*nup(ilat,jorb) + ndw(ilat,iorb)*ndw(ilat,jorb))
                enddo
             enddo
          enddo
@@ -59,15 +59,15 @@
       if(hfmode)then
          do ilat=1,Nlat
             do iorb=1,Norb
-               htmp = htmp - 0.5d0*Uloc(iorb)*(nup(ilat,iorb)+ndw(ilat,iorb)) + 0.25d0*Uloc(iorb)
+               htmp = htmp - 0.5d0*Uloc_per_site(ilat,iorb)*(nup(ilat,iorb)+ndw(ilat,iorb)) + 0.25d0*Uloc_per_site(ilat,iorb)
             enddo
          enddo
          if(Norb>1)then
             do ilat=1,Nlat
                do iorb=1,Norb
                   do jorb=iorb+1,Norb
-                     htmp=htmp-0.5d0*Ust*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*Ust
-                     htmp=htmp-0.5d0*(Ust-Jh)*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*(Ust-Jh)
+                     htmp=htmp-0.5d0*Ust_per_site(ilat)*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*Ust_per_site(ilat)
+                     htmp=htmp-0.5d0*(Ust_per_site(ilat)-Jh_per_site(ilat))*(nup(ilat,iorb)+ndw(ilat,iorb)+nup(ilat,jorb)+ndw(ilat,jorb))+0.25d0*(Ust_per_site(ilat)-Jh_per_site(ilat))
                   enddo
                enddo
             enddo

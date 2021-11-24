@@ -122,10 +122,16 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve_serial(Hloc,Hk,bath)
+  subroutine vca_solve_serial(Hloc,Hk,bath,Uloc_ii,Ust_ii,Jh_ii,Jp_ii,Jx_ii)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
     real(8),intent(inout),dimension(:),optional    :: bath
+    !
+    real(8),optional                               :: Uloc_ii(Nlat,Norb)
+    real(8),optional                               :: Ust_ii(Nlat)
+    real(8),optional                               :: Jh_ii(Nlat)
+    real(8),optional                               :: Jp_ii(Nlat)
+    real(8),optional                               :: Jx_ii(Nlat)
     !
     integer                                        :: Lk,Nsites
     integer                                        :: ilat,jlat
@@ -141,6 +147,54 @@ contains
     !
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
+    !
+    !INITIALIZE THE INTERNAL INTERACTION COEFFICIENTS
+    !
+    if(allocated(Uloc_per_site))deallocate(Uloc_per_site)
+    if(allocated(Ust_per_site))deallocate(Ust_per_site)
+    if(allocated(Jh_per_site))deallocate(Jh_per_site)
+    if(allocated(Jx_per_site))deallocate(Jx_per_site)
+    if(allocated(Jp_per_site))deallocate(Jp_per_site)
+    !
+    allocate(Uloc_per_site(Nlat,Norb));Uloc_per_site=zero
+    allocate(Ust_per_site(Norb));Ust_per_site=zero
+    allocate(Jx_per_site(Norb));Jx_per_site=zero
+    allocate(Jp_per_site(Norb));Jp_per_site=zero
+    allocate(Jh_per_site(Norb));Jh_per_site=zero
+    !
+    do ilat=1,Nlat
+      do iorb=1,Norb
+        if(present(Uloc_ii))then
+          Uloc_per_site(ilat,iorb)=Uloc_ii(ilat,iorb)
+        else
+          Uloc_per_site(ilat,iorb)=Uloc(iorb)
+        endif
+      enddo
+      !
+      if(present(Ust_ii))then
+        Ust_per_site(ilat)=Ust_ii(ilat)
+      else
+        Ust_per_site(ilat)=Ust
+      endif
+      !
+      if(present(Jh_ii))then
+        Jh_per_site(ilat)=Jh_ii(ilat)
+      else
+        Jh_per_site(ilat)=Jh
+      endif
+      !
+      if(present(Jx_ii))then
+        Jx_per_site(ilat)=Jx_ii(ilat)
+      else
+        Jx_per_site(ilat)=Jx
+      endif
+      !
+      if(present(Jp_ii))then
+        Jp_per_site(ilat)=Jp_ii(ilat)
+      else
+        Jp_per_site(ilat)=Jp
+      endif
+    enddo
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -218,10 +272,16 @@ contains
 
 #ifdef _MPI
 
-  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath)
+  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath,Uloc_ii,Ust_ii,Jh_ii,Jp_ii,Jx_ii)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
     real(8),intent(inout),dimension(:),optional    :: bath
+    !
+    real(8),optional                               :: Uloc_ii(Nlat,Norb)
+    real(8),optional                               :: Ust_ii(Nlat)
+    real(8),optional                               :: Jh_ii(Nlat)
+    real(8),optional                               :: Jp_ii(Nlat)
+    real(8),optional                               :: Jx_ii(Nlat)
     !
     integer                                        :: Lk,Nsites
     integer                                        :: ilat,jlat
@@ -241,7 +301,53 @@ contains
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
     !    
+    !INITIALIZE THE INTERNAL INTERACTION COEFFICIENTS
     !
+    if(allocated(Uloc_per_site))deallocate(Uloc_per_site)
+    if(allocated(Ust_per_site))deallocate(Ust_per_site)
+    if(allocated(Jh_per_site))deallocate(Jh_per_site)
+    if(allocated(Jx_per_site))deallocate(Jx_per_site)
+    if(allocated(Jp_per_site))deallocate(Jp_per_site)
+    !
+    allocate(Uloc_per_site(Nlat,Norb));Uloc_per_site=zero
+    allocate(Ust_per_site(Norb));Ust_per_site=zero
+    allocate(Jx_per_site(Norb));Jx_per_site=zero
+    allocate(Jp_per_site(Norb));Jp_per_site=zero
+    allocate(Jh_per_site(Norb));Jh_per_site=zero
+    !
+    do ilat=1,Nlat
+      do iorb=1,Norb
+        if(present(Uloc_ii))then
+          Uloc_per_site(ilat,iorb)=Uloc_ii(ilat,iorb)
+        else
+          Uloc_per_site(ilat,iorb)=Uloc(iorb)
+        endif
+      enddo
+      !
+      if(present(Ust_ii))then
+        Ust_per_site(ilat)=Ust_ii(ilat)
+      else
+        Ust_per_site(ilat)=Ust
+      endif
+      !
+      if(present(Jh_ii))then
+        Jh_per_site(ilat)=Jh_ii(ilat)
+      else
+        Jh_per_site(ilat)=Jh
+      endif
+      !
+      if(present(Jx_ii))then
+        Jx_per_site(ilat)=Jx_ii(ilat)
+      else
+        Jx_per_site(ilat)=Jx
+      endif
+      !
+      if(present(Jp_ii))then
+        Jp_per_site(ilat)=Jp_ii(ilat)
+      else
+        Jp_per_site(ilat)=Jp
+      endif
+    enddo
     !
     if(present(Bath))then
        if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
@@ -259,6 +365,7 @@ contains
       case default
         stop "vca_solve_single ERROR: vca_sparse_H undefined"
     end select
+    !
     !
     !GENERATE THE CLUSTER HAMILTONIAN AND THE HOPPING MATRIX FOR THE LATTICE
     !

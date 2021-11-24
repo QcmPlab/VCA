@@ -382,7 +382,7 @@ contains
             do iorb=1,Norb
                do ispin=1,Nspin
                   do i=1,Nbath
-                     if( .not. hfshift) vca_bath_%e(ilat,ispin,iorb,i) = vca_bath_%e(ilat,ispin,iorb,i)-(0.5d0*Uloc(iorb)+0.5d0*Ust*(Norb-1)+0.5d0*(Ust-Jh)*(Norb-1))
+                     if( .not. hfshift) vca_bath_%e(ilat,ispin,iorb,i) = vca_bath_%e(ilat,ispin,iorb,i)-(0.5d0*Uloc_per_site(ilat,iorb)+0.5d0*Ust_per_site(ilat)*(Norb-1)+0.5d0*(Ust_per_site(ilat)-Jh_per_site(ilat))*(Norb-1))
                   enddo
                enddo
             enddo

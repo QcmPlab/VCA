@@ -578,10 +578,12 @@ contains
   subroutine write_observables()
     integer :: unit
     integer :: ilat,iorb,jorb,ispin
-    unit = free_unit()     
-    open(unit,file="parameters_last"//reg(file_suffix)//".vca")
-    write(unit,"(90F15.9)")xmu,beta,(uloc(iorb),iorb=1,Norb),Ust,Jh,Jx,Jp
-    close(unit)
+    do ilat=1,Nlat
+      unit = free_unit()     
+      open(unit,file="parameters_last"//reg(file_suffix)//"_site"//str(ilat,3)//".vca")
+      write(unit,"(90F15.9)")xmu,beta,(uloc_per_site(ilat,iorb),iorb=1,Norb),Ust_per_site(ilat),Jh_per_site(ilat),Jx_per_site(ilat),Jp_per_site(ilat)
+      close(unit)
+    enddo
     !
     do ilat=1,Nlat
        unit = free_unit()
