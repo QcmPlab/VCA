@@ -157,10 +157,10 @@ contains
     if(allocated(Jp_per_site))deallocate(Jp_per_site)
     !
     allocate(Uloc_per_site(Nlat,Norb));Uloc_per_site=zero
-    allocate(Ust_per_site(Norb));Ust_per_site=zero
-    allocate(Jx_per_site(Norb));Jx_per_site=zero
-    allocate(Jp_per_site(Norb));Jp_per_site=zero
-    allocate(Jh_per_site(Norb));Jh_per_site=zero
+    allocate(Ust_per_site(Nlat));Ust_per_site=zero
+    allocate(Jx_per_site(Nlat));Jx_per_site=zero
+    allocate(Jp_per_site(Nlat));Jp_per_site=zero
+    allocate(Jh_per_site(Nlat));Jh_per_site=zero
     !
     do ilat=1,Nlat
       do iorb=1,Norb
@@ -310,10 +310,10 @@ contains
     if(allocated(Jp_per_site))deallocate(Jp_per_site)
     !
     allocate(Uloc_per_site(Nlat,Norb));Uloc_per_site=zero
-    allocate(Ust_per_site(Norb));Ust_per_site=zero
-    allocate(Jx_per_site(Norb));Jx_per_site=zero
-    allocate(Jp_per_site(Norb));Jp_per_site=zero
-    allocate(Jh_per_site(Norb));Jh_per_site=zero
+    allocate(Ust_per_site(Nlat));Ust_per_site=zero
+    allocate(Jx_per_site(Nlat));Jx_per_site=zero
+    allocate(Jp_per_site(Nlat));Jp_per_site=zero
+    allocate(Jh_per_site(Nlat));Jh_per_site=zero
     !
     do ilat=1,Nlat
       do iorb=1,Norb
