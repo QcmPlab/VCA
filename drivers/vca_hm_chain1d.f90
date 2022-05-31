@@ -27,7 +27,7 @@ program vca_chain1d
   integer                                         :: comm,rank
   logical                                         :: master,wloop,wmin
   integer                                         :: nloop
-  real(8)                                         :: mu,t,t_var,mu_var
+  real(8)                                         :: mu,t,t_var,mu_var,omegadummy
   real(8),dimension(:),allocatable                :: ts_array,omega_array
   integer,dimension(1)                            :: min_loc
   complex(8),allocatable,dimension(:,:,:,:,:)     :: gfmats_periodized        ![Nspin][Nspin][Norb][Norb][Lmats]
@@ -106,6 +106,8 @@ program vca_chain1d
      call  brent(solve_vca1d,ts,[0.5d0,2d0])
      print*,"Result ts : ",ts
      stop
+  else
+    omegadummy=solve_vca1d(ts)
   endif
   !
   if(allocated(wm))deallocate(wm)
@@ -174,9 +176,17 @@ contains
   subroutine generate_hk()
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),1)          :: kgrid
+    real(8),dimension(1)                         :: e1,bk1
+    real(8)                                      :: bklen
     !
+    e1 = [1d0]
+    call TB_set_ei(eix=e1)
+    bklen=2d0*pi
+    bk1=bklen*[1d0]
+    call TB_set_bk(bkx=bk1)
     call TB_build_kgrid(Nkpts,kgrid)
     kgrid=kgrid/Nlat !!!!!DIVIDI OGNI K PER NUMERO SITI, RBZ
+    !
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(kgrid,1)))  

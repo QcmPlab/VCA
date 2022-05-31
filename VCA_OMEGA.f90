@@ -58,7 +58,7 @@ contains
     !
     !    
     call vca_gf_cluster(omega,gfprime)
-    if(Nbath>0)then
+    if(Nlat_bath>0.and.Norb_bath>0)then
       deltamat=delta_bath_freq(omega,vca_bath)
     endif
     !
@@ -99,7 +99,7 @@ contains
     !
     !    
     call vca_gf_cluster(omega,gfprime)
-    if(Nbath>0)then
+    if(Nlat_bath>0.and.Norb_bath>0)then
       deltamat=delta_bath_freq(omega,vca_bath)
     endif
     !

@@ -88,6 +88,7 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
+
   !
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
@@ -103,7 +104,6 @@ program vca_bhz_2d
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
   if(.not.allocated(wr))allocate(wr(Lreal))
-  if(.not.allocated(params))allocate(params(3))
   wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
   wr     = linspace(wini,wfin,Lreal)
   !
@@ -114,32 +114,6 @@ program vca_bhz_2d
   print_impG0=.true.
   print_Sigma=.true.
   !
-  !CUSTOM OBSERVABLE: KINETIC ENERGY
-  allocate(observable_matrix(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-  call init_custom_observables(4,product(Nkpts))
-  !
-  observable_matrix=zero
-  observable_matrix(1,1,1,1,1,1)=one
-  observable_matrix(1,1,Nspin,Nspin,1,1)=one
-  call add_custom_observable("n1_1",observable_matrix)
-  !
-  observable_matrix=zero
-  observable_matrix(2,2,1,1,1,1)=one
-  observable_matrix(2,2,Nspin,Nspin,1,1)=one
-  call add_custom_observable("n1_2",observable_matrix)
-  !
-  observable_matrix=zero
-  observable_matrix(3,3,1,1,1,1)=one
-  observable_matrix(3,3,Nspin,Nspin,1,1)=one
-  call add_custom_observable("n1_3",observable_matrix)
-  !
-  observable_matrix=zero
-  do iii=1,Nlat
-    observable_matrix(iii,iii,1,1,1,1)=one/Nlat
-    observable_matrix(iii,iii,Nspin,Nspin,1,1)=one/Nlat
-  enddo
-  call add_custom_observable("n1_avg",observable_matrix)
-  !
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
@@ -147,18 +121,20 @@ program vca_bhz_2d
     !
     !
     !INITIALIZE VARIABLES TO THE LATTICE VALUES
+    if(.not.allocated(params))allocate(params(3))
     call random_number(random_1)
     call random_number(random_2)
     call random_number(random_3)
     random_1=0.5d0*random_1
     random_2=0.5d0*random_2
     random_3=0.5d0*random_3
-    params=[Ts*(1.d0+random_1),Mh*(1.d0+random_2),lambdauser*(1.d0+random_3)]
+    !params=[Ts*(1.d0+random_1),M+random_3,lambdauser*(1.d0+random_3)]
+    params=[1d0,0d0,1d0]
     !call minimize_parameters(params,0.5d0)
     !
     !params=[Mh_var,lambdauser_var]
-    !call minimize_parameters(params,1.d0)
-    call minimize_parameters_simplex(params)
+    call minimize_parameters(params,2.5d0)
+    !call minimize_parameters_simplex(params)
     !
     print_Sigma=.true.
     print_observables=.true.
@@ -210,7 +186,8 @@ contains
   !+------------------------------------------------------------------+
 
   function solve_vca(pars) result(Omega)
-    real(8),dimension(:),intent(in)  :: pars
+    real(8),dimension(:)             :: pars
+    !real(8),dimension(:),intent(in)  :: pars
     logical                          :: invert
     real(8)                          :: Omega
     !
@@ -218,6 +195,7 @@ contains
     !
     t_var=pars(1)  
     M_var=pars(2)
+    !M_var=MH_VAR
     lambda_var=pars(3)
     mu_var=0.d0*t_var
     print*,""
@@ -237,27 +215,27 @@ contains
     !
     !
   end function solve_vca
-
-  function solve_vca_mod_grad(pars) result(Omega)
-    real(8),dimension(:)           :: pars
-    real(8),dimension(size(pars))  :: gradvec
-    logical                        :: invert
-    real(8)                        :: Omega
-    integer                        :: i
-    !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    do i=1,size(pars)
-      if(pars(i).le.0d0)pars(i)=-pars(i)
-    enddo
-    print*,"Variational parameters: ",pars
-    !
-    gradvec=f_dgradient(solve_vca,pars)
-    omega=sqrt(dot_product(gradvec,gradvec))
-    print*,"Gradient: ",gradvec
-    print*,"Gradient modulus: ",omega
-    !
-  end function solve_vca_mod_grad
+  
+  !function solve_vca_mod_grad(pars) result(Omega)
+  !  real(8),dimension(:)           :: pars
+  !  real(8),dimension(size(pars))  :: gradvec
+  !  logical                        :: invert
+  !  real(8)                        :: Omega
+  !  integer                        :: i
+  !  !
+  !  !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
+  !  !
+  !  do i=1,size(pars)
+  !    if(pars(i).le.0d0)pars(i)=-pars(i)
+  !  enddo
+  !  print*,"Variational parameters: ",pars
+  !  !
+  !  gradvec=f_dgradient(solve_vca,pars)
+  !  omega=sqrt(dot_product(gradvec,gradvec))
+  !  print*,"Gradient: ",gradvec
+  !  print*,"Gradient modulus: ",omega
+  !  !
+  !end function solve_vca_mod_grad
 
 
   !+------------------------------------------------------------------+
@@ -279,11 +257,26 @@ contains
     !
     parvec=v
     !
-    do i=1,size(v)
-      nbd(i) = 2
-      l(i)   = parvec(i)
-      u(i)   = parvec(i)+radius*parvec(i)
-    enddo
+    !do i=1,size(v)
+    !  !nbd(i) = 2
+    !  !l(i)   = parvec(i)-radius!*0.5*parvec(i)
+    !  !l(i) = 0d0
+    !  !u(i)   = parvec(i)+radius!*0.5*parvec(i)
+    !enddo
+    
+    nbd(1) = 2
+    nbd(2) = 2
+    nbd(3) = 2
+    
+    l(1)   = -2d0
+    l(2)   = -0.8d0
+    l(3)   = -2d0
+    
+    u(1)   = 2d0
+    u(2)   = 0.8d0
+    u(3)   = 2d0
+    
+    
     lold=l
     uold=u
     !
@@ -292,7 +285,7 @@ contains
     !
     !FIND LOCAL MINIMA
     !
-    call fmin_bfgs(solve_vca_mod_grad,parvec,l,u,nbd,factr=1.d8,pgtol=1.d-4,iprint=iprint_,nloop=Nloop)
+    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d5,pgtol=1.d-7,iprint=iprint_,nloop=Nloop)
     !
     v=parvec
     !
@@ -303,12 +296,12 @@ contains
     real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
     integer,dimension(:),allocatable          :: nbd
     integer                                   :: i,iprint_         
-    !
+  !  !
     !FIND LOCAL MINIMA
-    !
-    call fmin(solve_vca_mod_grad,v)
-    !
-    !
+  !  !
+    call fmin(solve_vca,v)
+  !  !
+  !  !
   end subroutine minimize_parameters_simplex
 
   !+------------------------------------------------------------------+
@@ -331,19 +324,19 @@ contains
           t_prime(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            t_prime(ind1,ind2,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+            t_prime(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            t_prime(ind1,ind2,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
+            t_prime(ind2,ind1,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            t_prime(ind1,ind2,ispin,ispin,:,:)= t_y(t_var,lambda_var)
+            t_prime(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            t_prime(ind1,ind2,ispin,ispin,:,:)= transpose(t_y(t_var,lambda_var))
+            t_prime(ind2,ind1,ispin,ispin,:,:)= transpose(t_y(t_var,lambda_var))
           endif
         enddo
       enddo
@@ -366,19 +359,19 @@ contains
           hopping_matrix(ind1,ind1,ispin,ispin,:,:)= t_m(m)
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            hopping_matrix(ind1,ind2,ispin,ispin,:,:)= t_x(t,lambda,ispin)
+            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= t_x(t,lambda,ispin)
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            hopping_matrix(ind1,ind2,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
+            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            hopping_matrix(ind1,ind2,ispin,ispin,:,:)= t_y(t,lambda)
+            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= t_y(t,lambda)
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            hopping_matrix(ind1,ind2,ispin,ispin,:,:)= transpose(t_y(t,lambda))
+            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= transpose(t_y(t,lambda))
           endif
         enddo
       enddo
@@ -389,14 +382,14 @@ contains
       do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
+        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
+        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
       enddo
       do ilat =1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
+        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
+        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
       enddo
     enddo
     !
@@ -407,6 +400,16 @@ contains
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
+    real(8),dimension(2)                        :: e1,e2,bk1,bk2
+    real(8)                                     :: bklen
+    !
+    e1 = [1d0, 0d0]
+    e2 = [0d0, 1d0]
+    call TB_set_ei(eix=e1,eiy=e2)
+    bklen=2d0*pi
+    bk1=bklen*[1d0, 0d0]
+    bk2=bklen*[0d0, 1d0]
+    call TB_set_bk(bkx=bk1,bky=bk2)
     !
     call TB_build_kgrid(Nkpts,kgrid)
     !Reduced Brillouin Zone

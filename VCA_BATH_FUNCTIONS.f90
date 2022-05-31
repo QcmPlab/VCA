@@ -125,62 +125,56 @@ contains
   !+-----------------------------------------------------------------------------+!
   !NORMAL:
   function delta_bath_freq_main(x,vca_bath_) result(Delta)
-    complex(8),intent(in)                                         :: x
-    type(effective_bath)                                          :: vca_bath_
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)         :: Delta
-    integer                                                       :: i,ih,L
-    integer                                                       :: ibath
-    integer                                                       :: io,jo
-    real(8),dimension(Nbath)                                      :: eps,vps
-    real(8),dimension(Nlat,Norb,Nbath)                            :: vops
+    complex(8),intent(in)                                                             :: x
+    type(effective_bath)                                                              :: vca_bath_
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                             :: Delta
+    integer                                                                           :: i,ih,L
+    integer                                                                           :: io,jo
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat_bath*Nspin*Norb_bath)         :: hbath
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat_bath*Nspin*Norb_bath)                   :: vbath_ver
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat*Nspin*Norb)                   :: vbath_hor
     !
     Delta=zero
     !
     !
     if(.not.vca_bath_%status)return
-    !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
-    do ilat=1,Nlat
-       do iorb=1,Norb
-          do ispin=1,Nspin
-             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
-             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
-             Delta(ilat,ilat,ispin,ispin,iorb,iorb) = sum( vps(:)*vps(:)/(x - eps(:)+XMU) )
-          enddo
-       enddo
-    enddo
+    !
+    hbath = (x+XMU)*zeye(Nlat_bath*Nspin*Norb_bath) - vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_hor = conjg(transpose(vbath_ver))
+    !
+    call inv(hbath)
+    !
+    Delta = vca_lso2nnn_reshape(matmul(vbath_ver,matmul(hbath,vbath_hor)),Nlat,Nspin,Norb)
+    !
   end function delta_bath_freq_main
-
 
   !+-----------------------------------------------------------------------------+!
   !PURPOSE:  Delta functions on the Matsubara axis:
   !+-----------------------------------------------------------------------------+!
   !NORMAL:
   function delta_bath_mats_main(x,vca_bath_) result(Delta)
-    complex(8),dimension(:),intent(in)                            :: x
-    type(effective_bath)                                          :: vca_bath_
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                                       :: i,ih,L
-    integer                                                       :: ibath
-    integer                                                       :: io,jo
-    real(8),dimension(Nbath)                                      :: eps,vps
-    real(8),dimension(Nlat,Norb,Nbath)                            :: vops
+    complex(8),dimension(:),intent(in)                                                 :: x
+    type(effective_bath)                                                               :: vca_bath_
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x))                      :: Delta
+    integer                                                                            :: i,ih,L
+    integer                                                                            :: io,jo
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat_bath*Nspin*Norb_bath)          :: hbath
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat_bath*Nspin*Norb_bath)                    :: vbath_ver
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat*Nspin*Norb)                    :: vbath_hor
     !
     Delta=zero
     !
     L = size(x)
     !
     if(.not.vca_bath_%status)return
-    !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
-    do ilat=1,Nlat
-       do iorb=1,Norb
-          do ispin=1,Nspin
-             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
-             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
-             do i=1,L
-                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:) + XMU) )
-             enddo
-          enddo
-       enddo
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_hor = conjg(transpose(vbath_ver))
+    !
+    do i=1,L
+      hbath = (x(i)+XMU)*zeye(Nlat_bath*Nspin*Norb_bath) - vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
+      call inv(hbath)
+      Delta(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(matmul(vbath_ver,matmul(hbath,vbath_hor)),Nlat,Nspin,Norb)
     enddo
   end function delta_bath_mats_main
 
@@ -190,32 +184,27 @@ contains
   !PURPOSE:  Delta functions on the Real axis:
   !+-----------------------------------------------------------------------------+!
   function delta_bath_real_main(x,vca_bath_) result(Delta)
-    complex(8),dimension(:),intent(in)                            :: x
-    type(effective_bath)                                          :: vca_bath_
-    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                                       :: i,ih,L
-    integer                                                       :: ibath
-    integer                                                       :: io,jo
-    real(8),dimension(Nbath)                                      :: eps,vps
-    real(8),dimension(Nlat,Norb,Nbath)                            :: vops
-    !
+    complex(8),dimension(:),intent(in)                                                 :: x
+    type(effective_bath)                                                               :: vca_bath_
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x))                      :: Delta
+    integer                                                                            :: i,ih,L
+    integer                                                                            :: io,jo
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat_bath*Nspin*Norb_bath)          :: hbath
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat_bath*Nspin*Norb_bath)                    :: vbath_ver
+    complex(8),dimension(Nlat_bath*Nspin*Norb_bath,Nlat*Nspin*Norb)                    :: vbath_hor
     !
     Delta=zero
     !
     L = size(x)
     !
     if(.not.vca_bath_%status)return
-    !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(w+i\h - E_{a}(k)) ]
-    do ilat=1,Nlat
-       do iorb=1,Norb
-          do ispin=1,Nspin
-             eps = vca_bath_%e(ilat,ispin,iorb,1:Nbath)
-             vps = vca_bath_%v(ilat,ispin,iorb,1:Nbath)
-             do i=1,L
-                Delta(ilat,ilat,ispin,ispin,iorb,iorb,i) = sum( vps(:)*vps(:)/(x(i) - eps(:) +XMU) )
-             enddo
-          enddo
-       enddo
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_hor = conjg(transpose(vbath_ver))
+    !
+    do i=1,L
+      hbath = (x(i)+XMU)*zeye(Nlat_bath*Nspin*Norb_bath) - vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
+      call inv(hbath)
+      Delta(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(matmul(vbath_ver,matmul(hbath,vbath_hor)),Nlat,Nspin,Norb)
     enddo
     !
   end function delta_bath_real_main
@@ -239,6 +228,7 @@ contains
     complex(8),dimension(:),intent(in)                            :: x
     type(effective_bath)                                          :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)         :: tmp
     integer                                                       :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
     real(8),dimension(size(x))                                    :: det
     complex(8),dimension(size(x))                                 :: fg,ff
@@ -250,13 +240,10 @@ contains
     !
     !
     Delta = delta_bath_mats(x,vca_bath_)
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             fg(:) = x(:) + xmu - impHloc(ilat,ilat,ispin,ispin,iorb,iorb) - Delta(ilat,ilat,ispin,ispin,iorb,iorb,:)
-             G0and(ilat,ilat,ispin,ispin,iorb,iorb,:) = one/fg(:)
-          enddo
-       enddo
+    do i=1,L
+      tmp=(x(i) + xmu)*Zeye(Nlat*Nspin*Norb) - vca_nnn2lso_reshape(impHloc - Delta(:,:,:,:,:,:,i),Nlat,Nspin,Norb)
+      call inv(tmp)
+      G0and(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(tmp,Nlat,Nspin,Norb)
     enddo
     !
   end function g0and_bath_mats_main
@@ -273,6 +260,7 @@ contains
     complex(8),dimension(:),intent(in)                            :: x
     type(effective_bath)                                          :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)         :: tmp
     integer                                                       :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
     complex(8),dimension(size(x))                                 :: det,fg,ff
     complex(8),dimension(:,:),allocatable                         :: fgorb,zeta
@@ -282,13 +270,10 @@ contains
     L = size(x)
     !
     Delta = delta_bath_real(x,vca_bath_)
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             fg(:)    = x(:) + xmu - impHloc(ilat,ilat,ispin,ispin,iorb,iorb) - Delta(ilat,ilat,ispin,ispin,iorb,iorb,:)
-             G0and(ilat,ilat,ispin,ispin,iorb,iorb,:) = one/fg(:)
-          enddo
-       enddo
+    do i=1,L
+      tmp=(x(i) + xmu)*Zeye(Nlat*Nspin*Norb) - vca_nnn2lso_reshape(impHloc - Delta(:,:,:,:,:,:,i),Nlat,Nspin,Norb)
+      call inv(tmp)
+      G0and(:,:,:,:,:,:,i) = vca_lso2nnn_reshape(tmp,Nlat,Nspin,Norb)
     enddo
     !
   end function g0and_bath_real_main
@@ -312,12 +297,8 @@ contains
     L=size(x)
     !
     Delta = delta_bath_mats(x,vca_bath_)
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             G0and(ilat,ilat,ispin,ispin,iorb,iorb,:) = x(:) + xmu - impHloc(ilat,ilat,ispin,ispin,iorb,iorb) - Delta(ilat,ilat,ispin,ispin,iorb,iorb,:)
-          enddo
-       enddo
+    do i=1,L
+      G0and(:,:,:,:,:,:,i) =  vca_lso2nnn_reshape((x(i) + xmu)*Zeye(Nlat*Nspin*Norb) - vca_nnn2lso_reshape(impHloc - Delta(:,:,:,:,:,:,i),Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
   end function invg0_bath_mats_main
 
@@ -337,12 +318,8 @@ contains
     L = size(x)
     !
     Delta = delta_bath_real(x,vca_bath_)
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             G0and(ilat,ilat,ispin,ispin,iorb,iorb,:) =  x(:) + xmu - impHloc(ilat,ilat,ispin,ispin,iorb,iorb) - Delta(ilat,ilat,ispin,ispin,iorb,iorb,:)
-          enddo
-       enddo
+    do i=1,L
+      G0and(:,:,:,:,:,:,i) =  vca_lso2nnn_reshape((x(i) + xmu)*Zeye(Nlat*Nspin*Norb) - vca_nnn2lso_reshape(impHloc - Delta(:,:,:,:,:,:,i),Nlat,Nspin,Norb),Nlat,Nspin,Norb)
     enddo
     !    !
   end function invg0_bath_real_main
@@ -363,86 +340,74 @@ contains
   !     at a point x from real(8),dimension(:) :: bath_array
   !
   !##################################################################
-  function delta_bath_mats_main_(x,bath_) result(Delta)
+  function delta_bath_mats_main_(x,h_in,v_in) result(Delta)
     complex(8),dimension(:),intent(in)                            :: x
     type(effective_bath)                                          :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    real(8),dimension(:)                                          :: bath_
+    complex(8),dimension(:,:,:,:,:,:)   :: h_in, v_in
     logical                                                       :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_mats_main_ error: wrong bath dimensions"
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     Delta = delta_bath_mats_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function delta_bath_mats_main_
 
-  function delta_bath_real_main_(x,bath_) result(Delta)
+  function delta_bath_real_main_(x,h_in,v_in) result(Delta)
     complex(8),dimension(:),intent(in)                            :: x
     type(effective_bath)                                          :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    real(8),dimension(:)                                          :: bath_
+    complex(8),dimension(:,:,:,:,:,:)   :: h_in, v_in
     logical                                                       :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_real_main_ error: wrong bath dimensions"
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     Delta = delta_bath_real_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function delta_bath_real_main_
 
-  function g0and_bath_mats_main_(x,bath_) result(G0and)
+  function g0and_bath_mats_main_(x,h_in,v_in) result(G0and)
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-    real(8),dimension(:)                                :: bath_
-    logical                                             :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "g0and_bath_mats_main_ error: wrong bath dimensions"
+    complex(8),dimension(:,:,:,:,:,:)   :: h_in, v_in
+
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     G0and = g0and_bath_mats_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function g0and_bath_mats_main_
 
-  function g0and_bath_real_main_(x,bath_) result(G0and)
+  function g0and_bath_real_main_(x,h_in,v_in) result(G0and)
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-    real(8),dimension(:)                                :: bath_
-    logical                                             :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "g0and_bath_real_main_ error: wrong bath dimensions"
+    complex(8),dimension(:,:,:,:,:,:)                   :: h_in, v_in
+
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     G0and = g0and_bath_real_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function g0and_bath_real_main_
 
-  function invg0_bath_mats_main_(x,bath_) result(G0and)
+  function invg0_bath_mats_main_(x,h_in,v_in) result(G0and)
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-    real(8),dimension(:)                                :: bath_
-    logical                                             :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "invg0_bath_mats_main_ error: wrong bath dimensions"
+    complex(8),dimension(:,:,:,:,:,:)                   :: h_in, v_in
+
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     G0and = invg0_bath_mats_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function invg0_bath_mats_main_
 
-  function invg0_bath_real_main_(x,bath_) result(G0and)
+  function invg0_bath_real_main_(x,h_in,v_in) result(G0and)
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: vca_bath_
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(x)) :: G0and
-    real(8),dimension(:)                                :: bath_
-    logical                                             :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "invg0_bath_real_main_ error: wrong bath dimensions"
+   complex(8),dimension(:,:,:,:,:,:)                    :: h_in, v_in
+
     call vca_allocate_bath(vca_bath_)
-    call vca_set_bath(bath_,vca_bath_)
+    call vca_set_bath(h_in,v_in,vca_bath_)
     G0and = invg0_bath_real_main(x,vca_bath_)
     call vca_deallocate_bath(vca_bath_)
   end function invg0_bath_real_main_

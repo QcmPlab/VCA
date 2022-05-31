@@ -60,7 +60,6 @@ contains
     if(Norb>5)stop "ED ERROR: Norb > 5 is currently not supported"
     !
     if(.not.vca_total_ud)then
-       !if(bath_type=="hybrid")stop "ED ERROR: vca_total_ud=F can not be used with bath_type=hybrid" 
        if(Jhflag)stop "ED ERROR: vca_total_ud=F can not be used with Jx!=0 OR Jp!=0"
     endif
     !
@@ -80,7 +79,7 @@ contains
   ! Nlevels = 2*Ns = Total # of levels (counting spin degeneracy 2) 
   !+------------------------------------------------------------------+
   subroutine vca_setup_dimensions()
-    Ns = (Nbath+1)*Nlat*Norb
+    Ns = Nlat*Norb + Nlat_bath*Norb_bath
     !
     select case(vca_total_ud) 
       case (.true.)
@@ -124,7 +123,7 @@ contains
     write(LOGfile,"(A,I15)") 'Total size            = ',2*Ns
     write(LOGfile,"(A,I15)") '# of sites            = ',Nlat
     write(LOGfile,"(A,I15)") '# of orbitals         = ',Norb
-    write(LOGfile,"(A,I15)")'# of bath              = ',Nbath
+    write(LOGfile,"(A,I15)")'# of bath levels       = ',Nlat_bath*Norb_bath
     write(LOGfile,"(A,2I15)")'Fock space size       = ',2**Ns*2**Ns
     write(LOGfile,"(A,"//str(Ns_Ud)//"I6,2X,"//str(Ns_Ud)//"I6,I15)")&
          'Largest Sector(s)     = ',DimUps,DimDws,product(DimUps)*product(DimDws)
@@ -149,7 +148,7 @@ contains
 	!
     allocate(getDim(Nsectors));getDim=0
     !
-    allocate(getBathStride(Nlat,Norb,Nbath));getBathStride=0
+    allocate(getBathStride(Nlat_bath,Norb_bath));getBathStride=0
     allocate(twin_mask(Nsectors))
     allocate(sectors_mask(Nsectors))
     allocate(neigen_sector(Nsectors))
@@ -193,7 +192,6 @@ contains
     !if(Norb>2)stop "ED ERROR: Norb > 2 is currently not supported"
     !
     offdiag_gf_flag=vca_solve_offdiag_gf            !!
-    !if(bath_type/="normal")offdiag_gf_flag=.true.	!!TODO
 	!
     if(nread/=0.d0)then
        i=abs(floor(log10(abs(nerr)))) !modulus of the order of magnitude of nerror
@@ -272,7 +270,7 @@ contains
     integer                          :: Indices(2*Ns_Ud),Jndices(2*Ns_Ud)
     integer                          :: Nups(Ns_ud),Ndws(Ns_ud)
     integer                          :: Jups(Ns_ud),Jdws(Ns_ud)
-    integer                          :: i,iud,iorb,ilat,stride
+    integer                          :: i,iud,iorb,ilat,stride,ilat_bath,iorb_bath
     integer                          :: isector,jsector
     integer                          :: unit,status,istate,ishift,isign
     logical                          :: IOfile
@@ -340,34 +338,15 @@ contains
     !normal:
     !|imp_up>|bath_up> * |imp_dw>|bath_dw>
     !
-    !|imp_sigma>=
-    !|(1..Na)_1
-    !  ...
-    ! (1..Na)_Nl; <-- Norb*Nlat
-    ! ([1..Nb]_1...[1..Nb]_Na)_1
-    !  ...
-    ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
     stride=Nlat*Norb 
-    ! select case(bath_type)
-    ! case default
-    do ilat=1,Nlat
-       do iorb=1,Norb
-          do i=1,Nbath
-             getBathStride(ilat,iorb,i) = i + &
-                  (iorb-1)*Nbath + (ilat-1)*Norb*Nbath + stride 
-          enddo
-       enddo
+    i=1
+    !
+    do ilat_bath=1,Nlat_bath
+      do iorb_bath=1,Norb_bath
+         getBathStride(ilat_bath,iorb_bath) = stride + i
+         i = i+1
+      enddo
     enddo
-    ! case ('hybrid') FIXME: MAYBE ADD THIS
-    !hybrid:
-    !|(1..Na)_1
-    !  ...
-    ! (1..Na)_Nl; <-- Norb*Nlat
-    ! [1..Nb]>    <-- Nbath
-    !    do i=1,Nbath
-    !       getBathStride(1:Nlat,1:Norb,i) = i + stride
-    !    enddo
-    ! end select
     !
     getCsector=0
     getCDGsector= 0
@@ -722,28 +701,6 @@ contains
   end subroutine delete_sector
 
 
-
-
-
-
-  !> Find position in the state vector for a given lattice-spin-orbital position for the cluster (no bath considered)
-  !normal:
-  !|imp_up>|bath_up> * |imp_dw>|bath_dw>
-  !
-  !|imp_sigma>=
-  !|(1..Na)_1
-  !  ...
-  ! (1..Na)_Nl; <-- Norb*Nlat
-  ! ([1..Nb]_1...[1..Nb]_Na)_1
-  !  ...
-  ! ([1..Nb]_1...[1..Nb]_Na)_Nl> <-- Nbath*Norb*Nlat
-  !function imp_state_index(ilat,iorb,ispin) result(indx)  
-    !integer :: ilat
-    !integer :: ispin
-    !integer :: iorb
-    !integer :: indx
-    !indx = iorb + (ilat-1)*Norb + (ispin-1)*(Nbath+1)*Norb*Nlat
-  !end function imp_state_index
 
   function imp_state_index(ilat,iorb) result(indx)  
     integer :: ilat

@@ -77,15 +77,13 @@
      !
      !> H_Bath: local bath energy contribution.
      !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-     if(Nbath>0)then
-       do ilat=1,size(bath_diag,3)
+     if(Nlat_bath>0 .and. Norb_bath>0)then
+       do ilat=1,size(bath_diag,1)
          do iorb=1,size(bath_diag,3)
-            do kp=1,Nbath
-               ialfa = getBathStride(ilat,iorb,kp)
-               htmp =htmp + bath_diag(ilat,1    ,iorb,kp)*ibup(ialfa) !UP
-               htmp =htmp + bath_diag(ilat,Nspin,iorb,kp)*ibdw(ialfa) !DW
+               ialfa = getBathStride(ilat,iorb)
+               htmp = htmp + bath_diag(ilat,1    ,iorb)*ibup(ialfa) !UP
+               htmp = htmp + bath_diag(ilat,Nspin,iorb)*ibdw(ialfa) !DW
                htmp = htmp - xmu*dble(ibup(ialfa)+ibdw(ialfa))
-            enddo
          enddo
        enddo
      endif

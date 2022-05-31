@@ -27,9 +27,9 @@ MODULE VCA_VARS_GLOBAL
 
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
-     real(8),dimension(:,:,:,:),allocatable        :: e     !local energies [1//Nlat][Nspin][1//Norb][Nbath]
-     real(8),dimension(:,:,:,:),allocatable        :: v     !spin-keep hyb. [Nlat][Nspin][Norb][Nbath]
-     logical                                       :: status=.false.
+     complex(8),dimension(:,:,:,:,:,:),allocatable   :: h     !bath hamiltonian [Nlat_bath,Nlat_bath][Nspin][Nspin][Norb_bath][Norb_bath]
+     complex(8),dimension(:,:,:,:,:,:),allocatable   :: v     !coupling part [Nlat][Nlat_bath][Nspin][Nspin][Norb][Norb_bath]
+     logical                                         :: status=.false.
   end type effective_bath
 
   !------------------ FULL HAMILTONIAN STRUCTURE ---------------------!
@@ -104,10 +104,7 @@ MODULE VCA_VARS_GLOBAL
   !non-interacting cluster Hamiltonian and full system hopping matrix
   !=========================================================
   complex(8),dimension(:,:,:,:,:,:),allocatable     :: impHloc ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-  complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: impHk   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nktot]
-  complex(8),dimension(:,:),allocatable             :: embeddedHloc ![Nlat*Nspin*Norb*(1+Nbath)][Nlat*Nspin*Norb*(1+Nbath)]
-  complex(8),dimension(:,:,:),allocatable           :: embeddedHk ![Nlat*Nspin*Norb*(1+Nbath)][Nlat*Nspin*Norb*(1+Nbath)][Nktot]
-
+  complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: impHk   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Nktot] (horizontal rectangular)
 
 
   !Some maps between sectors and full Hilbert space (pointers)  CHECK!!!!!!!!!!!!!!!!!!!!!
@@ -117,7 +114,7 @@ MODULE VCA_VARS_GLOBAL
   integer,allocatable,dimension(:,:,:)            :: getCDGsector
   integer,allocatable,dimension(:)                :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                :: getNup,getNdw
-  integer,allocatable,dimension(:,:,:)            :: getBathStride
+  integer,allocatable,dimension(:,:)              :: getBathStride
   integer,allocatable,dimension(:,:)              :: impIndex
   logical,allocatable,dimension(:)                :: twin_mask
   logical,allocatable,dimension(:)                :: sectors_mask
