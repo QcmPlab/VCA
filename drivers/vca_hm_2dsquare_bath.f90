@@ -101,7 +101,7 @@ program vca_square_bath
     allocate(ts_array(Nloop))
     allocate(omega_array(Nloop))
     !
-    ts_array = linspace(0.05d0,0.7d0,Nloop)
+    ts_array = linspace(0.05d0,2.7d0,Nloop)
     do iloop=1,Nloop
       omega_array(iloop)=solve_vca_square(ts_array(iloop))
       open(free_unit(unit),file="TEST.vca",position='append')
@@ -279,8 +279,10 @@ contains
       do ob=1,Norb_bath
         bath_h(ib,ib,1,1,ob,ob)         = xmu-eps
         bath_h(ib,ib,Nspin,Nspin,ob,ob) = xmu-eps
-        bath_v(ib,ib,1,1,ob,ob)         = v
-        bath_v(ib,ib,Nspin,Nspin,ob,ob) = v
+        do i =1,Nlat
+          bath_v(i,ib,1,1,ob,ob)         = v
+          bath_v(i,ib,Nspin,Nspin,ob,ob) = v
+        enddo
       enddo
     enddo
   end subroutine construct_bath

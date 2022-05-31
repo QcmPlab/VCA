@@ -15,6 +15,7 @@ program vca_bhz_2d
   !Bath
   complex(8),dimension(:,:,:,:,:,:),allocatable   :: bath_h,bath_v
   !Matrices:
+  real(8),allocatable                                                    :: wt(:)
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
@@ -86,7 +87,9 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
+
   !
+<<<<<<< HEAD
   if(allocated(bath_h))deallocate(bath_h)
   if(allocated(bath_v))deallocate(bath_v)
   if(allocated(t_prime))deallocate(t_prime)
@@ -95,6 +98,7 @@ program vca_bhz_2d
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+
   !
   !ALLOCATE VECTORS:
   !
@@ -105,6 +109,7 @@ program vca_bhz_2d
   !
   !INITIALIZE SOLVER:
   !
+<<<<<<< HEAD
   call vca_init_solver(comm,bath_h,bath_v)
   print_impG=.false.
   print_impG0=.false.
@@ -127,8 +132,6 @@ program vca_bhz_2d
     !
     allocate(ts_array_x(Nloop))
     allocate(omega_array(Nloop))
-    !
-    !
     ts_array_x = linspace(0.05d0,1d0,Nloop)
 
     do iloop=1,Nloop
@@ -140,7 +143,6 @@ program vca_bhz_2d
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
-  !
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -158,6 +160,7 @@ contains
     real(8),dimension(:)             :: pars
     logical                          :: invert
     real(8)                          :: Omega,E,V
+
     !
     !SET PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
@@ -185,12 +188,79 @@ contains
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
-    call vca_get_sft_potential(omega)
     !
     !
   end function solve_vca
-  
+
+
   !+------------------------------------------------------------------+
+  !PURPOSE:  multidimensional finder of stationary points
+  !+------------------------------------------------------------------+
+  subroutine minimize_parameters(v,radius)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    real(8)                                   :: radius     
+    integer                                   :: i,iprint_         
+    !
+    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
+    !
+    !INITIALIZE FLAGS
+    !
+    iprint_=1
+    !
+    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
+    !
+    parvec=v
+    !
+    !do i=1,size(v)
+    !  !nbd(i) = 2
+    !  !l(i)   = parvec(i)-radius!*0.5*parvec(i)
+    !  !l(i) = 0d0
+    !  !u(i)   = parvec(i)+radius!*0.5*parvec(i)
+    !enddo
+    
+    nbd(1) = 2
+    nbd(2) = 2
+    nbd(3) = 2
+    
+    l(1)   = -2d0
+    l(2)   = -0.8d0
+    l(3)   = -2d0
+    
+    u(1)   = 2d0
+    u(2)   = 0.8d0
+    u(3)   = 2d0
+    
+    
+    lold=l
+    uold=u
+    !
+    write(*,"(A)")""
+    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
+    !
+    !FIND LOCAL MINIMA
+    !
+    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d5,pgtol=1.d-7,iprint=iprint_,nloop=Nloop)
+    !
+    v=parvec
+    !
+  end subroutine minimize_parameters
+
+
+  subroutine minimize_parameters_simplex(v)
+    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    integer,dimension(:),allocatable          :: nbd
+    integer                                   :: i,iprint_         
+  !  !
+    !FIND LOCAL MINIMA
+  !  !
+    call fmin(solve_vca,v)
+  !  !
+  !  !
+  end subroutine minimize_parameters_simplex
+
+  !+------------------------------------------------------------------+
+>>>>>>> 6b92142 (added bath pretty print, some bugfix)
   !PURPOSE  : generate hopping matrices
   !+------------------------------------------------------------------+
 
@@ -233,7 +303,6 @@ contains
    !
  end subroutine construct_bath
 
-
  subroutine generate_tcluster()
    integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
@@ -268,7 +337,6 @@ contains
    t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
    !
  end subroutine generate_tcluster
-
 
  function tk(kpoint) result(hopping_matrix)
     integer                                                                 :: ilat,jlat,ispin,iorb,jorb,i,j,ind1,ind2
@@ -343,12 +411,21 @@ contains
     kgrid(:,2)=kgrid(:,2)/Ny
     !
     if(allocated(h_k))deallocate(h_k)
+    if(allocated(hk))deallocate(hk)
+    if(allocated(wt))deallocate(wt)
+    !
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
+    allocate(hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb,product(Nkpts))) 
+    allocate(wt(product(Nkpts))) 
+    !
     h_k=zero
+    hk=zero
+    Wt = 1d0/(product(Nkpts))
     !
     do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
+        hk(:,:,ik)=nnn2lso(h_k(:,:,:,:,:,:,ik))
         !
     enddo
     !
@@ -393,6 +470,7 @@ contains
   !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
+
 
    function indices2N(indices) result(N)
       integer,dimension(2)         :: indices

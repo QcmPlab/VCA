@@ -24,7 +24,10 @@ MODULE VCA_BATH_SETUP
    public :: vca_init_bath                   !INTERNAL (for effective_bath)
    public :: vca_set_bath                    !INTERNAL (for effective_bath)
    public :: vca_write_bath                    !INTERNAL (for effective_bath)
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6b92142 (added bath pretty print, some bugfix)
 
 
 contains
@@ -171,7 +174,6 @@ subroutine vca_write_bath(vca_bath_)
       write(unit_,"(90(A34,1X))")"Re(V_i_jb) | Im(V_i_jb)"        
       write(unit_,"(A1)")" "
       vrep_aux=vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
-      
       do io=1,Nlat*Nspin*Norb
          write(unit_,string_fmt) "  " ,(DREAL(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath),&
                                         "|  ",(DIMAG(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath)
@@ -182,9 +184,6 @@ subroutine vca_write_bath(vca_bath_)
    endif
    !
 end subroutine vca_write_bath
-
->>>>>>> 3f380b5 (first commit)
-
 
 
 END MODULE VCA_BATH_SETUP
