@@ -100,7 +100,9 @@ program vca_square_bath
     do iloop=1,Nloop
         if (ts_array_y(iloop)>0.3d0)then
           omega_array(iloop)=solve_vca_square([0d0,ts_array_y(iloop)])
-          
+          open(free_unit(unit),file="TEST.vca",position='append')
+          write(unit,*)ts_array_y(iloop),omega_array(iloop)
+          close(unit)         
         endif
     enddo
     !
@@ -144,7 +146,7 @@ contains
     t_var=1.0d0
     deltae=params(1)
     Vij=params(2)
-    Eij=0.d0
+    Eij=XMU
     mu_var=0.d0
     print*,""
     print*,"------ Doing for ",params," ------"
