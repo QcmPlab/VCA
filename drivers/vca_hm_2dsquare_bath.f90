@@ -103,12 +103,9 @@ program vca_square_bath
     !
     ts_array = linspace(0.05d0,0.7d0,Nloop)
     do iloop=1,Nloop
-    if(ts_array(iloop)>0.3)then
-        omega_array(iloop)=solve_vca_square(ts_array(iloop))
-        open(free_unit(unit),file="TEST.vca",position='append')
-        write(unit,*)ts_array(iloop),omega_array(iloop)
-        close(unit)
-    endif
+      omega_array(iloop)=solve_vca_square(ts_array(iloop))
+      open(free_unit(unit),file="TEST.vca",position='append')
+      write(unit,*)ts_array(iloop),omega_array(iloop)
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
