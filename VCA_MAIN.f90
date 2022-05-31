@@ -144,7 +144,7 @@ contains
     !
     if(present(bath_h).and.present(bath_v))then
        call assert_shape(bath_h,[Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath],"vca_solve","bath_h")
-       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_h")
+       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_v")
        call vca_allocate_bath(vca_bath)
        call vca_set_bath(bath_h,bath_v,vca_bath)
     endif
@@ -220,8 +220,7 @@ contains
   subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath_h,bath_v)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
-    complex(8),intent(inout),optional              :: bath_h(:,:,:,:,:,:)
-    complex(8),intent(inout),optional              :: bath_v(:,:,:,:,:,:)
+    complex(8),intent(inout),optional              :: bath_h(:,:,:,:,:,:),bath_v(:,:,:,:,:,:) 
     !
     integer                                        :: Lk,Nsites
     integer                                        :: ilat,jlat
@@ -245,7 +244,7 @@ contains
     !
     if(present(bath_h).and.present(bath_v))then
        call assert_shape(bath_h,[Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath],"vca_solve","bath_h")
-       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_h")
+       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_v")
        call vca_allocate_bath(vca_bath)
        call vca_set_bath(bath_h,bath_v,vca_bath)
        call vca_write_bath(vca_bath)
