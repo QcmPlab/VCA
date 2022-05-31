@@ -159,7 +159,7 @@ subroutine vca_write_bath(vca_bath_)
    !
    if(Nlat*Nspin*Norb.le.8)then
       write(unit_,"(A1)")" "
-      write(unit_,"(90(A36,1X))")"Re(H_ij_bath) | Im(H_ij_jbath)"      
+      write(unit_,"(90(A36,1X))")"Re(H_ib_jb) | Im(H_ib_jb)"      
       write(unit_,"(A1)")" "
       Hrep_aux=vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
       do io=1,Nlat_bath*Nspin*Norb_bath
@@ -167,9 +167,10 @@ subroutine vca_write_bath(vca_bath_)
                                         "|  ",(DIMAG(hrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath)
       enddo
       write(unit_,"(A1)")" "
-      write(unit_,"(90(A35,1X))")"Re(V_i_jbath) | Im(V_i_jbath)"        
+      write(unit_,"(90(A34,1X))")"Re(V_i_jb) | Im(V_i_jb)"        
       write(unit_,"(A1)")" "
       vrep_aux=vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
+      
       do io=1,Nlat*Nspin*Norb
          write(unit_,string_fmt) "  " ,(DREAL(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath),&
                                         "|  ",(DIMAG(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath)

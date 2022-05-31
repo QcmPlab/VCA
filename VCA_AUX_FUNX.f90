@@ -363,7 +363,7 @@ contains
   ! reshape rectangular
   !+-----------------------------------------------------------------------------+!
 
-  function d_rectangular_j2n_scalar(Hlso,Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2) result(Hnnn)
+  function d_rectangular_j2n_scalar(Hlso,Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) result(Hnnn)
     integer                                               :: Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2
     real(8),dimension(Nlat*Nspin*Norb,Nlat2*Nspin2*Norb2) :: Hlso
     real(8),dimension(Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) :: Hnnn
@@ -389,7 +389,7 @@ contains
     enddo
   end function d_rectangular_j2n_scalar
   !
-  function  d_rectangular_n2j_scalar(Hnnn,Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2) result(Hlso)
+  function  d_rectangular_n2j_scalar(Hnnn,Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) result(Hlso)
     integer                                               :: Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2
     real(8),dimension(Nlat*Nspin*Norb,Nlat2*Nspin2*Norb2) :: Hlso
     real(8),dimension(Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) :: Hnnn
@@ -415,7 +415,7 @@ contains
     enddo
   end function d_rectangular_n2j_scalar
   !
-  function c_rectangular_j2n_scalar(Hlso,Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2) result(Hnnn)
+  function c_rectangular_j2n_scalar(Hlso,Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) result(Hnnn)
     integer                                                  :: Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2
     complex(8),dimension(Nlat*Nspin*Norb,Nlat2*Nspin2*Norb2) :: Hlso
     complex(8),dimension(Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) :: Hnnn
@@ -441,7 +441,7 @@ contains
     enddo
   end function c_rectangular_j2n_scalar
   !
-  function c_rectangular_n2j_scalar(Hnnn,Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2) result(Hlso)
+  function c_rectangular_n2j_scalar(Hnnn,Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2) result(Hlso)
     integer                                                     :: Nlat,Nspin,Norb,Nlat2,Nspin2,Norb2
     complex(8),dimension(Nlat,Nlat2,Nspin,Nspin2,Norb,Norb2)    :: Hnnn
     complex(8),dimension(Nlat*Nspin*Norb,Nlat2*Nspin2*Norb2)    :: Hlso
@@ -449,7 +449,7 @@ contains
     integer                                                     :: iorb,jorb
     integer                                                     :: ispin,jspin
     integer                                                     :: is,js
-    Hlso=zero
+    Hlso=zero 
     do ilat=1,Nlat
        do jlat=1,Nlat2
           do ispin=1,Nspin
