@@ -118,6 +118,9 @@ program vca_square_bath
     write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),params
     write(*,"(A)")""
   endif
+  
+  omegadummy=solve_vca_square([2.9d0,0.7d0])
+  
   call finalize_MPI()
 
 
@@ -245,6 +248,16 @@ contains
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
+    real(8),dimension(2)                        :: e1,e2,bk1,bk2
+    real(8)                                     :: bklen
+    !
+    e1 = [1d0, 0d0]
+    e2 = [0d0, 1d0]
+    call TB_set_ei(eix=e1,eiy=e2)
+    bklen=2d0*pi
+    bk1=bklen*[1d0, 0d0]
+    bk2=bklen*[0d0, 1d0]
+    call TB_set_bk(bkx=bk1,bky=bk2)
     !
     call TB_build_kgrid(Nkpts,kgrid)
     kgrid(:,1)=kgrid(:,1)/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
