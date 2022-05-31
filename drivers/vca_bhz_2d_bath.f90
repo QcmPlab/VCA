@@ -87,7 +87,12 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
-
+  Norb_bath=Norb
+  if(allocated(bath_h))deallocate(bath_h)
+  if(allocated(bath_v))deallocate(bath_v)
+  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
+  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
+  !
   !
 <<<<<<< HEAD
   if(allocated(bath_h))deallocate(bath_h)
@@ -98,7 +103,6 @@ program vca_bhz_2d
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-
   !
   !ALLOCATE VECTORS:
   !
@@ -109,7 +113,6 @@ program vca_bhz_2d
   !
   !INITIALIZE SOLVER:
   !
-<<<<<<< HEAD
   call vca_init_solver(comm,bath_h,bath_v)
   print_impG=.false.
   print_impG0=.false.
@@ -160,7 +163,6 @@ contains
     real(8),dimension(:)             :: pars
     logical                          :: invert
     real(8)                          :: Omega,E,V
-
     !
     !SET PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
@@ -188,7 +190,6 @@ contains
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
-    !
     !
   end function solve_vca
 
@@ -260,7 +261,6 @@ contains
   end subroutine minimize_parameters_simplex
 
   !+------------------------------------------------------------------+
->>>>>>> 6b92142 (added bath pretty print, some bugfix)
   !PURPOSE  : generate hopping matrices
   !+------------------------------------------------------------------+
 
