@@ -5,6 +5,7 @@ MODULE VCA_BATH_SETUP
    USE SF_MISC, only: assert_shape
    USE VCA_INPUT_VARS
    USE VCA_VARS_GLOBAL
+   use VCA_AUX_FUNX
    implicit none
 
 
@@ -22,6 +23,7 @@ MODULE VCA_BATH_SETUP
    public :: vca_deallocate_bath             !INTERNAL (for effective_bath)
    public :: vca_init_bath                   !INTERNAL (for effective_bath)
    public :: vca_set_bath                    !INTERNAL (for effective_bath)
+   public :: vca_write_bath                    !INTERNAL (for effective_bath)
 
 
 contains
@@ -135,6 +137,49 @@ contains
       endif
       !
    end subroutine vca_set_bath
+   
+   !+-------------------------------------------------------------------+
+   !PURPOSE  : pretty print
+   !+-------------------------------------------------------------------+
+
+   
+subroutine vca_write_bath(vca_bath_)
+   integer              :: unit_
+   type(effective_bath) :: vca_bath_
+   integer              :: ibath
+   integer              :: io,jo,iorb,ispin,isym
+   complex(8)           :: hrep_aux(Nlat_bath*Nspin*Norb_bath,Nlat_bath*Nspin*Norb_bath)
+   complex(8)           :: vrep_aux(Nlat*Nspin*Norb,Nlat_bath*Nspin*Norb_bath)
+   character(len=64)    :: string_fmt,string_fmt_first
+   !
+   unit_=LOGfile
+   if(.not.vca_bath_%status)stop "write_dmft_bath error: bath not allocated"
+   !
+   string_fmt="(a5,"//str(Nlat_bath*Nspin*Norb_bath)//"(F8.4,1X),a5,"//str(Nlat_bath*Nspin*Norb_bath)//"(F8.4,1X))"
+   !
+   if(Nlat*Nspin*Norb.le.8)then
+      write(unit_,"(A1)")" "
+      write(unit_,"(90(A36,1X))")"Re(H_ij_bath) | Im(H_ij_jbath)"      
+      write(unit_,"(A1)")" "
+      Hrep_aux=vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
+      do io=1,Nlat_bath*Nspin*Norb_bath
+         write(unit_,string_fmt) "  "  ,(DREAL(hrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath),&
+                                        "|  ",(DIMAG(hrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath)
+      enddo
+      write(unit_,"(A1)")" "
+      write(unit_,"(90(A35,1X))")"Re(V_i_jbath) | Im(V_i_jbath)"        
+      write(unit_,"(A1)")" "
+      vrep_aux=vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
+      do io=1,Nlat*Nspin*Norb
+         write(unit_,string_fmt) "  " ,(DREAL(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath),&
+                                        "|  ",(DIMAG(vrep_aux(io,jo)),jo=1,Nlat_bath*Nspin*Norb_bath)
+      enddo
+      write(unit_,"(A1)")" "
+   else
+      write(LOGfile,"(A)")"Bath matrix too large to print"
+   endif
+   !
+end subroutine vca_write_bath
 
 
 
