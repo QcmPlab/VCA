@@ -94,14 +94,14 @@ program vca_square_bath
   if(wloop)then
     allocate(ts_array_x(Nloop))
     allocate(ts_array_y(Nloop))
-    allocate(omega_grid(Nloop,Nloop))
+    allocate(omega_array(Nloop))
     !
-    ts_array_x = linspace(-1d0,1d0,Nloop)
-    ts_array_y = linspace(0.1d0,1.5d0,Nloop)
+    ts_array_y = linspace(0.05d0,0.7d0,Nloop)
     do iloop=1,Nloop
-      do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca_square([ts_array_x(iloop),ts_array_y(jloop)])
-      enddo
+        if (ts_array_y(iloop)>0.3d0)then
+          omega_array(iloop)=solve_vca_square([0d0,ts_array_y(iloop)])
+          
+        endif
     enddo
     !
     call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
