@@ -25,11 +25,6 @@ MODULE VCA
        vca_gf_cluster
 
 
-  USE VCA_BATH_SETUP, only:                     &
-       vca_get_bath_dimension                  ,&
-       set_bath_component            
-
-
   USE VCA_MAIN, only:                           &
        vca_init_solver                         ,&
        vca_solve

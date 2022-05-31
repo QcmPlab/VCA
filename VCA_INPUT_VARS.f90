@@ -14,7 +14,8 @@ MODULE VCA_INPUT_VARS
   integer              :: Norb         !# of lattice orbitals per site
   integer              :: Nspin        !# spin degeneracy (max 2)
   integer              :: Nlat         !# size of cluster
-  integer              :: Nbath        !# of bath sites (per orbital or not depending on bath_type)
+  integer              :: Nlat_bath    !# of bath "site" levels
+  integer              :: Norb_bath    !# of bath "orb" levels
   real(8),dimension(5) :: Uloc         !local interactions
   real(8)              :: Ust          !intra-orbitals interactions
   real(8)              :: Jh           !J_Hund: Hunds' coupling constant 
@@ -111,7 +112,8 @@ contains
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of orbitals per cluster site.")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy")
     call parse_input_variable(Nlat,"NLAT",INPUTunit,default=1,comment="Number of cluster copies tiling the system")
-    call parse_input_variable(Nbath,"NBATH",INPUTunit,default=0,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)")
+    call parse_input_variable(Nlat_bath,"NLAT_BATH",INPUTunit,default=0,comment="Number of bath 'lat' levels")
+    call parse_input_variable(Norb_bath,"NORB_BATH",INPUTunit,default=0,comment="Number of bath 'orb' levels")
     !
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0,0.d0,0.d0],comment="Values of the local interaction per orbital")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
