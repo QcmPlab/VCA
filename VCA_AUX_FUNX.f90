@@ -1,7 +1,6 @@
 MODULE VCA_AUX_FUNX
   USE VCA_INPUT_VARS
   USE VCA_VARS_GLOBAL
-  USE VCA_BATH_SETUP
   USE SF_TIMER
   USE SF_LINALG
   USE SF_MISC, only: assert_shape
@@ -190,8 +189,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -216,8 +215,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
@@ -242,8 +241,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -268,8 +267,8 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb + (jspin-1)*Norb*Nlat
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
@@ -379,8 +378,8 @@ contains
              do jspin=1,Nspin2
                 do iorb=1,Norb
                    do jorb=1,Norb2
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb2 + (jspin-1)*Norb2*Nlat2
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -405,8 +404,8 @@ contains
              do jspin=1,Nspin2
                 do iorb=1,Norb
                    do jorb=1,Norb2
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb2 + (jspin-1)*Norb2*Nlat2
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
@@ -431,8 +430,8 @@ contains
              do jspin=1,Nspin2
                 do iorb=1,Norb
                    do jorb=1,Norb2
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb2 + (jspin-1)*Norb2*Nlat2
                       Hnnn(ilat,jlat,ispin,jspin,iorb,jorb) = Hlso(is,js)
                    enddo
                 enddo
@@ -457,8 +456,8 @@ contains
              do jspin=1,Nspin2
                 do iorb=1,Norb
                    do jorb=1,Norb2
-                      is = index_stride_lso(ilat,ispin,iorb)
-                      js = index_stride_lso(jlat,jspin,jorb)
+                      is = iorb + (ilat-1)*Norb + (ispin-1)*Norb*Nlat
+                      js = jorb + (jlat-1)*Norb2 + (jspin-1)*Norb2*Nlat2
                       Hlso(is,js) = Hnnn(ilat,jlat,ispin,jspin,iorb,jorb)
                    enddo
                 enddo
