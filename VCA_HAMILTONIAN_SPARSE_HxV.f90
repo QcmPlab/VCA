@@ -23,20 +23,20 @@ MODULE VCA_HAMILTONIAN_SPARSE_HxV
   !public  :: setup_Hv_sector
   !public  :: delete_Hv_sector
 
-  integer                                :: i,iup,idw
-  integer                                :: j,jup,jdw
-  integer                                :: m,mup,mdw
-  integer                                :: ms,iud
-  integer                                :: impi
-  integer                                :: ilat,jlat,iorb,jorb,ispin,jspin,is,js,ibath
-  integer                                :: kp,k1,k2,k3,k4
-  integer                                :: ialfa,ibeta,indx
-  real(8)                                :: sg1,sg2,sg3,sg4
-  complex(8)                             :: htmp,htmpup,htmpdw
-  logical                                :: Jcondition
-  integer                                :: Nfoo,Nfoo2
-  real(8),dimension(:,:,:,:),allocatable :: diag_hybr ![Nlat,Nspin,Norb,Nbath]
-  real(8),dimension(:,:,:,:),allocatable :: bath_diag ![Nlat,Nspin,Norb/1,Nbath]
+  integer                                  :: i,iup,idw
+  integer                                  :: j,jup,jdw
+  integer                                  :: m,mup,mdw
+  integer                                  :: ms,iud
+  integer                                  :: impi
+  integer                                  :: ilat,jlat,iorb,jorb,ispin,jspin,is,js,ilat_bath,iorb_bath
+  integer                                  :: kp,k1,k2,k3,k4
+  integer                                  :: ialfa,ibeta,indx
+  real(8)                                  :: sg1,sg2,sg3,sg4
+  complex(8)                               :: htmp,htmpup,htmpdw
+  logical                                  :: Jcondition
+  integer                                  :: Nfoo,Nfoo2
+  real(8),dimension(:,:,:,:,:),allocatable :: diag_hybr ![Nlat,Nlat_bath,Nspin,Norb,Norb_bath]
+  real(8),dimension(:,:,:),allocatable     :: bath_diag ![Nlat_bath,Nspin,Norb_bath]
 
 contains
 
@@ -70,7 +70,7 @@ contains
     if(spH0d%status)call sp_delete_matrix(spH0d)
     !
     !Get diagonal hybridization, bath energy
-    if(Nbath>0)then
+    if(Nlat_bath>0 .and. Norb_bath>0)then
       include "VCA_HAMILTONIAN/diag_hybr_bath.f90"         
     endif        
     !    

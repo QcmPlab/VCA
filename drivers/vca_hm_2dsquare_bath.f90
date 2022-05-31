@@ -13,8 +13,7 @@ program vca_square_bath
   logical                                         :: converged
   real(8)                                         :: wband
   !Bath
-  real(8),allocatable                             :: Bath(:)
-  integer                                         :: Nb
+  complex(8),dimension(:,:,:,:,:,:),allocatable   :: bath_h,bath_v
   !The local hybridization function:
   real(8),dimension(:,:),allocatable              :: Tsys,Tref,Vmat,Htb,Mmat,dens
   real(8),allocatable,dimension(:)                :: wm,wr
@@ -64,8 +63,11 @@ program vca_square_bath
   !
   !
   Ndim=size(Nkpts)
+  Ny=Nx
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
+  Nlat_bath=Nlat
+  Norb_bath=Norb
   call naming_convention()
   !
   t_var=1.0d0
@@ -77,6 +79,8 @@ program vca_square_bath
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Nlat,"NLAT")
   call add_ctrl_var(Norb,"norb")
+  call add_ctrl_var(Nlat_bath,"NLAT_bath")
+  call add_ctrl_var(Norb_bath,"norb_bath")
   call add_ctrl_var(Nspin,"nspin")
   call add_ctrl_var(beta,"beta")
   call add_ctrl_var(xmu,"xmu")
@@ -84,45 +88,36 @@ program vca_square_bath
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
 
+  if(allocated(bath_h))deallocate(bath_h)
+  if(allocated(bath_v))deallocate(bath_v)
+  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
+  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
 
   
-  Nb=vca_get_bath_dimension()
-  allocate(Bath(Nb))
-  call vca_init_solver(comm,bath)
+  call vca_init_solver(comm,bath_h,bath_v)
     
 
   if(wloop)then
-    allocate(ts_array_x(Nloop))
-    allocate(ts_array_y(Nloop))
-    allocate(omega_grid(Nloop,Nloop))
+    allocate(ts_array(Nloop))
+    allocate(omega_array(Nloop))
     !
-    ts_array_x = linspace(-1d0,1d0,Nloop)
-    ts_array_y = linspace(0.1d0,1.5d0,Nloop)
+    ts_array = linspace(0.05d0,0.7d0,Nloop)
     do iloop=1,Nloop
-      do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca_square([ts_array_x(iloop),ts_array_y(jloop)])
-      enddo
+    if(ts_array(iloop)>0.3)then
+        omega_array(iloop)=solve_vca_square(ts_array(iloop))
+        open(free_unit(unit),file="TEST.vca",position='append')
+        write(unit,*)ts_array(iloop),omega_array(iloop)
+        close(unit)
+    endif
     enddo
     !
-    call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
+    call splot("sft_Omega_loopVSts.dat",ts_array,omega_array)
     !
-  elseif(wmin)then
-    params=[0.d0,0.7d0]
-    !
-    call minimize_parameters(params,0.7d0)
-    !
-    print_Sigma=.true.
-    print_observables=.true.
-    omegadummy=solve_vca_square(params)
-    !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),params
-    write(*,"(A)")""
   endif
+  
+
+  omegadummy=solve_vca_square(0.7d0)
   call finalize_MPI()
-
-
-
-
 
 contains
 
@@ -132,31 +127,20 @@ contains
 
 
 
-  function solve_vca_square(params) result(Omega)
-    real(8),dimension(:)         :: params
-    real(8)                      :: Vij,Eij,deltae
+  function solve_vca_square(V) result(Omega)
+    real(8)                      :: V,E
     real(8)                      :: Omega
     !
     !
     t_var=1.0d0
-    deltae=params(1)
-    Vij=params(2)
-    Eij=0.d0
+    E=0.d0
     mu_var=0.d0
     print*,""
-    print*,"------ Doing for ",params," ------"
+    print*,"------ Doing for ", V," ------"
+    call construct_bath(E,V)
     call generate_tcluster()
     call generate_hk()
-    !BATH VARIATIONAL SETUP
-    do ix=1,Nlat
-      do iy=1,Nspin
-        do ik=1,Norb       
-          call set_bath_component(bath,ix,iy,ik,e_component=[Eij+deltae,Eij-deltae])
-          call set_bath_component(bath,ix,iy,ik,v_component=[Vij,Vij])
-        enddo
-      enddo
-    enddo
-    call vca_solve(comm,t_prime,h_k,bath)
+    call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
     call vca_get_sft_potential(omega)
     print*,""
     print*,"------ DONE ------"
@@ -164,41 +148,6 @@ contains
     !
   end function solve_vca_square
 
-  !+------------------------------------------------------------------+
-  !PURPOSE:  multidimensional finder of stationary points
-  !+------------------------------------------------------------------+
-  subroutine minimize_parameters(v,radius)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
-    integer,dimension(:),allocatable          :: nbd
-    real(8)                                   :: radius     
-    integer                                   :: i,iprint_         
-    !
-    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
-    !
-    !INITIALIZE FLAGS
-    !
-    iprint_=1
-    !
-    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
-    !
-    parvec=v
-    !
-    do i=1,size(v)
-      nbd(i) = 2
-      l(i)   = parvec(i)-radius
-      u(i)   = parvec(i)+radius
-    enddo
-    lold=l
-    uold=u
-    !
-    write(*,"(A)")""
-    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
-    !
-    !FIND LOCAL MINIMA
-    !
-    call fmin_bfgs(solve_vca_square,parvec,l,u,nbd,factr=1.d3,iprint=iprint_,nloop=Nloop)
-    !
-  end subroutine minimize_parameters
 
   !+------------------------------------------------------------------+
   !PURPOSE  : generate test hopping matrices
@@ -245,10 +194,20 @@ contains
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
+    real(8),dimension(2)                        :: e1,e2,bk1,bk2
+    real(8)                                     :: bklen
     !
+    e1 = [1d0, 0d0]
+    e2 = [0d0, 1d0]
+    call TB_set_ei(eix=e1,eiy=e2)
+    bklen=2d0*pi
+    bk1=bklen*[1d0, 0d0]
+    bk2=bklen*[0d0, 1d0]
+    call TB_set_bk(bkx=bk1,bky=bk2)
+!
     call TB_build_kgrid(Nkpts,kgrid)
-    kgrid(:,1)=kgrid(:,1)/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
-    kgrid(:,2)=kgrid(:,2)/Nx !!!!!DIVIDI OGNI K PER NUMERO SITI in quella direzione, RBZ
+    kgrid(:,1)=kgrid(:,1)/Nx
+    kgrid(:,2)=kgrid(:,2)/Ny
     !
     if(allocated(h_k))deallocate(h_k)
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
@@ -310,6 +269,23 @@ contains
     enddo
     ! 
   end function tk
+  
+  
+  subroutine construct_bath(eps,v)
+    real(8)                 :: eps,v
+    integer                 :: i,ib,o,ob
+    !
+    bath_h=zero
+    bath_v=zero
+    do ib=1,Nlat_bath
+      do ob=1,Norb_bath
+        bath_h(ib,ib,1,1,ob,ob)         = xmu-eps
+        bath_h(ib,ib,Nspin,Nspin,ob,ob) = xmu-eps
+        bath_v(ib,ib,1,1,ob,ob)         = v
+        bath_v(ib,ib,Nspin,Nspin,ob,ob) = v
+      enddo
+    enddo
+  end subroutine construct_bath
 
 
 

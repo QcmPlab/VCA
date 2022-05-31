@@ -440,7 +440,7 @@ contains
     gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
     call inv(gfprime_lso)
     !
-    if(Nbath>0)then
+    if(Nlat_bath>0.and.Norb_bath>0)then
       deltamat=delta_bath_freq(xi*omega,vca_bath)
     endif
     !
@@ -491,7 +491,7 @@ contains
     gfprime_lso=vca_nnn2lso_reshape(gfprime,Nlat,Nspin,Norb)
     call inv(gfprime_lso)
     !
-    if(Nbath>0)then
+    if(Nlat_bath>0.and.Norb_bath>0)then
       deltamat=delta_bath_freq(omega,vca_bath)
     endif
     !

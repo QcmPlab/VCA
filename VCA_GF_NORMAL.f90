@@ -1039,13 +1039,13 @@ contains
     !
     !
     do ii=1,Lmats
-        if(Nbath>0)then
+        if(Nlat_bath>0.and.Norb_bath>0)then
           deltamat=delta_bath_freq(xi*wm(ii),vca_bath)
         endif   
        invG0mats(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape( (xi*wm(ii)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb) - impHloc - deltamat
     enddo
     do ii=1,Lreal
-        if(Nbath>0)then
+        if(Nlat_bath>0.and.Norb_bath>0)then
           deltamat=delta_bath_freq(dcmplx(wr(ii),eps),vca_bath)
         endif   
        invG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape((dcmplx(wr(ii),eps)+xmu)*eye(Nlat*Nspin*Norb),Nlat,Nspin,Norb)-impHloc - deltamat

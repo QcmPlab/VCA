@@ -48,21 +48,21 @@ contains
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_init_solver_serial(bath)
-    real(8),intent(inout),optional :: bath(:)
-    logical,save                   :: isetup=.true.
+  subroutine vca_init_solver_serial(bath_h,bath_v)
+    complex(8),intent(inout),optional :: bath_h(:,:,:,:,:,:)
+    complex(8),intent(inout),optional :: bath_v(:,:,:,:,:,:)
+    logical,save                      :: isetup=.true.
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
-    if(present(bath))then
-       if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
-       bath=0d0
+    if(present(bath_h).and.present(bath_v))then
+       if(Nlat_bath<1 .or. Norb_bath<1)stop "VCA_INIT_SOLVER error: wrong bath dimensions"
        call vca_allocate_bath(vca_bath)
        call vca_init_bath(vca_bath)
-       call vca_get_bath(vca_bath,bath)
     else
       write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
-      Nbath=0
+      Nlat_bath=0
+      Norb_bath=0
     endif
     !Init Structure & memory
     if(isetup)call init_cluster_structure()
@@ -76,10 +76,10 @@ contains
   end subroutine vca_init_solver_serial
 
 #ifdef _MPI
-  subroutine vca_init_solver_mpi(MpiComm,bath)
+  subroutine vca_init_solver_mpi(MpiComm,bath_h,bath_v)
     integer                                     :: MpiComm
-    real(8),dimension(:),intent(inout),optional :: bath
-    !complex(8),intent(in)                      :: Hloc(Nspin,Nspin,Norb,Norb)
+    complex(8),intent(inout),optional           :: bath_h(:,:,:,:,:,:)
+    complex(8),intent(inout),optional           :: bath_v(:,:,:,:,:,:)
     logical                                     :: check 
     logical,save                                :: isetup=.true.
     integer                                     :: i
@@ -88,15 +88,14 @@ contains
     !
     write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(file_suffix)
     !
-    if(present(bath))then
-       if(.not.check_bath_dimension(bath))stop "VCA_INIT_SOLVER error: wrong bath dimensions"
-       bath=0d0
+    if(present(bath_h).and.present(bath_v))then
+       if(Nlat_bath<1 .or. Norb_bath<1)stop "VCA_INIT_SOLVER error: wrong bath dimensions"
        call vca_allocate_bath(vca_bath)
        call vca_init_bath(vca_bath)
-       call vca_get_bath(vca_bath,bath)
     else
       write(LOGfile,"(A)") "Bath not present, setting Nbath to 0"
-      Nbath=0
+      Nlat_bath=0
+      Norb_bath=0
     endif
     !Init Structure & memory
     if(isetup)call init_cluster_structure()
@@ -122,10 +121,11 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: Diag the cluster, reference system
   !+-----------------------------------------------------------------------------+!
-  subroutine vca_solve_serial(Hloc,Hk,bath)
+  subroutine vca_solve_serial(Hloc,Hk,bath_h,bath_v)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
-    real(8),intent(inout),dimension(:),optional    :: bath
+    complex(8),intent(inout),optional              :: bath_h(:,:,:,:,:,:)
+    complex(8),intent(inout),optional              :: bath_v(:,:,:,:,:,:)
     !
     integer                                        :: Lk,Nsites
     integer                                        :: ilat,jlat
@@ -142,12 +142,11 @@ contains
     if(rank(Hloc) .ne. 6) STOP "STOP: wrong cluster matrix dimensions"
     if(rank(Hk)   .ne. 7) STOP "STOP: wrong lattice matrix dimensions"
     !
-    if(present(Bath))then
-       if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
+    if(present(bath_h).and.present(bath_v))then
+       call assert_shape(bath_h,[Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath],"vca_solve","bath_h")
+       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_h")
        call vca_allocate_bath(vca_bath)
-       call vca_set_bath(bath,vca_bath)
-       call vca_write_bath(vca_bath,LOGfile)
-       call vca_save_bath(vca_bath,used=.true.)
+       call vca_set_bath(bath_h,bath_v,vca_bath)
     endif
     !
     !
@@ -218,10 +217,11 @@ contains
 
 #ifdef _MPI
 
-  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath)
+  subroutine vca_solve_mpi(MpiComm,Hloc,Hk,bath_h,bath_v)
     complex(8),intent(in),dimension(:,:,:,:,:,:)   :: Hloc ![Nlat,Nlat,Nspin,Nspin,Norb,Norb]
     complex(8),intent(in),dimension(:,:,:,:,:,:,:) :: Hk   ![Nlat,Nlat,Nspin,Nspin,Norb,Norb,Nktot]
-    real(8),intent(inout),dimension(:),optional    :: bath
+    complex(8),intent(inout),optional              :: bath_h(:,:,:,:,:,:)
+    complex(8),intent(inout),optional              :: bath_v(:,:,:,:,:,:)
     !
     integer                                        :: Lk,Nsites
     integer                                        :: ilat,jlat
@@ -243,12 +243,11 @@ contains
     !    
     !
     !
-    if(present(Bath))then
-       if(.not.check_bath_dimension(bath))stop "vca_diag_solve Error: wrong bath dimensions"
+    if(present(bath_h).and.present(bath_v))then
+       call assert_shape(bath_h,[Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath],"vca_solve","bath_h")
+       call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_h")
        call vca_allocate_bath(vca_bath)
-       call vca_set_bath(bath,vca_bath)
-       call vca_write_bath(vca_bath,LOGfile)
-       call vca_save_bath(vca_bath,used=.true.)
+       call vca_set_bath(bath_h,bath_v,vca_bath)
     endif
     !
     select case(vca_sparse_H)
@@ -328,63 +327,4 @@ contains
 end module VCA_MAIN
 
 
-
-
-
-
-
-
-! Nexc     = Qcluster%Nexc
-! Nexc_sys = Ncopies*Nexc
-! call allocate_Qmatrix(Qsystem)
-! !
-! print*,"Nexc_sys=",Nexc_sys
-! allocate(Mmat(Nexc_sys,Nexc_sys))
-! allocate(Lvec(Nexc_sys));Lvec=zero
-! !
-! Nc = vca_get_cluster_dimension(present(bath))
-! !
-! Mmat=zero
-! !
-! do icopy=1,Ncopies
-!    do jcopy=1,Ncopies
-!       i1 = 1 + (icopy-1)*Nc
-!       i2 = icopy*Nc
-!       j1 = 1 + (jcopy-1)*Nc
-!       j2 = jcopy*Nc
-!       !
-!       ii1 = 1 + (icopy-1)*Nexc
-!       ii2 = icopy*Nexc
-!       jj1 = 1 + (jcopy-1)*Nexc
-!       jj2 = jcopy*Nexc
-!       !
-!       Mmat(ii1:ii2,jj1:jj2)  = matmul(Qcluster%cdg,  matmul(Vmat(i1:i2,j1:j2),Qcluster%c))
-!    enddo
-! enddo
-! !
-! Mmat = Mmat + kron(eye(Ncopies),diag( Qcluster%poles ))
-! !
-! call eigh(Mmat,Lvec)!>from here on M-->S
-! !
-! Qsystem%poles = Lvec
-! call sort_array(Qcluster%poles)
-! Lvec=zero
-! do iexc=1,Nexc
-!    do icopy=1,Ncopies
-!       i = icopy + (iexc-1)*Ncopies
-!       Lvec(i) = Qcluster%poles(iexc)
-!    enddo
-! enddo
-! !
-! Tr=0d0
-! do i=1,Nexc_sys
-!    !
-!    arg1 = beta*Lvec(i)
-!    arg2 = beta*Qsystem%poles(i)
-!    if(arg1 < -20d0 .OR. arg2 < -20d0)then
-!       Tr  = Tr - beta*( Lvec(i) - Qsystem%poles(i) )
-!    else
-!       Tr  = Tr + log( (1d0 + exp(-beta*Lvec(i)))/(1d0 + exp(-beta*Qsystem%poles(i))) )
-!    endif
-! enddo
 ! !

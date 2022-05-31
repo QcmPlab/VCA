@@ -28,7 +28,12 @@ program vca_ssh
   integer                                         :: comm,rank
   logical                                         :: master
   !
+  real(8),dimension(:,:),allocatable              :: U_loc_per_site
+  real(8)                                         :: interface_coupling
+  integer                                         :: interface_offset
+  integer                                         :: ilat,iorb
   !
+
   call init_MPI()
   comm = MPI_COMM_WORLD
   call StartMsg_MPI(comm)
@@ -43,6 +48,8 @@ program vca_ssh
   call parse_input_variable(wloop,"wloop",finput,default=.false.,comment="T: includes loop over ts")
   call parse_input_variable(wmin,"wmin",finput,default=.false.,comment="T: includes global minimization")
   call parse_input_variable(nloop,"NLOOP",finput,default=5)
+  call parse_input_variable(interface_coupling,"INTERFACE_COUPLING",finput,default=1.0d0)
+  call parse_input_variable(interface_offset,"INTERFACE_OFFSET",finput,default=0)
   !
   call vca_read_input(trim(finput),comm)
   !
@@ -68,42 +75,30 @@ program vca_ssh
   wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
   wr     = linspace(wini,wfin,Lreal)
   !
+  !Set U_loc for each site
+  allocate(U_loc_per_site(Nlat,Norb))
+  U_loc_per_site = zero
+  do ilat=1,Nlat
+    do iorb = 1, Norb
+      if (ilat<= Nlat/2+interface_offset) then
+         U_loc_per_site(ilat,iorb) = Uloc(iorb)
+      else
+         U_loc_per_site(ilat,iorb) = 0
+      endif
+    enddo
+  enddo
+  !print *, U_loc_per_site
+  if (abs(interface_offset) > 1)then
+   print *, "interface_offset larger than 1 not implemented!"
+   stop
+  endif
+  !
   !INIT SOLVER:
   !
   call vca_init_solver(comm)
-    print_observables=.false.
+  print_observables=.false.
   !
-  !LOOP:
-  if(wloop)then
-     allocate(vhop_array(Nloop))
-     allocate(whop_array(Nloop))
-     allocate(omega_array(Nloop))
-     vhop_array = linspace(0.2d0,2d0,Nloop)
-     whop_array = linspace(0.2d0,2d0,Nloop)
-     do iloop=1,Nloop
-        !omega_array(iloop)=solve_vca(vhop_array(iloop),whop_array(iloop))
-        omega_array(iloop)=solve_vca1d(vhop_array(iloop))
-     enddo
-     !call splot3d("sft_Omega_loopVSts.dat",vhop_array,whop_array,omega_array)
-     call splot("sft_Omega_loopVSts.dat",vhop_array,omega_array)
-  else
-    h_cluster = lso2nnn(Hloc_model(Nlso,vhop_var,whop_var),Nlat,Nspin,Norb)
-    call generate_hk()
-    call vca_solve(comm,h_cluster,h_k)
-  endif
-
-  !MINIMIZATION:
-
-  if(wmin)then
-     print*,"Guess:",vhop_var
-     call  brent(solve_vca1d,vhop_var,[0.5d0,2d0])
-     print*,"Result ts : ",vhop_var
-     stop
-  endif
-  !
-  if((.not. wloop) .and. (.not. wmin))then
-    dummy_omega = solve_vca(vhop,whop)
-  endif
+   dummy_omega = solve_vca(vhop,whop)
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -123,42 +118,20 @@ contains
     !
     vhop_var=vij
     whop_var=wij
-    print*,""
-    print*,"----- INIT -----"
+    !print*,""
+    !print*,"----- INIT -----"
     !
-    print*,"VHOP_VAR = ",vhop_var
+    !print*,"VHOP_VAR = ",vhop_var
     h_cluster = lso2nnn(Hloc_model(Nlso,vhop_var,whop_var),Nlat,Nspin,Norb)
     call generate_hk()
-    call vca_solve(comm,h_cluster,h_k)
+
+    call vca_solve(comm,h_cluster,h_k,Uloc_ii = U_loc_per_site)
     call vca_get_sft_potential(omega)
     !
-    print*,"------ DONE ------"
-    print*,""
+    !print*,"------ DONE ------"
+    !print*,""
     !
   end function solve_vca
-
-
-  function solve_vca1d(vij) result(Omega)
-    real(8)                      :: vij,wij
-    real(8)                      :: Omega
-    !
-    vhop_var=vij
-    whop_var=vij
-    print*,""
-    print*,"----- INIT -----"
-    !
-    print*,"VHOP_VAR = ",vhop_var
-    h_cluster = lso2nnn(Hloc_model(Nlso,vhop_var,whop_var),Nlat,Nspin,Norb)
-    call generate_hk()
-    call vca_solve(comm,h_cluster,h_k)
-    call vca_get_sft_potential(omega)
-    !
-    print*,"------ DONE ------"
-    print*,""
-    !
-  end function solve_vca1d
-
-
 
    !+------------------------------------------------------------------+
    !PURPOSE  : Hloc for the 2d BHZ model
@@ -175,19 +148,25 @@ contains
       !
       do ispin=1,Nspin
          do idimer=1,Ndimer
-          hopping_matrix(2*idimer-1,2*idimer  ,ispin,ispin,:,:) = vhop_
-          hopping_matrix(2*idimer  ,2*idimer-1,ispin,ispin,:,:) = vhop_
+          hopping_matrix(2*idimer-1,2*idimer  ,ispin,ispin,:,:) = -vhop_
+          hopping_matrix(2*idimer  ,2*idimer-1,ispin,ispin,:,:) = -vhop_
           !
           if(idimer < Ndimer) then
-             hopping_matrix(2*idimer  ,2*idimer+1,ispin,ispin,:,:) = whop_
-             hopping_matrix(2*idimer+1,2*idimer  ,ispin,ispin,:,:) = whop_
+             hopping_matrix(2*idimer  ,2*idimer+1,ispin,ispin,:,:) = -whop_
+             hopping_matrix(2*idimer+1,2*idimer  ,ispin,ispin,:,:) = -whop_
           endif
           !
           if(idimer > Ndimer) then
-             hopping_matrix(2*idimer-1,2*idimer-2,ispin,ispin,:,:) = whop_
-             hopping_matrix(2*idimer-2,2*idimer-1,ispin,ispin,:,:) = whop_
+             hopping_matrix(2*idimer-1,2*idimer-2,ispin,ispin,:,:) = -whop_
+             hopping_matrix(2*idimer-2,2*idimer-1,ispin,ispin,:,:) = -whop_
+          endif
+          ! adjust the coupling at the interface
+          if (idimer == Ndimer/2+interface_offset) then
+            hopping_matrix(2*idimer -interface_offset ,2*idimer+1-interface_offset,ispin,ispin,:,:) = -whop_*interface_coupling
+            hopping_matrix(2*idimer+1-interface_offset,2*idimer  -interface_offset,ispin,ispin,:,:) = -whop_*interface_coupling
           endif
          enddo
+
       enddo
       !
       H0=nnn2lso(hopping_matrix,Nlat,Nspin,Norb)
@@ -231,9 +210,12 @@ contains
       if(allocated(hk_lso))deallocate(hk_lso)
       !
       allocate(Hk_lso(Nlso,Nlso,Nk))
+
+      if(allocated(h_k))deallocate(h_k)
+      allocate(h_k(Nlat,Nlat ,NSpin,NSpin,Norb,Norb,Nk))
       hk_lso=zero
       !
-      call TB_build_model(Hk_lso,hk_model,Nlso,kgrid)
+      !call TB_build_model(Hk_lso,hk_model,Nlso,kgrid)
       !
       do ik=1,Nk
         h_k(:,:,:,:,:,:,ik)=lso2nnn(hk_lso(:,:,ik),Nlat,Nspin,Norb)
