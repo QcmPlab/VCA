@@ -26,6 +26,7 @@ MODULE VCA_BATH_SETUP
    public :: vca_write_bath                    !INTERNAL (for effective_bath)
 
 
+
 contains
 
 
@@ -181,6 +182,8 @@ subroutine vca_write_bath(vca_bath_)
    endif
    !
 end subroutine vca_write_bath
+
+>>>>>>> 3f380b5 (first commit)
 
 
 
