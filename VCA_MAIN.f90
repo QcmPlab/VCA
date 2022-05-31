@@ -248,6 +248,7 @@ contains
        call assert_shape(bath_v,[Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath],"vca_solve","bath_h")
        call vca_allocate_bath(vca_bath)
        call vca_set_bath(bath_h,bath_v,vca_bath)
+       call vca_write_bath(vca_bath)
     endif
     !
     select case(vca_sparse_H)
