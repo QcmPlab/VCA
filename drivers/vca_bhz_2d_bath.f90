@@ -38,7 +38,7 @@ program vca_bhz_2d
   character(len=6)                                :: scheme
   character(len=16)                               :: finput
   real(8)                                         :: omegadummy,observable_dummy
-  real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params
+  real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params,omega_array
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
   real(8),dimension(3)                            :: df
@@ -87,17 +87,18 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
-
+  Norb_bath=Norb
+  if(allocated(bath_h))deallocate(bath_h)
+  if(allocated(bath_v))deallocate(bath_v)
+  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
+  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
+  !
   !
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   !
   !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
   !
-  t=ts
-  M=(2.d0*t)*Mh
-  lambda=(2.d0*t)*lambdauser
-  mu=0.d0*t
   !
   !ALLOCATE VECTORS:
   !
@@ -108,7 +109,7 @@ program vca_bhz_2d
   !
   !INITIALIZE SOLVER:
   !
-  call vca_init_solver(comm)
+  call vca_init_solver(comm,bath_h,bath_v)
   print_impG=.true.
   print_impG0=.true.
   print_Sigma=.true.
@@ -116,60 +117,19 @@ program vca_bhz_2d
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
-  if(wmin)then
+  if(wloop)then
+    !
+    allocate(ts_array_x(Nloop))
+    allocate(omega_array(Nloop))
     !
     !
-    !INITIALIZE VARIABLES TO THE LATTICE VALUES
-    if(.not.allocated(params))allocate(params(3))
-    call random_number(random_1)
-    call random_number(random_2)
-    call random_number(random_3)
-    random_1=0.5d0*random_1
-    random_2=0.5d0*random_2
-    random_3=0.5d0*random_3
-    !params=[Ts*(1.d0+random_1),M+random_3,lambdauser*(1.d0+random_3)]
-    params=[1d0,0d0,1d0]
-    !call minimize_parameters(params,0.5d0)
-    !
-    !params=[Mh_var,lambdauser_var]
-    call minimize_parameters(params,2.5d0)
-    !call minimize_parameters_simplex(params)
-    !
-    print_Sigma=.true.
-    print_observables=.true.
-    omegadummy=solve_vca(params)
-    !
-    write(*,"(A,F15.9,A,3F15.9)")bold_green("FOUND STATIONARY POINT "),omegadummy,bold_green(" AT "),t_var,m_var,lambda_var
-    write(*,"(A)")""
-    !
-  elseif(wloop)then
-    !
-    !allocate(ts_array_x(Nloop))
-    !allocate(ts_array_y(Nloop))
-    !allocate(omega_grid(Nloop,Nloop))
-    !
-    ts_array_x = linspace(ts_var-0.2d0,ts_var+0.2d0,Nloop)
-    ts_array_y = linspace(lambdauser_var-0.2d0,lambdauser_var+0.2d0,Nloop)
+    ts_array_x = linspace(0.05d0,1d0,Nloop)
+
     do iloop=1,Nloop
-      do jloop=1,Nloop
-        omega_grid(iloop,jloop)=solve_vca([ts_array_x(iloop),Mh,ts_array_y(jloop)])
-      enddo
+        omega_array(iloop)=solve_vca([0.5d0,0.3d0,ts_array_x(iloop)])
     enddo
     !
-    call splot3d("sft_Omega_loopVSts.dat",ts_array_x,ts_array_y,omega_grid)
-  else
-    params=[Ts,Mh,lambdauser]
-    print_Sigma=.true.
-    print_observables=.true.
-    omegadummy=solve_vca(params)
-    !
-    !call vca_read_impSigma()
-    call vca_get_sigma_matsubara(Smats)
-    call vca_get_sigma_realaxis(Sreal)
-    !
-    !call dmft_gloc_realaxis(comm,Hk,Wt,Greal,Sreal)
-    !if(master)call dmft_print_gf_realaxis(Greal,"Gloc",iprint=4)
-    !
+    call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
   !
   if(allocated(wm))deallocate(wm)
@@ -188,17 +148,30 @@ contains
     real(8),dimension(:)             :: pars
     !real(8),dimension(:),intent(in)  :: pars
     logical                          :: invert
-    real(8)                          :: Omega
+    real(8)                          :: Omega,E,V
     !
     !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
-    t_var=pars(1)  
-    M_var=pars(2)
-    !M_var=MH_VAR
-    lambda_var=pars(3)
-    mu_var=0.d0*t_var
+    Mh_var=Mh
+    Ts_var=ts
+    lambdauser_var=lambdauser
+    !
+    t=ts
+    M=mh
+    lambda=lambdauser
+    !
+    t_var=pars(1)
+    M_var=mh_var
+    lambda_var=pars(2)
+    !
+    E=XMU
+    V=pars(3)
+    !
+    mu_var=XMU
+    mu=xmu
+    !
     print*,""
-    print*,"Variational parameters:"
+    print*,"Cluster parameters:"
     print*,"t      = ",t_var
     print*,"M      = ",m_var
     print*,"lambda = ",lambda_var
@@ -207,105 +180,38 @@ contains
     print*,"M      = ",m
     print*,"lambda = ",lambda
     !
+    call construct_bath(E,V)
     call generate_tcluster()
     call generate_hk()
-    call vca_solve(comm,t_prime,h_k)
+    call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
     call vca_get_sft_potential(omega)
     !
     !
   end function solve_vca
   
-  !function solve_vca_mod_grad(pars) result(Omega)
-  !  real(8),dimension(:)           :: pars
-  !  real(8),dimension(size(pars))  :: gradvec
-  !  logical                        :: invert
-  !  real(8)                        :: Omega
-  !  integer                        :: i
-  !  !
-  !  !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-  !  !
-  !  do i=1,size(pars)
-  !    if(pars(i).le.0d0)pars(i)=-pars(i)
-  !  enddo
-  !  print*,"Variational parameters: ",pars
-  !  !
-  !  gradvec=f_dgradient(solve_vca,pars)
-  !  omega=sqrt(dot_product(gradvec,gradvec))
-  !  print*,"Gradient: ",gradvec
-  !  print*,"Gradient modulus: ",omega
-  !  !
-  !end function solve_vca_mod_grad
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE:  multidimensional finder of stationary points
-  !+------------------------------------------------------------------+
-  subroutine minimize_parameters(v,radius)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
-    integer,dimension(:),allocatable          :: nbd
-    real(8)                                   :: radius     
-    integer                                   :: i,iprint_         
-    !
-    allocate ( nbd(size(v)), parvec(size(v)), l(size(v)), u(size(v)), lold(size(v)), uold(size(v)) )
-    !
-    !INITIALIZE FLAGS
-    !
-    iprint_=1
-    !
-    !INITIALIZE PARAMETERS VECTOR AND BOUNDARIES
-    !
-    parvec=v
-    !
-    !do i=1,size(v)
-    !  !nbd(i) = 2
-    !  !l(i)   = parvec(i)-radius!*0.5*parvec(i)
-    !  !l(i) = 0d0
-    !  !u(i)   = parvec(i)+radius!*0.5*parvec(i)
-    !enddo
-    
-    nbd(1) = 2
-    nbd(2) = 2
-    nbd(3) = 2
-    
-    l(1)   = -2d0
-    l(2)   = -0.8d0
-    l(3)   = -2d0
-    
-    u(1)   = 2d0
-    u(2)   = 0.8d0
-    u(3)   = 2d0
-    
-    
-    lold=l
-    uold=u
-    !
-    write(*,"(A)")""
-    write(*,"(A)")bold_red("LOOKING FOR MINIMUMS")
-    !
-    !FIND LOCAL MINIMA
-    !
-    call fmin_bfgs(solve_vca,parvec,l,u,nbd,factr=1.d5,pgtol=1.d-7,iprint=iprint_,nloop=Nloop)
-    !
-    v=parvec
-    !
-  end subroutine minimize_parameters
-
-
-  subroutine minimize_parameters_simplex(v)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
-    integer,dimension(:),allocatable          :: nbd
-    integer                                   :: i,iprint_         
-  !  !
-    !FIND LOCAL MINIMA
-  !  !
-    call fmin(solve_vca,v)
-  !  !
-  !  !
-  end subroutine minimize_parameters_simplex
-
   !+------------------------------------------------------------------+
   !PURPOSE  : generate hopping matrices
   !+------------------------------------------------------------------+
+
+  subroutine construct_bath(eps,v)
+    real(8)                 :: eps,v
+    integer                 :: i,ib,o,ob,ispin
+    !
+    bath_h=zero
+    bath_v=zero
+    !
+    do ispin=1,Nspin
+      do ob=1,Norb_bath
+        do ib=1,Nlat_bath
+          bath_h(ib,ib,ispin,ispin,ob,ob)=(-1d0)**(ob+1)*M_var+eps
+          do i=1,Nlat
+            bath_v(i,ib,ispin,ispin,ob,ob)=v
+          enddo
+        enddo
+      enddo
+    enddo
+
+  end subroutine construct_bath
 
 
   subroutine generate_tcluster()
@@ -504,7 +410,7 @@ contains
     allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     DELTA=zero
     !
-    if (Nbath .ne. 0)then
+    if (Nlat_bath > 0)then
       do ilat=1,Nlat
         do ispin=1,Nspin
            do iorb=1,Norb

@@ -140,7 +140,7 @@ contains
     if(.not.vca_bath_%status)return
     !
     hbath = (x+XMU)*zeye(Nlat_bath*Nspin*Norb_bath) - vca_nnn2lso_reshape(vca_bath_%h,Nlat_bath,Nspin,Norb_bath)
-    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
     vbath_hor = conjg(transpose(vbath_ver))
     !
     call inv(hbath)
@@ -168,7 +168,7 @@ contains
     L = size(x)
     !
     if(.not.vca_bath_%status)return
-    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
     vbath_hor = conjg(transpose(vbath_ver))
     !
     do i=1,L
@@ -198,7 +198,7 @@ contains
     L = size(x)
     !
     if(.not.vca_bath_%status)return
-    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nspin,Norb,Nlat_bath,Nspin,Norb_bath)
+    vbath_ver = vca_rectangular_n2j_reshape(vca_bath_%v,Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath)
     vbath_hor = conjg(transpose(vbath_ver))
     !
     do i=1,L
