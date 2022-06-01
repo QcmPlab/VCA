@@ -15,7 +15,6 @@ program vca_bhz_2d
   !Bath
   complex(8),dimension(:,:,:,:,:,:),allocatable   :: bath_h,bath_v
   !Matrices:
-  real(8),allocatable                                                    :: wt(:)
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
@@ -87,20 +86,21 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
-  Norb_bath=Norb
-  if(allocated(bath_h))deallocate(bath_h)
-  if(allocated(bath_v))deallocate(bath_v)
-  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
-  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
   !
-  !
-<<<<<<< HEAD
   if(allocated(bath_h))deallocate(bath_h)
   if(allocated(bath_v))deallocate(bath_v)
   if(allocated(t_prime))deallocate(t_prime)
   allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
+  !
+  if(allocated(bath_h))deallocate(bath_h)
+  if(allocated(bath_v))deallocate(bath_v)
+  if(allocated(t_prime))deallocate(t_prime)
+  allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
+  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
+  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
+  !
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   !
@@ -146,6 +146,7 @@ program vca_bhz_2d
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
+  !
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -303,6 +304,44 @@ contains
    !
  end subroutine construct_bath
 
+
+
+  subroutine generate_tcluster()
+    integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
+    !
+    t_prime=zero
+    t_tmp=zero
+    !
+    do ispin=1,Nspin
+      do ilat=1,Nx
+        do jlat=1,Ny
+          ind1=indices2N([ilat,jlat])
+          t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
+          if(ilat<Nx)then
+            ind2=indices2N([ilat+1,jlat])
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+          endif
+          if(ilat>1)then
+            ind2=indices2N([ilat-1,jlat])
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
+          endif
+          if(jlat<Ny)then
+            ind2=indices2N([ilat,jlat+1])
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
+          endif
+          if(jlat>1)then
+            ind2=indices2N([ilat,jlat-1])
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
+          endif
+        enddo
+      enddo
+    enddo
+    t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
+    !
+  end subroutine generate_tcluster
+>>>>>>> 880ed58 (driver update)
+
  subroutine generate_tcluster()
    integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
@@ -411,21 +450,12 @@ contains
     kgrid(:,2)=kgrid(:,2)/Ny
     !
     if(allocated(h_k))deallocate(h_k)
-    if(allocated(hk))deallocate(hk)
-    if(allocated(wt))deallocate(wt)
-    !
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
-    allocate(hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb,product(Nkpts))) 
-    allocate(wt(product(Nkpts))) 
-    !
     h_k=zero
-    hk=zero
-    Wt = 1d0/(product(Nkpts))
     !
     do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
-        hk(:,:,ik)=nnn2lso(h_k(:,:,:,:,:,:,ik))
         !
     enddo
     !
@@ -470,7 +500,6 @@ contains
   !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
-
 
    function indices2N(indices) result(N)
       integer,dimension(2)         :: indices
