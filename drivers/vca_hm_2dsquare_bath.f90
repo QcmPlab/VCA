@@ -165,19 +165,19 @@ contains
           t_prime(ind1,ind1,ispin,ispin,1,1)= -mu_var
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
+            t_prime(ind2,ind1,ispin,ispin,1,1)= -t_var
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
+            t_prime(ind2,ind1,ispin,ispin,1,1)= -t_var
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
+            t_prime(ind2,ind1,ispin,ispin,1,1)= -t_var
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            t_prime(ind1,ind2,ispin,ispin,1,1)= -t_var
+            t_prime(ind2,ind1,ispin,ispin,1,1)= -t_var
           endif
         enddo
       enddo
@@ -233,19 +233,19 @@ contains
           hopping_matrix(ind1,ind1,ispin,ispin,1,1)= -mu
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            hopping_matrix(ind1,ind2,ispin,ispin,1,1)= -t
+            hopping_matrix(ind2,ind1,ispin,ispin,1,1)= -t
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            hopping_matrix(ind1,ind2,ispin,ispin,1,1)= -t
+            hopping_matrix(ind2,ind1,ispin,ispin,1,1)= -t
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            hopping_matrix(ind1,ind2,ispin,ispin,1,1)= -t
+            hopping_matrix(ind2,ind1,ispin,ispin,1,1)= -t
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            hopping_matrix(ind1,ind2,ispin,ispin,1,1)= -t
+            hopping_matrix(ind2,ind1,ispin,ispin,1,1)= -t
           endif
         enddo
       enddo
@@ -255,14 +255,14 @@ contains
       do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
-        hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(xi*kpoint(2)*Nx)
-        hopping_matrix(ind2,ind1,ispin,ispin,1,1)=hopping_matrix(ind2,ind1,ispin,ispin,1,1) -t*exp(-xi*kpoint(2)*Nx)
+        hopping_matrix(ind2,ind1,ispin,ispin,1,1)=hopping_matrix(ind2,ind1,ispin,ispin,1,1) -t*exp(xi*kpoint(1)*Nx)
+        hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(-xi*kpoint(1)*Nx)
       enddo
       do ilat=1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
-        hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(xi*kpoint(1)*Ny)
-        hopping_matrix(ind2,ind1,ispin,ispin,1,1)=hopping_matrix(ind2,ind1,ispin,ispin,1,1) -t*exp(-xi*kpoint(1)*Ny)
+        hopping_matrix(ind2,ind1,ispin,ispin,1,1)=hopping_matrix(ind2,ind1,ispin,ispin,1,1) -t*exp(xi*kpoint(2)*Ny)
+        hopping_matrix(ind1,ind2,ispin,ispin,1,1)=hopping_matrix(ind1,ind2,ispin,ispin,1,1) -t*exp(-xi*kpoint(2)*Ny)
       enddo
     enddo
     ! 

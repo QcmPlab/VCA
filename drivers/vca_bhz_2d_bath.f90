@@ -15,7 +15,6 @@ program vca_bhz_2d
   !Bath
   complex(8),dimension(:,:,:,:,:,:),allocatable   :: bath_h,bath_v
   !Matrices:
-  real(8),allocatable                                                    :: wt(:)
   real(8),allocatable,dimension(:)                :: wm,wr
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: t_prime
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: observable_matrix
@@ -87,18 +86,15 @@ program vca_bhz_2d
   Ndim=size(Nkpts)
   Nlat=Nx*Ny
   Nlso = Nlat*Norb*Nspin
-  Norb_bath=Norb
+  !
   if(allocated(bath_h))deallocate(bath_h)
   if(allocated(bath_v))deallocate(bath_v)
+  if(allocated(t_prime))deallocate(t_prime)
+  allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
-  !
-  !
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-  !
-  !SET LATTICE PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-  !
   !
   !ALLOCATE VECTORS:
   !
@@ -114,6 +110,16 @@ program vca_bhz_2d
   print_impG0=.true.
   print_Sigma=.true.
   !
+  !LATTICE PARAMETERS
+  !
+  !fixed to cpt configuration
+  Mh_var=Mh
+  Ts_var=ts
+  lambdauser_var=lambdauser
+  !
+  t=ts
+  M=mh
+  lambda=lambdauser
   !
   !SOLVE INTERACTING PROBLEM:
   ! 
@@ -123,14 +129,15 @@ program vca_bhz_2d
     allocate(omega_array(Nloop))
     !
     !
-    ts_array_x = linspace(0.05d0,1d0,Nloop)
+    ts_array_x = linspace(0.05d0,0.7d0,Nloop)
 
     do iloop=1,Nloop
-        omega_array(iloop)=solve_vca([0.5d0,0.3d0,ts_array_x(iloop)])
+        omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
+  !
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -146,26 +153,17 @@ contains
 
   function solve_vca(pars) result(Omega)
     real(8),dimension(:)             :: pars
-    !real(8),dimension(:),intent(in)  :: pars
     logical                          :: invert
     real(8)                          :: Omega,E,V
     !
-    !SET VARIATIONAL PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
-    !
-    Mh_var=Mh
-    Ts_var=ts
-    lambdauser_var=lambdauser
-    !
-    t=ts
-    M=mh
-    lambda=lambdauser
+    !SET PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
     t_var=pars(1)
-    M_var=mh_var
-    lambda_var=pars(2)
+    M_var=pars(2)
+    lambda_var=pars(3)
     !
-    E=XMU
-    V=pars(3)
+    E=pars(4)
+    V=pars(5)
     !
     mu_var=XMU
     mu=xmu
@@ -205,47 +203,46 @@ contains
         do ib=1,Nlat_bath
           bath_h(ib,ib,ispin,ispin,ob,ob)=(-1d0)**(ob+1)*M_var+eps
           do i=1,Nlat
-            bath_v(i,ib,ispin,ispin,ob,ob)=v
+            bath_v(ib,ib,ispin,ispin,ob,ob)=v
           enddo
         enddo
       enddo
     enddo
-
   end subroutine construct_bath
 
 
   subroutine generate_tcluster()
-    integer                                      :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
-    complex(8),dimension(Nlso,Nlso)              :: H0
+    integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
     !
-    if(allocated(t_prime))deallocate(t_prime)
-    allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
     t_prime=zero
+    t_tmp=zero
     !
     do ispin=1,Nspin
       do ilat=1,Nx
         do jlat=1,Ny
           ind1=indices2N([ilat,jlat])
-          t_prime(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
+          t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            t_prime(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            t_prime(ind2,ind1,ispin,ispin,:,:)= dconjg(transpose(t_x(t_var,lambda_var,ispin)))
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            t_prime(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            t_prime(ind2,ind1,ispin,ispin,:,:)= transpose(t_y(t_var,lambda_var))
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
           endif
         enddo
       enddo
     enddo
+    t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
     !
   end subroutine generate_tcluster
 
@@ -254,50 +251,52 @@ contains
     integer                                                                 :: ilat,jlat,ispin,iorb,jorb,i,j,ind1,ind2
     real(8),dimension(Ndim),intent(in)                                      :: kpoint
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)                   :: hopping_matrix
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)                         :: t_tmp
     !
     hopping_matrix=zero
+    t_tmp=zero
     !
-    do ispin=1,Nspin
-      do ilat=1,Nx
-        do jlat=1,Ny
+    do ilat=1,Nx
+      do jlat=1,Ny
+        do ispin=1,Nspin
           ind1=indices2N([ilat,jlat])
-          hopping_matrix(ind1,ind1,ispin,ispin,:,:)= t_m(m)
+          t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m)
           if(ilat<Nx)then
             ind2=indices2N([ilat+1,jlat])
-            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= t_x(t,lambda,ispin)
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t,lambda,ispin)
           endif
           if(ilat>1)then
             ind2=indices2N([ilat-1,jlat])
-            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= dconjg(transpose(t_x(t,lambda,ispin)))
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t,lambda,ispin)))
           endif
           if(jlat<Ny)then
             ind2=indices2N([ilat,jlat+1])
-            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= t_y(t,lambda)
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t,lambda)
           endif
           if(jlat>1)then
             ind2=indices2N([ilat,jlat-1])
-            hopping_matrix(ind2,ind1,ispin,ispin,:,:)= transpose(t_y(t,lambda))
+            t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t,lambda)))
           endif
         enddo
       enddo
     enddo
     !
-    !
     do ispin=1,Nspin
       do ilat=1,Ny
         ind1=indices2N([1,ilat])
         ind2=indices2N([Nx,ilat])
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + dconjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
+        t_tmp(ind2,ind1,ispin,ispin,:,:)=t_tmp(ind2,ind1,ispin,ispin,:,:) +conjg(transpose(t_x(t,lambda,ispin)))*exp(xi*kpoint(1)*Nx)
+        t_tmp(ind1,ind2,ispin,ispin,:,:)=t_tmp(ind1,ind2,ispin,ispin,:,:) +t_x(t,lambda,ispin)*exp(-xi*kpoint(1)*Nx)
       enddo
-      do ilat =1,Nx
+      do ilat=1,Nx
         ind1=indices2N([ilat,1])
         ind2=indices2N([ilat,Ny])
-        hopping_matrix(ind2,ind1,ispin,ispin,:,:)=hopping_matrix(ind2,ind1,ispin,ispin,:,:) + transpose(t_y(t,lambda))*exp(xi*kpoint(2)*Ny)
-        hopping_matrix(ind1,ind2,ispin,ispin,:,:)=hopping_matrix(ind1,ind2,ispin,ispin,:,:) + t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
+        t_tmp(ind2,ind1,ispin,ispin,:,:)=t_tmp(ind2,ind1,ispin,ispin,:,:) +conjg(transpose(t_y(t,lambda)))*exp(xi*kpoint(2)*Ny)
+        t_tmp(ind1,ind2,ispin,ispin,:,:)=t_tmp(ind1,ind2,ispin,ispin,:,:) +t_y(t,lambda)*exp(-xi*kpoint(2)*Ny)
       enddo
     enddo
     !
+    hopping_matrix=t_tmp(:,:,:,:,1:Norb,1:Norb)
     ! 
   end function tk
 
@@ -305,8 +304,8 @@ contains
     integer                                      :: ik,ii,ispin,iorb,unit,jj
     real(8),dimension(product(Nkpts),Ndim)       :: kgrid
     real(8),dimension(Nlso,Nlso)                 :: H0
-    real(8),dimension(2)                        :: e1,e2,bk1,bk2
-    real(8)                                     :: bklen
+    real(8),dimension(2)                         :: e1,e2,bk1,bk2
+    real(8)                                      :: bklen
     !
     e1 = [1d0, 0d0]
     e2 = [0d0, 1d0]
@@ -315,49 +314,40 @@ contains
     bk1=bklen*[1d0, 0d0]
     bk2=bklen*[0d0, 1d0]
     call TB_set_bk(bkx=bk1,bky=bk2)
-    !
+!
     call TB_build_kgrid(Nkpts,kgrid)
-    !Reduced Brillouin Zone
-    kgrid(:,1)=kgrid(:,1)/Nx 
-    kgrid(:,2)=kgrid(:,2)/Ny 
+    kgrid(:,1)=kgrid(:,1)/Nx
+    kgrid(:,2)=kgrid(:,2)/Ny
     !
     if(allocated(h_k))deallocate(h_k)
-    if(allocated(hk))deallocate(hk)
-    if(allocated(wt))deallocate(wt)
-    !
     allocate(h_k(Nlat,Nlat,Nspin,Nspin,Norb,Norb,product(Nkpts))) 
-    allocate(hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb,product(Nkpts))) 
-    allocate(wt(product(Nkpts))) 
-    !
     h_k=zero
-    hk=zero
-    Wt = 1d0/(product(Nkpts))
     !
     do ik=1,product(Nkpts)
         !
         h_k(:,:,:,:,:,:,ik)=tk(kgrid(ik,:))
-        hk(:,:,ik)=nnn2lso(h_k(:,:,:,:,:,:,ik))
         !
     enddo
     !
   end subroutine generate_hk
 
 
-!AUXILLIARY HOPPING MATRIX CONSTRUCTORS
+  !+------------------------------------------------------------------+
+  !H block functions
+  !+------------------------------------------------------------------+
 
   function t_m(mass) result(tmpmat)
-    complex(8),dimension(Norb,Norb) :: tmpmat
-    real(8)                         :: mass
+    complex(8),dimension(2,2) :: tmpmat
+    real(8)                   :: mass
     !
-    tmpmat=zero
     tmpmat=mass*pauli_sigma_z
     !
   end function t_m
 
   function t_x(hop1,hop2,spinsign) result(tmpmat)
-    complex(8),dimension(Norb,Norb) :: tmpmat
-    real(8)                         :: hop1,hop2,sz
-    integer                         :: spinsign
+    complex(8),dimension(2,2) :: tmpmat
+    real(8)                   :: hop1,hop2,sz
+    integer                   :: spinsign
     !
     tmpmat=zero
     sz=(-1.d0)**(spinsign+1)
@@ -366,8 +356,8 @@ contains
   end function t_x
 
   function t_y(hop1,hop2) result(tmpmat)
-    complex(8),dimension(Norb,Norb) :: tmpmat
-    real(8)                         :: hop1,hop2
+    complex(8),dimension(2,2) :: tmpmat
+    real(8)                   :: hop1,hop2
     !
     tmpmat=zero
     tmpmat=-hop1*pauli_sigma_z
@@ -380,46 +370,6 @@ contains
   !+------------------------------------------------------------------+
   !Auxilliary functions
   !+------------------------------------------------------------------+
-
-  function Zrenorm(sigma) result(Zmats)
-    !
-    integer                                         :: i
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)     :: Zmats,Sigma
-    !
-    Zmats=zero
-    Sigma=zero
-    !
-    if (usez) then
-      do i=1,Nlat*Nspin*Norb
-      Zmats(i,i)  = 1.d0/abs( 1.d0 +  abs(dimag(sigma(i,i))/(pi/beta)) )
-      end do
-    else
-      Zmats=eye(Nspin*Norb)
-    endif 
-    !
-  end function Zrenorm
-
-  !SET THE BATH DELTA FUNCTION
-
-  function set_delta(freq,vps,eps) result(DELTA)
-    complex(8),allocatable,dimension(:,:,:,:,:,:)               :: DELTA ![Nlat][Nlat][Nspin][Nspin][Norb][Norb]
-    complex(8)                                                  :: freq
-    real(8),dimension(:)                                        :: vps,eps
-    integer                                                     :: ispin,iorb,ilat
-    !
-    allocate(DELTA(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-    DELTA=zero
-    !
-    if (Nlat_bath > 0)then
-      do ilat=1,Nlat
-        do ispin=1,Nspin
-           do iorb=1,Norb
-             DELTA(ilat,ilat,ispin,ispin,iorb,iorb)=sum( vps(:)*vps(:)/(freq - eps(:)+XMU) )
-           enddo
-        enddo
-      enddo
-    endif
-  end function set_delta
 
    function indices2N(indices) result(N)
       integer,dimension(2)         :: indices
