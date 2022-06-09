@@ -303,6 +303,7 @@ contains
    !bath_v(4,1,1,1,2,2)=v
    !
  end subroutine construct_bath
+<<<<<<< HEAD
 
 
 
@@ -340,7 +341,43 @@ contains
     t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
     !
   end subroutine generate_tcluster
->>>>>>> 880ed58 (driver update)
+
+
+ subroutine generate_tcluster()
+   integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
+   complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
+   !
+   t_prime=zero
+   t_tmp=zero
+   !
+   do ispin=1,Nspin
+     do ilat=1,Nx
+       do jlat=1,Ny
+         ind1=indices2N([ilat,jlat])
+         t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
+         if(ilat<Nx)then
+           ind2=indices2N([ilat+1,jlat])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+         endif
+         if(ilat>1)then
+           ind2=indices2N([ilat-1,jlat])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
+         endif
+         if(jlat<Ny)then
+           ind2=indices2N([ilat,jlat+1])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
+         endif
+         if(jlat>1)then
+           ind2=indices2N([ilat,jlat-1])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
+         endif
+       enddo
+     enddo
+   enddo
+   t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
+   !
+ end subroutine generate_tcluster
+>>>>>>> faa285f (debug)
 
  subroutine generate_tcluster()
    integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
