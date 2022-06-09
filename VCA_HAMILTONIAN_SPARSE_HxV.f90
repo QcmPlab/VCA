@@ -276,6 +276,7 @@ contains
     deallocate(vt) ; allocate(vt(DimUp*mpiQdw)) ; vt=zero
     call vector_transpose_MPI(DimDw,mpiQup,Hvt,DimUp,mpiQdw,vt)
     Hv = Hv + Vt
+    deallocate(Vt)
   end subroutine spMatVec_mpi_main
 
 

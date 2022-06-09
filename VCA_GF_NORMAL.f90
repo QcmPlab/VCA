@@ -205,6 +205,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -270,6 +272,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Remove particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -416,6 +420,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -496,6 +502,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Del particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -638,6 +646,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -718,6 +728,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Del particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -797,6 +809,8 @@ contains
              !
              norm2=dot_product(cvinit,cvinit)
              cvinit=cvinit/sqrt(norm2)
+          else
+             allocate(cvinit(1));cvinit=0.d0
           endif
 
           nlanc=min(jdim,lanc_nGFiter)
@@ -876,6 +890,8 @@ contains
              !
              norm2=dot_product(cvinit,cvinit)
              cvinit=cvinit/sqrt(norm2)
+          else
+             allocate(cvinit(1));cvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -964,8 +980,8 @@ contains
     diag(1:Nlanc)    = alanc(1:Nlanc)
     subdiag(2:Nlanc) = blanc(2:Nlanc)
     !
-    call tql2(Nlanc,diag,subdiag,Z,ierr)
-    !call eigh(diag(1:Nlanc),subdiag(2:Nlanc),Ev=Z(:Nlanc,:Nlanc))
+    !call tql2(Nlanc,diag,subdiag,Z,ierr)
+    call eigh(diag(1:Nlanc),subdiag(2:Nlanc),Ev=Z(:Nlanc,:Nlanc))
     !
     call GFmatrix_allocate(impGmatrix(ilat,jlat,ispin,ispin,iorb,jorb),istate=istate,ichan=ichan,Nexc=Nlanc)
     !
