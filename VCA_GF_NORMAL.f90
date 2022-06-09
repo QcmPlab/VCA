@@ -153,12 +153,12 @@ contains
        state_e    =  es_return_energy(state_list,istate)
 #ifdef _MPI
        if(MpiStatus)then
-          state_cvec => es_return_cvector(MpiComm,state_list,istate) 
+          call es_return_cvector(MpiComm,state_list,istate,state_cvec) 
        else
-          state_cvec => es_return_cvector(state_list,istate)
+          call es_return_cvector(state_list,istate,state_cvec)
        endif
 #else
-       state_cvec => es_return_cvector(state_list,istate)
+       call es_return_cvector(state_list,istate,state_cvec)
 #endif
        !
        idim  = getdim(isector)
@@ -301,15 +301,7 @@ contains
        endif
        !
        !
-#ifdef _MPI
-       if(MpiStatus)then
-          if(associated(state_cvec))deallocate(state_cvec)
-       else
-          if(associated(state_cvec))nullify(state_cvec)
-       endif
-#else
-       if(associated(state_cvec))nullify(state_cvec)
-#endif
+       if(allocated(state_cvec))deallocate(state_cvec)
        !
        call delete_sector(isector,HI)
        !
@@ -359,12 +351,12 @@ contains
        state_e    =  es_return_energy(state_list,istate)
 #ifdef _MPI
        if(MpiStatus)then
-          state_cvec => es_return_cvector(MpiComm,state_list,istate)
+          call es_return_cvector(MpiComm,state_list,istate,state_cvec)
        else
-          state_cvec => es_return_cvector(state_list,istate)
+          call es_return_cvector(state_list,istate,state_cvec)
        endif
 #else
-       state_cvec => es_return_cvector(state_list,istate)
+       call es_return_cvector(state_list,istate,state_cvec)
 #endif
        !
        !
@@ -534,15 +526,9 @@ contains
           call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,ichan=2,Nexc=0)
        endif
        !
-#ifdef _MPI
-       if(MpiStatus)then
-          if(associated(state_cvec))deallocate(state_cvec)
-       else
-          if(associated(state_cvec))nullify(state_cvec)
-       endif
-#else
-       if(associated(state_cvec))nullify(state_cvec)
-#endif
+       !
+       if(allocated(state_cvec))deallocate(state_cvec)
+       !
        call delete_sector(isector,HI)
        !
     enddo
@@ -587,12 +573,12 @@ contains
        state_e    =  es_return_energy(state_list,istate)
 #ifdef _MPI
        if(MpiStatus)then
-          state_cvec => es_return_cvector(MpiComm,state_list,istate)
+          call es_return_cvector(MpiComm,state_list,istate,state_cvec)
        else
-          state_cvec => es_return_cvector(state_list,istate)
+          call es_return_cvector(state_list,istate,state_cvec)
        endif
 #else
-       state_cvec => es_return_cvector(state_list,istate)
+       call es_return_cvector(state_list,istate,state_cvec)
 #endif
        !
        !
@@ -920,15 +906,7 @@ contains
           call GFmatrix_allocate(impGmatrix(isite,jsite,ispin,ispin,iorb,jorb),istate=istate,ichan=4,Nexc=0)
        endif
 
-#ifdef _MPI
-       if(MpiStatus)then
-          if(associated(state_cvec))deallocate(state_cvec)
-       else
-          if(associated(state_cvec))nullify(state_cvec)
-       endif
-#else
-       if(associated(state_cvec))nullify(state_cvec)
-#endif
+       if(allocated(state_cvec))deallocate(state_cvec)
        call delete_sector(isector,HI)
        !
     enddo

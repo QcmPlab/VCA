@@ -56,7 +56,7 @@ MODULE VCA_OBSERVABLES
   integer                                                  :: idim,idimUP,idimDW
   complex(8),allocatable,dimension(:,:,:,:,:,:,:)          :: sij
   !
-  complex(8),dimension(:),pointer                          :: state_cvec
+  complex(8),dimension(:),allocatable                      :: state_cvec
   logical                                                  :: Jcondition
 
 
@@ -201,7 +201,7 @@ contains
     real(8)                             :: peso
     real(8)                             :: norm
     real(8),dimension(Nlat,Norb)        :: nup,ndw,Sz,nt
-    complex(8),dimension(:),pointer     :: state_cvec
+    complex(8),dimension(:),allocatable :: state_cvec
     type(sector_map)                    :: Hi(2*Ns_Ud)
     !
     !LOCAL OBSERVABLES:
@@ -228,12 +228,12 @@ contains
        !
 #ifdef _MPI
        if(MpiStatus)then
-          state_cvec => es_return_cvector(MpiComm,state_list,istate)
+          call es_return_cvector(MpiComm,state_list,istate,state_cvec)
        else
-          state_cvec => es_return_cvector(state_list,istate)
+          call es_return_cvector(state_list,istate,state_cvec)
        endif
 #else
-       state_cvec => es_return_cvector(state_list,istate)
+       call es_return_cvector(state_list,istate,state_cvec)
 #endif
        !
        idim    = getdim(isector)
@@ -293,15 +293,7 @@ contains
           call delete_sector(isector,HI)
        endif
        !
-#ifdef _MPI
-       if(MpiStatus)then
-          if(associated(state_cvec))deallocate(state_cvec)
-       else
-          if(associated(state_cvec))nullify(state_cvec)
-       endif
-#else
-       if(associated(state_cvec))nullify(state_cvec)
-#endif
+       if(allocated(state_cvec))deallocate(state_cvec)
        !
     enddo
     if(MPIMASTER)then
