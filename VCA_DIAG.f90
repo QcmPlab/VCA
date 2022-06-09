@@ -189,11 +189,8 @@ contains
               call Bcast_MPI(MpiComm,eig_values)
           else
              allocate(eig_values(Dim)) ; eig_values=0d0
-             !
              allocate(eig_basis_tmp(Dim,Dim)) ; eig_basis_tmp=zero
-             !
              call build_Hv_sector(isector,eig_basis_tmp)
-             !
              if(MpiMaster)call eigh(eig_basis_tmp,eig_values,jobz='V',uplo='U')
              if(dim==1)eig_basis_tmp(dim,dim)=one
              !
