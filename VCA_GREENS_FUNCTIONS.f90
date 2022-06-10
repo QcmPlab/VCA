@@ -35,9 +35,11 @@ contains
     call build_gf_normal()
     call build_sigma_normal()
     !
-    if(print_Sigma)call vca_print_impSigma()
-    if(print_impG)call vca_print_impG()
-    if(print_impG0)call vca_print_impG0()
+    if(MPIMASTER)then
+      if(print_Sigma)call vca_print_impSigma()
+      if(print_impG)call vca_print_impG()
+      if(print_impG0)call vca_print_impG0()
+    endif
     !
     call deallocate_grids
     !

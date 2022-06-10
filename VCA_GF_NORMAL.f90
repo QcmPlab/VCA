@@ -104,6 +104,12 @@ contains
           enddo
        enddo
     enddo
+#ifdef _MPI
+    if(MpiStatus)then
+      if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,impGmats)
+      if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,impGreal)
+    endif
+#endif
     if(MPIMASTER)call stop_timer(unit=LOGfile)
   end subroutine build_gf_normal
 
@@ -205,6 +211,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -270,6 +278,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Remove particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -416,6 +426,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -496,6 +508,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Del particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -638,6 +652,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Add particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -718,6 +734,8 @@ contains
              norm2=dot_product(vvinit,vvinit)
              if(verbose==3)write(LOGfile,"(A,F6.4)")' Del particle - Norm vvinit: ',norm2
              vvinit=vvinit/sqrt(norm2)
+          else
+             allocate(vvinit(1));vvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -797,6 +815,8 @@ contains
              !
              norm2=dot_product(cvinit,cvinit)
              cvinit=cvinit/sqrt(norm2)
+          else
+             allocate(cvinit(1));cvinit=0.d0
           endif
 
           nlanc=min(jdim,lanc_nGFiter)
@@ -876,6 +896,8 @@ contains
              !
              norm2=dot_product(cvinit,cvinit)
              cvinit=cvinit/sqrt(norm2)
+          else
+             allocate(cvinit(1));cvinit=0.d0
           endif
           !
           nlanc=min(jdim,lanc_nGFiter)
@@ -954,8 +976,8 @@ contains
     !
 #ifdef _MPI
     if(MpiStatus)then
-       if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,alanc)
-       if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,blanc)
+       call Bcast_MPI(MpiComm,alanc)
+       call Bcast_MPI(MpiComm,blanc)
     endif
 #endif
     diag             = 0.d0
@@ -999,18 +1021,18 @@ contains
 
   subroutine build_sigma_normal
     integer                                                     :: ii,ilat,jlat,ispin,iorb,jorb
-    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0mats,invGmats
-    complex(8),dimension(:,:,:,:,:,:,:),allocatable             :: invG0real,invGreal
-    complex(8),dimension(:,:),allocatable                       :: invTmpMat_lso
-    complex(8),dimension(:,:,:,:,:,:),allocatable               :: deltamat 
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
+    complex(8),dimension(Nlat,Nlat,Nspin,Nspin,Norb,Norb)       :: deltamat
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)       :: invTmpMat_lso
     !
     !
-    if(.not.allocated(InvG0mats))allocate(invG0mats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invG0mats=zero
-    if(.not.allocated(InvG0real))allocate(invG0real(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invG0real=zero
-    if(.not.allocated(InvGmats))allocate(invGmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));invGmats=zero
-    if(.not.allocated(InvGreal))allocate(invGreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));invGreal=zero
-    if(.not.allocated(invTmpMat_lso))allocate(invTmpMat_lso(Nlat*Nspin*Norb,Nlat*Nspin*Norb));invTmpMat_lso=zero
-    if(.not.allocated(deltamat))allocate(deltamat(Nlat,Nlat,Nspin,Nspin,Norb,Norb));deltamat=zero
+    invG0mats=zero
+    invG0real=zero
+    invGmats =zero
+    invGreal =zero
+    invTmpMat_lso=zero
+    deltamat=zero
     !
     !
     !Get G0^-1
@@ -1062,12 +1084,6 @@ contains
        impG0real(:,:,:,:,:,:,ii)=vca_lso2nnn_reshape(invTmpMat_lso,Nlat,Nspin,Norb)
     enddo
     !
-    deallocate(invG0mats)
-    deallocate(invG0real)
-    deallocate(invGmats)
-    deallocate(invGreal)
-    deallocate(invTmpMat_lso)
-    deallocate(deltamat)
     !
   end subroutine build_sigma_normal
 
