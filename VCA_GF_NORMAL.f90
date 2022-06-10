@@ -95,21 +95,11 @@ contains
                         - (one-chan4*xi)*impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGmats(jsite,jsite,ispin,ispin,jorb,jorb,:))
                    impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,jorb,:) &
                         - (one-chan4*xi)*impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - (one-chan4*xi)*impGreal(jsite,jsite,ispin,ispin,jorb,jorb,:))
-                enddo
-                !impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGmats(isite,jsite,ispin,ispin,iorb,iorb,:) &
-                !     - impGmats(isite,isite,ispin,ispin,iorb,iorb,:) - impGmats(jsite,jsite,ispin,ispin,iorb,iorb,:))
-                !impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) = 0.5d0*(impGreal(isite,jsite,ispin,ispin,iorb,iorb,:) &
-                !     - impGreal(isite,isite,ispin,ispin,iorb,iorb,:) - impGreal(jsite,jsite,ispin,ispin,iorb,iorb,:))        
+                enddo    
              enddo
           enddo
        enddo
     enddo
-#ifdef _MPI
-    if(MpiStatus)then
-      if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,impGmats)
-      if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,impGreal)
-    endif
-#endif
     if(MPIMASTER)call stop_timer(unit=LOGfile)
   end subroutine build_gf_normal
 
@@ -222,7 +212,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -234,6 +223,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif          
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,isite,iorb,iorb,ispin,1,istate)
           !
           deallocate(alfa_,beta_)
@@ -289,7 +283,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -301,6 +294,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,isite,iorb,iorb,ispin,2,istate)
           !
           deallocate(alfa_,beta_)
@@ -437,7 +435,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)    
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -449,6 +446,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,jorb,ispin,1,istate)
           !
           deallocate(alfa_,beta_)
@@ -519,7 +521,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -531,6 +532,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()    
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,jorb,ispin,2,istate)
           !
           deallocate(alfa_,beta_)
@@ -663,7 +669,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)    
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -675,6 +680,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,jorb,ispin,1,istate)
           !
           deallocate(alfa_,beta_)
@@ -745,7 +755,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,vvinit,vvloc)
@@ -757,6 +766,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,vvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()    
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,jorb,ispin,2,istate)
           !
           deallocate(alfa_,beta_)
@@ -826,7 +840,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,cvinit,vvloc)
@@ -838,6 +851,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,cvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,isite,jsite,iorb,jorb,ispin,3,istate)
 
           deallocate(alfa_,beta_)
@@ -907,7 +925,6 @@ contains
           call build_Hv_sector(jsector)
 #ifdef _MPI
           if(MpiStatus)then
-             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
              vecDim = vecDim_Hv_sector(jsector)
              allocate(vvloc(vecDim))
              if(MpiComm /= MPI_COMM_NULL) call scatter_vector_MPI(MpiComm,cvinit,vvloc)
@@ -919,6 +936,11 @@ contains
           call sp_lanc_tridiag(spHtimesV_p,cvinit,alfa_,beta_)
 #endif
           call delete_Hv_sector()    
+#ifdef _MPI
+          if(MpiStatus)then
+             if(MpiComm /= MPI_COMM_NULL)call Bcast_MPI(MpiComm,norm2)
+          endif
+#endif  
           call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,isite,jsite,iorb,jorb,ispin,4,istate)
 
           deallocate(alfa_,beta_)
