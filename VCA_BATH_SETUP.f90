@@ -24,11 +24,6 @@ MODULE VCA_BATH_SETUP
    public :: vca_init_bath                   !INTERNAL (for effective_bath)
    public :: vca_set_bath                    !INTERNAL (for effective_bath)
    public :: vca_write_bath                    !INTERNAL (for effective_bath)
-<<<<<<< HEAD
-
-=======
->>>>>>> 6b92142 (added bath pretty print, some bugfix)
-
 
 contains
 

@@ -93,6 +93,7 @@ program vca_bhz_2d
   allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
+<<<<<<< HEAD
   !
   if(allocated(bath_h))deallocate(bath_h)
   if(allocated(bath_v))deallocate(bath_v)
@@ -101,6 +102,8 @@ program vca_bhz_2d
   allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
   !
+=======
+>>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   !
@@ -135,6 +138,7 @@ program vca_bhz_2d
     !
     allocate(ts_array_x(Nloop))
     allocate(omega_array(Nloop))
+<<<<<<< HEAD
     ts_array_x = linspace(0.05d0,1d0,Nloop)
 
     do iloop=1,Nloop
@@ -144,6 +148,19 @@ program vca_bhz_2d
         close(unit)
     enddo
     !
+=======
+    !
+    !
+    ts_array_x = linspace(0.05d0,1d0,Nloop)
+
+    do iloop=1,Nloop
+        omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
+        open(free_unit(unit),file="TEST.vca",position='append')
+        write(unit,*)ts_array_x(iloop),omega_array(iloop)
+        close(unit)
+    enddo
+    !
+>>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
   !
@@ -191,12 +208,22 @@ contains
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
+<<<<<<< HEAD
     !
   end function solve_vca
 
 
   !+------------------------------------------------------------------+
   !PURPOSE:  multidimensional finder of stationary points
+=======
+    call vca_get_sft_potential(omega)
+    !
+    !
+  end function solve_vca
+  
+  !+------------------------------------------------------------------+
+  !PURPOSE  : generate hopping matrices
+>>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
   !+------------------------------------------------------------------+
   subroutine minimize_parameters(v,radius)
     real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
@@ -306,7 +333,46 @@ contains
 <<<<<<< HEAD
 
 
+ subroutine construct_bath(eps,v)
+   real(8)                 :: eps,v
+   integer                 :: ilat,ilat_bath,iorb,iorb_bath,ispin
+   !
+   bath_h=zero
+   bath_v=zero
+   !
+   !do ilat_bath=1,Nlat_bath
+   !  do ispin=1,Nspin
+   !    do iorb_bath=1,Norb_bath
+   !     !bath_h(ilat_bath,ilat_bath,ispin,ispin,iorb_bath,iorb_bath)=0.2d0
+   !     !bath_h(1,2,ispin,ispin,:,:)=conjg(transpose(t_x(t_var,lambda_var,ispin)))
+   !     !bath_h(2,1,ispin,ispin,:,:)=t_x(t_var,lambda_var,ispin)
+   !     do ilat=1,Nlat
+   !       bath_v(ilat_bath,ilat_bath,ispin,ispin,iorb,iorb_bath)=v
+   !     enddo
+   !    enddo
+   !  enddo
+   !enddo
+   !
+   !bath_h(1,1,1,1,1,1)=1.d0
+   !bath_h(2,2,1,1,1,1)=1.d0
+   !bath_h(3,3,1,1,1,1)=1.d0
+   !bath_h(4,4,1,1,1,1)=1.d0
+   !
+   bath_h(2,1,1,1,1,1)=0.1d0
+   bath_h(1,2,1,1,1,1)=0.1d0
+   !
+   bath_v(1,1,1,1,1,1)=v
+   !bath_v(1,1,1,1,2,2)=v
+   bath_v(2,1,1,1,1,1)=v
+   !bath_v(2,1,1,1,2,2)=v
+   bath_v(3,2,1,1,1,1)=v
+   !bath_v(3,1,1,1,2,2)=v
+   bath_v(4,2,1,1,1,1)=v
+   !bath_v(4,1,1,1,2,2)=v
+   !
+ end subroutine construct_bath
 
+<<<<<<< HEAD
   subroutine generate_tcluster()
     integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
@@ -341,6 +407,43 @@ contains
     t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
     !
   end subroutine generate_tcluster
+=======
+
+ subroutine generate_tcluster()
+   integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
+   complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
+   !
+   t_prime=zero
+   t_tmp=zero
+   !
+   do ispin=1,Nspin
+     do ilat=1,Nx
+       do jlat=1,Ny
+         ind1=indices2N([ilat,jlat])
+         t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
+         if(ilat<Nx)then
+           ind2=indices2N([ilat+1,jlat])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
+         endif
+         if(ilat>1)then
+           ind2=indices2N([ilat-1,jlat])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
+         endif
+         if(jlat<Ny)then
+           ind2=indices2N([ilat,jlat+1])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
+         endif
+         if(jlat>1)then
+           ind2=indices2N([ilat,jlat-1])
+           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
+         endif
+       enddo
+     enddo
+   enddo
+   t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
+   !
+ end subroutine generate_tcluster
+>>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
 
 
  subroutine generate_tcluster()
