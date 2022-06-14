@@ -36,7 +36,7 @@ program vca_bhz_2d_bath
   logical                                         :: print_mats,print_real
   character(len=6)                                :: scheme
   character(len=16)                               :: finput
-  real(8)                                         :: omegadummy,observable_dummy
+  real(8)                                         :: dummy
   real(8),dimension(:),allocatable                :: ts_array_x,ts_array_y,params,omega_array
   real(8),dimension(:,:),allocatable              :: omega_grid
   real(8),allocatable,dimension(:,:)              :: kgrid_test,kpath_test
@@ -44,10 +44,8 @@ program vca_bhz_2d_bath
   !
   !MPI INIT
   !
-  call init_MPI()
-  comm = MPI_COMM_WORLD
-  call StartMsg_MPI(comm)
-  rank = get_Rank_MPI(comm)
+  call init_MPI(comm,.true.)
+  rank   = get_Rank_MPI(comm)
   master = get_Master_MPI(comm)
   !
   !PARSE INPUT VARIABLES
@@ -106,7 +104,7 @@ program vca_bhz_2d_bath
   !INITIALIZE SOLVER:
   !
   call vca_init_solver(comm,bath_h,bath_v)
-  print_impG=.false.
+  !print_impG=.false.
   print_impG0=.false.
   print_Sigma=.true.
   !
@@ -127,7 +125,7 @@ program vca_bhz_2d_bath
     !
     allocate(ts_array_x(Nloop))
     allocate(omega_array(Nloop))
-    ts_array_x = linspace(0.05d0,1d0,Nloop)
+    ts_array_x = linspace(0.01d0,0.4d0,Nloop)
     !
     do iloop=1,Nloop
         omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
@@ -137,6 +135,10 @@ program vca_bhz_2d_bath
     enddo
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
+  elseif (wmin) then
+    print*,"Guess:",dummy
+    call  brent(min_1d,dummy,[0.01d0,0.4d0])
+    print*,"Result ts : ",dummy
   endif
   !
   !
@@ -187,6 +189,13 @@ contains
     !
     !
   end function solve_vca
+  
+  function min_1d(v) result(omega)
+  real(8)  :: v, omega
+  !
+  omega=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,abs(v)])
+  !
+  end function min_1d
   
   !+------------------------------------------------------------------+
   !PURPOSE  : generate hopping matrices
@@ -264,14 +273,13 @@ contains
    !
    bath_h=zero
    bath_v=zero
-   do iorb=1,Norb
-     bath_h(1,1,1,1,iorb,iorb)=0d0*(1.d0)*(-1)**(iorb+1)
-     !
-     bath_v(1,1,1,1,iorb,iorb)=v
-     bath_v(2,1,1,1,iorb,iorb)=v
-     bath_v(3,1,1,1,iorb,iorb)=v
-     bath_v(4,1,1,1,iorb,iorb)=v
-     !
+   do ilat=1,Nlat
+     do iorb=1,Norb
+       bath_h(1,1,1,1,iorb,iorb)=(Mh)*(-1)**(iorb+1)
+       !
+       bath_v(ilat,1,1,1,iorb,iorb)=v
+       !
+     enddo
    enddo
    !
  end subroutine construct_bath
