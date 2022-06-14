@@ -80,7 +80,7 @@
                    call c(is,mdw,k1,sg1)
                    call cdg(ialfa,k1,k2,sg2)
                    idw=binary_search(Hs(2)%map,k2)
-                   htmp = diag_hybr(jlat,ilat,Nspin,jorb,iorb)*sg1*sg2
+                   htmp = conjg(diag_hybr(ilat,jlat,Nspin,iorb,jorb))*sg1*sg2
                    !
                    Hv(i) = Hv(i) + htmp*vin(j)
                    !

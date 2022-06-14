@@ -1,4 +1,4 @@
-program vca_bhz_2d
+program vca_bhz_2d_bath
   USE SCIFOR
   USE DMFT_TOOLS
   USE MPI
@@ -93,17 +93,6 @@ program vca_bhz_2d
   allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
   allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
   allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
-<<<<<<< HEAD
-  !
-  if(allocated(bath_h))deallocate(bath_h)
-  if(allocated(bath_v))deallocate(bath_v)
-  if(allocated(t_prime))deallocate(t_prime)
-  allocate(t_prime(Nlat,Nlat,Nspin,Nspin,Norb,Norb))
-  allocate(bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_bath,Norb_bath))
-  allocate(bath_v(Nlat     ,Nlat_bath,Nspin,Nspin,Norb     ,Norb_bath))
-  !
-=======
->>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
   allocate(Smats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats),Sreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   !
@@ -138,9 +127,8 @@ program vca_bhz_2d
     !
     allocate(ts_array_x(Nloop))
     allocate(omega_array(Nloop))
-<<<<<<< HEAD
     ts_array_x = linspace(0.05d0,1d0,Nloop)
-
+    !
     do iloop=1,Nloop
         omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
         open(free_unit(unit),file="TEST.vca",position='append')
@@ -148,19 +136,6 @@ program vca_bhz_2d
         close(unit)
     enddo
     !
-=======
-    !
-    !
-    ts_array_x = linspace(0.05d0,1d0,Nloop)
-
-    do iloop=1,Nloop
-        omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
-        open(free_unit(unit),file="TEST.vca",position='append')
-        write(unit,*)ts_array_x(iloop),omega_array(iloop)
-        close(unit)
-    enddo
-    !
->>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   endif
   !
@@ -208,14 +183,6 @@ contains
     call generate_tcluster()
     call generate_hk()
     call vca_solve(comm,t_prime,h_k,bath_h,bath_v)
-<<<<<<< HEAD
-    !
-  end function solve_vca
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE:  multidimensional finder of stationary points
-=======
     call vca_get_sft_potential(omega)
     !
     !
@@ -223,7 +190,6 @@ contains
   
   !+------------------------------------------------------------------+
   !PURPOSE  : generate hopping matrices
->>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
   !+------------------------------------------------------------------+
   subroutine minimize_parameters(v,radius)
     real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
@@ -298,81 +264,19 @@ contains
    !
    bath_h=zero
    bath_v=zero
-   !
-   !do ilat_bath=1,Nlat_bath
-   !  do ispin=1,Nspin
-   !    do iorb_bath=1,Norb_bath
-   !     !bath_h(ilat_bath,ilat_bath,ispin,ispin,iorb_bath,iorb_bath)=0.2d0
-   !     !bath_h(1,2,ispin,ispin,:,:)=conjg(transpose(t_x(t_var,lambda_var,ispin)))
-   !     !bath_h(2,1,ispin,ispin,:,:)=t_x(t_var,lambda_var,ispin)
-   !     do ilat=1,Nlat
-   !       bath_v(ilat_bath,ilat_bath,ispin,ispin,iorb,iorb_bath)=v
-   !     enddo
-   !    enddo
-   !  enddo
-   !enddo
-   !
-   !bath_h(1,1,1,1,1,1)=1.d0
-   !bath_h(2,2,1,1,1,1)=1.d0
-   !bath_h(3,3,1,1,1,1)=1.d0
-   !bath_h(4,4,1,1,1,1)=1.d0
-   !
-   bath_h(2,1,1,1,1,1)=0.1d0
-   bath_h(1,2,1,1,1,1)=0.1d0
-   !
-   bath_v(1,1,1,1,1,1)=v
-   !bath_v(1,1,1,1,2,2)=v
-   bath_v(2,1,1,1,1,1)=v
-   !bath_v(2,1,1,1,2,2)=v
-   bath_v(3,2,1,1,1,1)=v
-   !bath_v(3,1,1,1,2,2)=v
-   bath_v(4,2,1,1,1,1)=v
-   !bath_v(4,1,1,1,2,2)=v
-   !
- end subroutine construct_bath
-<<<<<<< HEAD
-
-
- subroutine construct_bath(eps,v)
-   real(8)                 :: eps,v
-   integer                 :: ilat,ilat_bath,iorb,iorb_bath,ispin
-   !
-   bath_h=zero
-   bath_v=zero
-   !
-   !do ilat_bath=1,Nlat_bath
-   !  do ispin=1,Nspin
-   !    do iorb_bath=1,Norb_bath
-   !     !bath_h(ilat_bath,ilat_bath,ispin,ispin,iorb_bath,iorb_bath)=0.2d0
-   !     !bath_h(1,2,ispin,ispin,:,:)=conjg(transpose(t_x(t_var,lambda_var,ispin)))
-   !     !bath_h(2,1,ispin,ispin,:,:)=t_x(t_var,lambda_var,ispin)
-   !     do ilat=1,Nlat
-   !       bath_v(ilat_bath,ilat_bath,ispin,ispin,iorb,iorb_bath)=v
-   !     enddo
-   !    enddo
-   !  enddo
-   !enddo
-   !
-   !bath_h(1,1,1,1,1,1)=1.d0
-   !bath_h(2,2,1,1,1,1)=1.d0
-   !bath_h(3,3,1,1,1,1)=1.d0
-   !bath_h(4,4,1,1,1,1)=1.d0
-   !
-   bath_h(2,1,1,1,1,1)=0.1d0
-   bath_h(1,2,1,1,1,1)=0.1d0
-   !
-   bath_v(1,1,1,1,1,1)=v
-   !bath_v(1,1,1,1,2,2)=v
-   bath_v(2,1,1,1,1,1)=v
-   !bath_v(2,1,1,1,2,2)=v
-   bath_v(3,2,1,1,1,1)=v
-   !bath_v(3,1,1,1,2,2)=v
-   bath_v(4,2,1,1,1,1)=v
-   !bath_v(4,1,1,1,2,2)=v
+   do iorb=1,Norb
+     bath_h(1,1,1,1,iorb,iorb)=0d0*(1.d0)*(-1)**(iorb+1)
+     !
+     bath_v(1,1,1,1,iorb,iorb)=v
+     bath_v(2,1,1,1,iorb,iorb)=v
+     bath_v(3,1,1,1,iorb,iorb)=v
+     bath_v(4,1,1,1,iorb,iorb)=v
+     !
+   enddo
    !
  end subroutine construct_bath
 
-<<<<<<< HEAD
+
   subroutine generate_tcluster()
     integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
     complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
@@ -407,115 +311,7 @@ contains
     t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
     !
   end subroutine generate_tcluster
-=======
 
- subroutine generate_tcluster()
-   integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
-   complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
-   !
-   t_prime=zero
-   t_tmp=zero
-   !
-   do ispin=1,Nspin
-     do ilat=1,Nx
-       do jlat=1,Ny
-         ind1=indices2N([ilat,jlat])
-         t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
-         if(ilat<Nx)then
-           ind2=indices2N([ilat+1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
-         endif
-         if(ilat>1)then
-           ind2=indices2N([ilat-1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
-         endif
-         if(jlat<Ny)then
-           ind2=indices2N([ilat,jlat+1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
-         endif
-         if(jlat>1)then
-           ind2=indices2N([ilat,jlat-1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
-         endif
-       enddo
-     enddo
-   enddo
-   t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
-   !
- end subroutine generate_tcluster
->>>>>>> 7e9518313782b7cc3f0c5bc887d7c0d142a8c58c
-
-
- subroutine generate_tcluster()
-   integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
-   complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
-   !
-   t_prime=zero
-   t_tmp=zero
-   !
-   do ispin=1,Nspin
-     do ilat=1,Nx
-       do jlat=1,Ny
-         ind1=indices2N([ilat,jlat])
-         t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
-         if(ilat<Nx)then
-           ind2=indices2N([ilat+1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
-         endif
-         if(ilat>1)then
-           ind2=indices2N([ilat-1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
-         endif
-         if(jlat<Ny)then
-           ind2=indices2N([ilat,jlat+1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
-         endif
-         if(jlat>1)then
-           ind2=indices2N([ilat,jlat-1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
-         endif
-       enddo
-     enddo
-   enddo
-   t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
-   !
- end subroutine generate_tcluster
->>>>>>> faa285f (debug)
-
- subroutine generate_tcluster()
-   integer                                                       :: ilat,jlat,ispin,iorb,jorb,ind1,ind2
-   complex(8),dimension(Nlat,Nlat,Nspin,Nspin,2,2)               :: t_tmp
-   !
-   t_prime=zero
-   t_tmp=zero
-   !
-   do ispin=1,Nspin
-     do ilat=1,Nx
-       do jlat=1,Ny
-         ind1=indices2N([ilat,jlat])
-         t_tmp(ind1,ind1,ispin,ispin,:,:)= t_m(m_var)
-         if(ilat<Nx)then
-           ind2=indices2N([ilat+1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_x(t_var,lambda_var,ispin)
-         endif
-         if(ilat>1)then
-           ind2=indices2N([ilat-1,jlat])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_x(t_var,lambda_var,ispin)))
-         endif
-         if(jlat<Ny)then
-           ind2=indices2N([ilat,jlat+1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= t_y(t_var,lambda_var)
-         endif
-         if(jlat>1)then
-           ind2=indices2N([ilat,jlat-1])
-           t_tmp(ind2,ind1,ispin,ispin,:,:)= conjg(transpose(t_y(t_var,lambda_var)))
-         endif
-       enddo
-     enddo
-   enddo
-   t_prime=t_tmp(:,:,:,:,1:Norb,1:Norb)
-   !
- end subroutine generate_tcluster
 
  function tk(kpoint) result(hopping_matrix)
     integer                                                                 :: ilat,jlat,ispin,iorb,jorb,i,j,ind1,ind2
@@ -771,176 +567,4 @@ contains
    end function nn2so
 
 
-end program vca_bhz_2d
-
-
-
-
-
-
-
-
-
-!OLD FUNCTIONS
-
-!  function solve_vca_square(tij) result(Omega)
-!    real(8)                      :: tij
-!    real(8)                      :: Vij,Eij
-!    real(8)                      :: Omega
-!    !
-!   t=0.5d0
-!    t_var=tij
-!    !
-!    mu=0.d0*t
-!    M=(2.d0*t)*Mh
-!    lambda=(2.d0*t)*0.3d0
-!    !  
-!    mu_var=0.d0*t
-!    M_var=(2.d0*t)*Mh
-!    lambda_var=(2.d0*t)*0.3d0
-!    !
-!    print*,""
-!    print*,"------ Doing for ",tij," ------"
-!    call generate_tcluster()
-!    call generate_hk()
-!    call vca_solve(comm,t_prime,h_k)
-!    call vca_get_sft_potential(omega)
-!    print*,""
-!    print*,"------ DONE ------"
-!    print*,""
-!    !
-!  end function solve_vca_square
-!
-!  subroutine solve_Htop(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=100
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,2))
-!       kpath(1,:)=[0.d0,0.d0]
-!       kpath(2,:)=[pi,pi]
-!       kpath(3,:)=[pi,0.d0]
-!       kpath(4,:)=[0.d0,0.d0]
-!    endif
-!   allocate(colors(Nspin*Norb))
-!   colors=[red1,blue1,red1,blue1]
-!   !
-!   file="Eig_Htop_kSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!   file="Eig_Htop_localSigma.nint"
-!   if(master) call TB_Solve_model(hk_bhz_local,Nspin*Norb,kpath,Nkpath,&   
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_Htop
-!
-!
-!  function tk_wrapper(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    if(N.ne.Nlso)stop "error N: wrong dimension"
-!    !
-!    hopping_matrix_lso=vca_nnn2lso_reshape(tk(kpoint),Nlat,Nspin,Norb)
-!    !
-!  end function tk_wrapper
-!
-!
-!  subroutine solve_hk_GXMG(kpath_)
-!    integer                                  :: i,j
-!    integer                                  :: Npts,Nkpath
-!    type(rgb_color),dimension(:),allocatable :: colors
-!    real(8),dimension(:,:),optional          :: kpath_
-!    real(8),dimension(:,:),allocatable       :: kpath
-!    character(len=64)                        :: file
-!    
-!    !This routine build the H(k) along the GXMG path in BZ,
-!    !Hk(k) is constructed along this path.
-!    Nkpath=500 
-!    !
-!    if(present(kpath_))then
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along a given path:"
-!       Npts = size(kpath_,1)
-!       allocate(kpath(Npts,size(kpath_,2)))
-!       kpath=kpath_
-!       file="Eig_path.nint"
-!    else
-!       if(master)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-!       Npts = 4
-!       allocate(kpath(Npts,3))
-!       kpath(1,:)=[0.d0,0.d0,0.0d0]
-!       kpath(2,:)=[pi/Nx,pi/ny,0.0d0]
-!       kpath(3,:)=[pi/Nx,0.d0,0.0d0]
-!       kpath(4,:)=[0.d0,0.d0,0.0d0]
-!       file="Eigenbands.nint"
-!    endif
-!   allocate(colors(Nlso))
-!   colors=[red1,blue1,red1,blue1]
-!   
-!   if(master) call TB_Solve_model(tk_wrapper,Nlso,kpath,Nkpath,&
-!         colors_name=colors,&
-!         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-!         file=reg(file))
-!  end subroutine solve_hk_GXMG
-!
-!
-!
-!  function hk_bhz(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    real(8),dimension(Ndim)                         :: kpoint_
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    if(scheme=="g")then
-!      call build_sigma_g_scheme(kpoint)
-!    else
-!      call periodize_sigma_scheme(kpoint)
-!    endif
-!    !hopping_matrix_lso=vca_nn2so_reshape(gfmats_periodized(:,:,:,:,1),Nspin,Norb)
-!    !call inv(hopping_matrix_lso)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(smats_periodized_lso(:,:,1))
-!    hopping_matrix_lso=matmul(Zrenorm(smats_periodized_lso(:,:,1)),DREAL(hopping_matrix_lso))
-!    !
-!  end function hk_bhz
-!
-!  function hk_bhz_local(kpoint,N) result(hopping_matrix_lso)
-!    integer                                         :: N
-!    real(8),dimension(:)                            :: kpoint
-!    complex(8),dimension(N,N)                       :: hopping_matrix_lso
-!    real(8)                                         :: energy_scale
-!    if(N.ne.Nspin*Norb)stop "error N: wrong dimension"
-!    !
-!    energy_scale=2.d0*t_var
-!    hopping_matrix_lso=zero
-!    hopping_matrix_lso= (M_var-energy_scale*(cos(kpoint(1))+cos(kpoint(2))))*kron_pauli( pauli_sigma_0, pauli_tau_z)+&
-!                                                                 lambda_var*sin(kpoint(1))*kron_pauli( pauli_sigma_z, pauli_tau_x)+&
-!                                                                 lambda_var*sin(kpoint(2))*kron_pauli( pauli_sigma_0, pauli_tau_y)
-!    hopping_matrix_lso=hopping_matrix_lso+DREAL(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb))
-!    hopping_matrix_lso=matmul(Zrenorm(vca_nn2so_reshape(smats_local(:,:,:,:,1),Nspin,Norb)),hopping_matrix_lso)
-!    !
-!  end function hk_bhz_local
+end program vca_bhz_2d_bath

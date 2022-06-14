@@ -2,8 +2,8 @@
   if(allocated(diag_hybr))deallocate(diag_hybr)
   if(allocated(bath_diag))deallocate(bath_diag)
 
-  allocate(diag_hybr(Nlat,Nlat_bath,Nspin,Norb,Norb_bath));diag_hybr=0d0
-  allocate(bath_diag(Nlat_bath,Nspin,Norb_bath));bath_diag=0d0
+  allocate(diag_hybr(Nlat,Nlat_bath,Nspin,Norb,Norb_bath));diag_hybr=zero
+  allocate(bath_diag(Nlat_bath,Nspin,Norb_bath));bath_diag=zero
   do ispin=1,Nspin
     do ilat_bath=1,Nlat_bath
       do iorb_bath=1,Norb_bath

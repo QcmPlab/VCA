@@ -20,8 +20,8 @@ MODULE VCA_HAMILTONIAN_DIRECT_HxV
   complex(8)                           :: htmp,htmpup,htmpdw
   logical                              :: Jcondition
   integer                              :: Nfoo,Nfoo2
-  real(8),dimension(:,:,:,:,:),allocatable :: diag_hybr ![Nlat,Nlat_bath,Nspin,Norb,Norb_bath]
-  real(8),dimension(:,:,:),allocatable     :: bath_diag ![Nlat_bath,Nspin,Norb_bath]
+  complex(8),dimension(:,:,:,:,:),allocatable :: diag_hybr ![Nlat,Nlat_bath,Nspin,Norb,Norb_bath]
+  complex(8),dimension(:,:,:),allocatable     :: bath_diag ![Nlat_bath,Nspin,Norb_bath]
 
 
 

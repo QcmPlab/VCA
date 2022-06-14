@@ -78,7 +78,7 @@
                  call c(is,mup,k1,sg1)
                  call cdg(ialfa,k1,k2,sg2)
                  iup=binary_search(Hs(1)%map,k2)
-                 htmp = diag_hybr(jlat,ilat,1,jorb,iorb)*sg1*sg2
+                 htmp = conjg(diag_hybr(ilat,jlat,1,iorb,jorb))*sg1*sg2
                  !
                  hv(i) = hv(i) + htmp*vin(j)
                  !
