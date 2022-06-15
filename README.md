@@ -24,18 +24,9 @@ make
 
 The user has to provide the hopping matrices for the cluster and the lattice (in the cluster basis). Optionally, a bath can be fed to the program (type "normal" of DMFT-ED). VCA_SOLVE returns the value of the Potthoff potential for the input the user provides. Minimization procedure or plots of Ω must be implemented by the user. Periodization must be implemented by the user (examples are provided in drivers).
 
-### TODOs
+### NEW BATH IMPLEMENTATION
 
-- [x] save weights&poles in file as gf_cluster_restart.vca
-- [ ] make it possible to pass t as a (Nlso,Nlso,Nk) object (useful for
-superconducting case, that is not realizable in this branch)
-- [x] calculate the Self-Energy
-- [x] implement G-scheme periodization
-- [x] fix flags for the integration routines (actually in Scifor)
-- [ ] extend to orbital-resolved case
-- [x] add bath
-- [x] add sample periodization routines in drivers
-- [x] add finite T case
+The bath levels and coupling between them and the interacting cluster are now completely generic. One must pass to the solve function two matrices: the square bath_h(Nlat_bath,Nlat_bath,Nspin,Nspin,Norb_Bath,Norb_bath) and the rectangular bath_v(Nlat,Nlat_bath,Nspin,Nspin,Norb,Norb_bath). This make every bath geometry accessible, not restricting ourselves to diagonal levels/all-to-all hybrid or replicas anymore.
 
 --
 
