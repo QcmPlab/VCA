@@ -110,7 +110,6 @@ program vca_bhz_2d_bath
   !
   !LATTICE PARAMETERS
   !
-  !fixed to cpt configuration!!!!!!!!!!!FIXME
   Mh_var=Mh
   Ts_var=ts
   lambdauser_var=lambdauser
@@ -128,7 +127,7 @@ program vca_bhz_2d_bath
     ts_array_x = linspace(0.01d0,0.4d0,Nloop)
     !
     do iloop=1,Nloop
-        omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,ts_array_x(iloop)])
+        omega_array(iloop)=solve_vca([ts_var,Mh_var,lambdauser_var,ts_array_x(iloop)])
         open(free_unit(unit),file="TEST.vca",position='append')
         write(unit,*)ts_array_x(iloop),omega_array(iloop)
         close(unit)
@@ -136,9 +135,10 @@ program vca_bhz_2d_bath
     !
     call splot("sft_Omega_loopVSts.dat",ts_array_x,omega_array)
   elseif (wmin) then
-    print*,"Guess:",dummy
-    call  brent(min_1d,dummy,[0.01d0,0.4d0])
-    print*,"Result ts : ",dummy
+    !print*,"Guess:",dummy
+    !call  brent(min_1d,dummy,[0.01d0,0.4d0])
+    !print*,"Result ts : ",dummy
+    call minimize_parameters([0.5d0,0.15d0,0.01d0],0.5d0)
   endif
   !
   !
@@ -162,24 +162,27 @@ contains
     !SET PARAMETERS (GLOBAL VARIABLES FOR THE DRIVER):
     !
     t_var=pars(1)
-    M_var=pars(2)
-    lambda_var=pars(3)
+    M_var=mh_var
+    lambda_var=pars(2)
     !
-    E=pars(4)
-    V=pars(5)
+    V=pars(3)
+    E=M_var
+    !E=pars(5)
     !
     mu_var=XMU
     mu=xmu
     !
-    print*,""
-    print*,"Cluster parameters:"
-    print*,"t      = ",t_var
-    print*,"M      = ",m_var
-    print*,"lambda = ",lambda_var
-    print*,"Lattice parameters:"
-    print*,"t      = ",t
-    print*,"M      = ",m
-    print*,"lambda = ",lambda
+    if(master)then
+      print*,""
+      print*,"Cluster parameters:"
+      print*,"t      = ",t_var
+      print*,"M      = ",m_var
+      print*,"lambda = ",lambda_var
+      print*,"Lattice parameters:"
+      print*,"t      = ",t
+      print*,"M      = ",m
+      print*,"lambda = ",lambda
+    endif
     !
     call construct_bath(E,V)
     call generate_tcluster()
@@ -193,7 +196,13 @@ contains
   function min_1d(v) result(omega)
   real(8)  :: v, omega
   !
-  omega=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,abs(v)])
+  if(v>0.4)then
+    omega=1000
+  elseif(v<0d0)then
+    omega=1000
+  else
+    omega=solve_vca([ts_var,Mh_var,lambdauser_var,0d0,abs(v)])
+  endif
   !
   end function min_1d
   
@@ -201,7 +210,8 @@ contains
   !PURPOSE  : generate hopping matrices
   !+------------------------------------------------------------------+
   subroutine minimize_parameters(v,radius)
-    real(8),dimension(:),allocatable          :: v,l,lold,u,uold,parvec
+    real(8),dimension(:)                      :: v
+    real(8),dimension(:),allocatable          :: l,lold,u,uold,parvec
     integer,dimension(:),allocatable          :: nbd
     real(8)                                   :: radius     
     integer                                   :: i,iprint_         
@@ -216,26 +226,14 @@ contains
     !
     parvec=v
     !
-    !do i=1,size(v)
-    !  !nbd(i) = 2
-    !  !l(i)   = parvec(i)-radius!*0.5*parvec(i)
-    !  !l(i) = 0d0
-    !  !u(i)   = parvec(i)+radius!*0.5*parvec(i)
-    !enddo
+    do i=1,size(v)
+      nbd(i) = 2
+      !l(i)   = parvec(i)-radius!*0.5*parvec(i)
+      l(i) = 0.01d0
+      u(i)   = parvec(i)+radius
+    enddo
     
-    nbd(1) = 2
-    nbd(2) = 2
-    nbd(3) = 2
-    
-    l(1)   = -2d0
-    l(2)   = -0.8d0
-    l(3)   = -2d0
-    
-    u(1)   = 2d0
-    u(2)   = 0.8d0
-    u(3)   = 2d0
-    
-    
+   
     lold=l
     uold=u
     !
@@ -275,7 +273,7 @@ contains
    bath_v=zero
    do ilat=1,Nlat
      do iorb=1,Norb
-       bath_h(1,1,1,1,iorb,iorb)=(Mh)*(-1)**(iorb+1)
+       bath_h(1,1,1,1,iorb,iorb)=(eps)*(-1)**(iorb+1)
        !
        bath_v(ilat,1,1,1,iorb,iorb)=v
        !
